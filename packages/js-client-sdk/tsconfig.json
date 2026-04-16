@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "paths": {
+      "@eventsource/*": ["../eventsource/src/*"],
+      "@js-client-core/*": ["../js-client-core/src/*"],
+      "@js-browser-client/*": ["../js-browser-client/src/*"],
+      "@shared/*": ["../shared/src/*"],
+    },
+    "target": "es2017",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "types": [],
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "lib": [
+      "ES2017",
+      "DOM"
+    ],
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+  },
+  "exclude": ["dist", "node_modules"]
+}

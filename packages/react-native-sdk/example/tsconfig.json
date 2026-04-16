@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig",
+  "compilerOptions": {
+    // Avoid expo-cli auto-generating a tsconfig
+    "paths": {
+      "@configdirector/react-native-sdk": ["../src/index"],
+      "@js-client-core/*": ["../js-client-core/src/*"],
+      "@eventsource/*": ["../eventsource/src/*"],
+      "@shared/*": ["../shared/src/*"]
+    }
+  }
+}

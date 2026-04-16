@@ -1,0 +1,14 @@
+{
+  "name": "@configdirector/js-sdks",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "yarn workspaces foreach -A run build",
+    "lint": "yarn workspaces foreach -A run lint",
+    "coverage": "yarn workspaces foreach -A run coverage",
+    "test": "yarn workspaces foreach -A run ci:test"
+  },
+  "packageManager": "yarn@4.13.0"
+}

@@ -1,0 +1,1 @@
+export { WebWorkerTelemetryClient } from "./WebWorkerTelemetryClient";

@@ -1,0 +1,829 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { setupServer } from "msw/node";
+import { http } from "msw";
+import { createClient } from "../src";
+import type { DefaultConfigDirectorClient } from "../src/DefaultConfigDirectorClient";
+import { ServerTelemetryEventCollector } from "../src/telemetry";
+import { createStubbedLogger, sleep, SSE_URL } from "./helpers";
+
+const buildResponse = (stream: ReadableStream) => {
+  return new Response(stream, {
+    headers: {
+      connection: "keep-alive",
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+    },
+  });
+};
+
+const message = (data: any) => {
+  return new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`);
+};
+
+const server = setupServer();
+const logger = createStubbedLogger();
+
+describe("ConfigDirectorClient", () => {
+  beforeAll(() => {
+    server.listen({ onUnhandledRequest: "error" });
+  });
+  beforeEach(() => server.resetHandlers());
+  afterAll(() => server.close());
+
+  test("establishes a valid connection on initialize", async () => {
+    let requestJson: any = undefined;
+    server.use(
+      http.post(SSE_URL, async ({ request }) => {
+        requestJson = await request.json();
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+          },
+        });
+
+        return buildResponse(stream);
+      }),
+    );
+    const client = createClient("sdk-key", { logger });
+    await client.initialize();
+
+    expect(requestJson).toMatchObject(expect.objectContaining({ serverSdkKey: "sdk-key" }));
+    expect(requestJson?.metaContext).toMatchObject(
+      expect.objectContaining({
+        sdkName: "js-server-sdk",
+        sdkVersion: "__VERSION__",
+      }),
+    );
+  });
+
+  test("returns from initialize if the timeout is reached, but eventually connects", async () => {
+    server.use(
+      http.post(SSE_URL, async () => {
+        await sleep(100);
+
+        const stream = new ReadableStream({
+          start(controller) {
+            setTimeout(() => {
+              controller.enqueue(
+                message({
+                  environmentId: 100,
+                  projectId: 200,
+                  kind: "delta",
+                  configs: {
+                    "example-config": {
+                      id: 1000,
+                      key: "example-config",
+                      type: "string",
+                      variations: [],
+                      target: {
+                        environmentId: 100,
+                        rules: [],
+                        defaultValue: "Hello",
+                      },
+                    },
+                  },
+                }),
+              );
+            }, 100);
+          },
+        });
+
+        return buildResponse(stream);
+      }),
+    );
+
+    vi.spyOn(logger, "warn");
+    const client = createClient("sdk-key", { logger, connection: { timeout: 150 } });
+
+    await client.initialize();
+
+    expect(client.isReady).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("Timed out"));
+    await sleep(100);
+    expect(client.isReady).toBe(true);
+  });
+
+  test("publishes 'configsUpdated' each time the server sends updates", async () => {
+    server.use(
+      http.post(SSE_URL, async () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              message({
+                environmentId: 100,
+                projectId: 200,
+                kind: "full",
+                configs: {
+                  "example-config": {
+                    id: 1000,
+                    key: "example-config",
+                    type: "string",
+                    variations: [],
+                    target: {
+                      environmentId: 100,
+                      rules: [],
+                      defaultValue: "Hello",
+                    },
+                  },
+                },
+              }),
+            );
+
+            setTimeout(() => {
+              controller.enqueue(
+                message({
+                  environmentId: 100,
+                  projectId: 200,
+                  kind: "delta",
+                  configs: {
+                    "example-config": {
+                      id: 1000,
+                      key: "example-config",
+                      type: "string",
+                      variations: [],
+                      target: {
+                        environmentId: 100,
+                        rules: [],
+                        defaultValue: "Bye",
+                      },
+                    },
+                  },
+                }),
+              );
+            }, 10);
+          },
+        });
+
+        return buildResponse(stream);
+      }),
+    );
+
+    const client = createClient("sdk-key", { logger });
+    const subscription = new Promise<number>((resolve) => {
+      let counter = 0;
+      client.on("configsUpdated", () => {
+        counter += 1;
+      });
+      setTimeout(() => resolve(counter), 100);
+    });
+    await client.initialize();
+
+    expect(await subscription).toBe(2);
+  });
+
+  test("returns the default value when the config was not sent from the server", async () => {
+    server.use(
+      http.post(SSE_URL, async () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+          },
+        });
+
+        return buildResponse(stream);
+      }),
+    );
+    const client = createClient("sdk-key", { logger });
+    await client.initialize();
+
+    expect(client.getValue("example-config", "Hello")).toBe("Hello");
+    expect(client.getValue("example-config", 20)).toBe(20);
+    expect(client.getValue("example-config", new URL("http://example.com"))).toEqual(
+      new URL("http://example.com"),
+    );
+  });
+
+  test("returns the evaluated config value when the server sends the config set", async () => {
+    server.use(
+      http.post(SSE_URL, async () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            setTimeout(() => {
+              controller.enqueue(
+                message({
+                  environmentId: 100,
+                  projectId: 200,
+                  kind: "full",
+                  configs: {
+                    "example-config": {
+                      id: 4560,
+                      key: "example-config",
+                      type: "float",
+                      typeConstraints: {
+                        min: {
+                          relation: ">=",
+                          value: 0,
+                        },
+                      },
+                      variations: [],
+                      target: {
+                        environmentId: 100,
+                        rules: [],
+                        defaultValue: "50",
+                      },
+                    },
+                  },
+                }),
+              );
+            }, 200);
+          },
+        });
+
+        return buildResponse(stream);
+      }),
+    );
+
+    const client = createClient("sdk-key", { logger, connection: { timeout: 100 } });
+    const subscription = new Promise<number>((resolve) => {
+      client.watch("example-config", 0, (value) => {
+        resolve(value);
+      });
+    });
+    await client.initialize();
+
+    expect(client.getValue("example-config", 1)).toBe(1);
+    expect(await subscription).toBe(50);
+    expect(client.getValue("example-config", 1)).toBe(50);
+  });
+
+  test("evaluates targeting rules based on the provided user context", async () => {
+    server.use(
+      http.post(SSE_URL, async () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            setTimeout(() => {
+              controller.enqueue(
+                message({
+                  environmentId: 100,
+                  projectId: 200,
+                  kind: "full",
+                  configs: {
+                    "example-config": {
+                      id: 4560,
+                      key: "example-config",
+                      type: "float",
+                      variations: [],
+                      target: {
+                        environmentId: 100,
+                        rules: [
+                          {
+                            id: crypto.randomUUID(),
+                            order: 0,
+                            type: "conditional",
+                            target: "value",
+                            percentages: null,
+                            value: "4.5",
+                            conditions: [
+                              {
+                                id: crypto.randomUUID(),
+                                attribute: "appVersion",
+                                trait: null,
+                                operator: ">=",
+                                targetType: "semver",
+                                targetValues: ["1.0.0"],
+                              },
+                            ],
+                          },
+                          {
+                            id: crypto.randomUUID(),
+                            order: 1,
+                            type: "conditional",
+                            target: "value",
+                            percentages: null,
+                            value: "10.1",
+                            conditions: [
+                              {
+                                id: crypto.randomUUID(),
+                                attribute: "name",
+                                trait: null,
+                                operator: "=",
+                                targetType: "text",
+                                targetValues: ["John"],
+                              },
+                            ],
+                          },
+                        ],
+                        defaultValue: "50",
+                      },
+                    },
+                  },
+                }),
+              );
+            }, 10);
+          },
+        });
+
+        return buildResponse(stream);
+      }),
+    );
+
+    const client = createClient("sdk-key", { logger });
+    const subscription = new Promise<number>((resolve) => {
+      client.watch("example-config", 0, (value) => resolve(value), { name: "John" });
+    });
+    await client.initialize();
+
+    expect(await subscription).toBe(10.1);
+    expect(client.getValue("example-config", 1, { name: "Not John" })).toBe(50);
+    expect(client.getValue("example-config", 1, { name: "John" })).toBe(10.1);
+  });
+
+  test("evaluates targeting rules based on the provided meta context", async () => {
+    server.use(
+      http.post(SSE_URL, async () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            setTimeout(() => {
+              controller.enqueue(
+                message({
+                  environmentId: 100,
+                  projectId: 200,
+                  kind: "full",
+                  configs: {
+                    "example-config": {
+                      id: 4560,
+                      key: "example-config",
+                      type: "float",
+                      variations: [],
+                      target: {
+                        environmentId: 100,
+                        rules: [
+                          {
+                            id: crypto.randomUUID(),
+                            order: 0,
+                            type: "conditional",
+                            target: "value",
+                            percentages: null,
+                            value: "10.1",
+                            conditions: [
+                              {
+                                id: crypto.randomUUID(),
+                                attribute: "name",
+                                trait: null,
+                                operator: "=",
+                                targetType: "text",
+                                targetValues: ["John"],
+                              },
+                            ],
+                          },
+                          {
+                            id: crypto.randomUUID(),
+                            order: 1,
+                            type: "conditional",
+                            target: "value",
+                            percentages: null,
+                            value: "4.5",
+                            conditions: [
+                              {
+                                id: crypto.randomUUID(),
+                                attribute: "appVersion",
+                                trait: null,
+                                operator: ">=",
+                                targetType: "semver",
+                                targetValues: ["1.0.0"],
+                              },
+                            ],
+                          },
+                        ],
+                        defaultValue: "50",
+                      },
+                    },
+                  },
+                }),
+              );
+            }, 10);
+          },
+        });
+
+        return buildResponse(stream);
+      }),
+    );
+
+    const client = createClient("sdk-key", { logger, metadata: { appVersion: "1.0.1" } });
+    const subscription = new Promise<number>((resolve) => {
+      client.watch("example-config", 0, (value) => resolve(value));
+    });
+    await client.initialize();
+
+    expect(await subscription).toBe(4.5);
+    expect(client.getValue("example-config", 1, { name: "Not John" })).toBe(4.5);
+    expect(client.getValue("example-config", 1, { name: "John" })).toBe(10.1);
+  });
+
+  describe("default value validation", () => {
+    test("throws when the default value is null", () => {
+      const client = createClient("sdk-key", { logger });
+      expect(() => client.getValue("key", null as any)).toThrow();
+      expect(() => client.watch("key", null as any, () => {})).toThrow();
+    });
+
+    test("throws when the default value is undefined", () => {
+      const client = createClient("sdk-key", { logger });
+      expect(() => client.getValue("key", undefined as any)).toThrow();
+      expect(() => client.watch("key", undefined as any, () => {})).toThrow();
+    });
+
+    test("throws when the default value is a function", () => {
+      const client = createClient("sdk-key", { logger });
+      expect(() => client.getValue("key", (() => "value") as any)).toThrow();
+      expect(() => client.watch("key", (() => "value") as any, () => {})).toThrow();
+    });
+  });
+
+  describe("delta bundle handling", () => {
+    test("merges delta configs into the existing config set without affecting other keys", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: 100,
+                  projectId: 200,
+                  kind: "full",
+                  configs: {
+                    "config-a": {
+                      id: 1,
+                      key: "config-a",
+                      type: "string",
+                      variations: [],
+                      target: { environmentId: 100, rules: [], defaultValue: "original-a" },
+                    },
+                    "config-b": {
+                      id: 2,
+                      key: "config-b",
+                      type: "string",
+                      variations: [],
+                      target: { environmentId: 100, rules: [], defaultValue: "original-b" },
+                    },
+                  },
+                }),
+              );
+              setTimeout(() => {
+                controller.enqueue(
+                  message({
+                    environmentId: 100,
+                    projectId: 200,
+                    kind: "delta",
+                    configs: {
+                      "config-a": {
+                        id: 1,
+                        key: "config-a",
+                        type: "string",
+                        variations: [],
+                        target: { environmentId: 100, rules: [], defaultValue: "updated-a" },
+                      },
+                    },
+                  }),
+                );
+              }, 10);
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      await sleep(50);
+
+      expect(client.getValue("config-a", "default")).toBe("updated-a");
+      expect(client.getValue("config-b", "default")).toBe("original-b");
+    });
+  });
+
+  describe("watch and unwatch", () => {
+    const configWithValue = (key: string, value: string) => ({
+      id: 1,
+      key,
+      type: "string",
+      variations: [],
+      target: { environmentId: 100, rules: [], defaultValue: value },
+    });
+
+    const fullBundle = (configs: Record<string, unknown>) => ({
+      environmentId: 100,
+      projectId: 200,
+      kind: "full",
+      configs,
+    });
+
+    test("watch() returns an unsubscribe function that removes the handler", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message(fullBundle({ "example-config": configWithValue("example-config", "Hello") })),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      let callCount = 0;
+      const unsubscribe = client.watch("example-config", "default", () => {
+        callCount++;
+      });
+      unsubscribe();
+      await client.initialize();
+
+      expect(callCount).toBe(0);
+    });
+
+    test("unwatch(key, callback) removes only the specified handler", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message(fullBundle({ "example-config": configWithValue("example-config", "Hello") })),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      let count1 = 0;
+      let count2 = 0;
+      const cb1 = () => {
+        count1++;
+      };
+      client.watch("example-config", "default", cb1);
+      client.watch("example-config", "default", () => {
+        count2++;
+      });
+      client.unwatch("example-config", cb1);
+      await client.initialize();
+
+      expect(count1).toBe(0);
+      expect(count2).toBe(1);
+    });
+
+    test("unwatch(key) without callback removes all handlers for the key", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message(fullBundle({ "example-config": configWithValue("example-config", "Hello") })),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      let count1 = 0;
+      let count2 = 0;
+      client.watch("example-config", "default", () => {
+        count1++;
+      });
+      client.watch("example-config", "default", () => {
+        count2++;
+      });
+      client.unwatch("example-config");
+      await client.initialize();
+
+      expect(count1).toBe(0);
+      expect(count2).toBe(0);
+    });
+
+    test("unwatchAll() clears all watch handlers across all keys", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message(
+                  fullBundle({
+                    "config-a": configWithValue("config-a", "Hello"),
+                    "config-b": configWithValue("config-b", "World"),
+                  }),
+                ),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      let countA = 0;
+      let countB = 0;
+      client.watch("config-a", "default", () => {
+        countA++;
+      });
+      client.watch("config-b", "default", () => {
+        countB++;
+      });
+      client.unwatchAll();
+      await client.initialize();
+
+      expect(countA).toBe(0);
+      expect(countB).toBe(0);
+    });
+
+    test("fires all watchers registered for the same key", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message(fullBundle({ "example-config": configWithValue("example-config", "Hello") })),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      let callCount = 0;
+      client.watch("example-config", "default", () => {
+        callCount++;
+      });
+      client.watch("example-config", "default", () => {
+        callCount++;
+      });
+      await client.initialize();
+
+      expect(callCount).toBe(2);
+    });
+  });
+
+  describe("event management", () => {
+    test("off(event, handler) removes only the specified listener", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      let count = 0;
+      const handler = () => {
+        count++;
+      };
+      client.on("configsUpdated", handler);
+      client.off("configsUpdated", handler);
+      await client.initialize();
+
+      expect(count).toBe(0);
+    });
+
+    test("off(event) without handler removes all listeners for that event", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      let count = 0;
+      client.on("configsUpdated", () => {
+        count++;
+      });
+      client.on("configsUpdated", () => {
+        count++;
+      });
+      client.off("configsUpdated");
+      await client.initialize();
+
+      expect(count).toBe(0);
+    });
+
+    test("removeAllObservers() clears both event listeners and watch handlers", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: 100,
+                  projectId: 200,
+                  kind: "full",
+                  configs: {
+                    "example-config": {
+                      id: 1,
+                      key: "example-config",
+                      type: "string",
+                      variations: [],
+                      target: { environmentId: 100, rules: [], defaultValue: "Hello" },
+                    },
+                  },
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      let eventCount = 0;
+      let watchCount = 0;
+      client.on("configsUpdated", () => {
+        eventCount++;
+      });
+      client.watch("example-config", "default", () => {
+        watchCount++;
+      });
+      (client as DefaultConfigDirectorClient).removeAllObservers();
+      await client.initialize();
+
+      expect(eventCount).toBe(0);
+      expect(watchCount).toBe(0);
+    });
+  });
+
+  describe("connection management", () => {
+    test("closeConnection() sets isReady to false", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      expect(client.isReady).toBe(true);
+
+      (client as DefaultConfigDirectorClient).closeConnection();
+
+      expect(client.isReady).toBe(false);
+    });
+
+    test("dispose() closes the connection and removes all observers", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      expect(client.isReady).toBe(true);
+
+      client.dispose();
+
+      expect(client.isReady).toBe(false);
+    });
+  });
+
+  describe("telemetry", () => {
+    test("reports an evaluation event when getValue is called", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const spy = vi.spyOn(ServerTelemetryEventCollector.prototype, "evaluatedConfig");
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      client.getValue("example-config", "default-value");
+
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evaluation: expect.objectContaining({
+            key: "example-config",
+            evaluatedValue: "default-value",
+            usedDefault: true,
+          }),
+        }),
+      );
+    });
+  });
+});

@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "paths": {
+      "@shared/*": ["../shared/src/*"],
+      "@eventsource/*": ["../eventsource/src/*"],
+      "@js-client-core/*": ["../js-client-core/src/*"],
+    },
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "types": [],
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "lib": [
+      "ES2017",
+      "DOM",
+      "WebWorker",
+    ],
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "skipLibCheck": true,
+  },
+  "exclude": ["dist", "node_modules"]
+}
