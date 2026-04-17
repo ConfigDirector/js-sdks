@@ -85,14 +85,14 @@ export default MyComponent;
 
 ### 4. Updating the user context
 
-Update the user context with the `useConfigDirectorContext` hook:
+Update the user context with the `useContext` hook:
 
 ```tsx
-import { useConfigValue, useConfigDirectorContext } from "@configdirector/react-web-sdk";
+import { useConfigValue, useContext } from "@configdirector/react-web-sdk";
 
 function MyComponent() {
   const { value: myConfigValue } = useConfigValue<string>("my-config", "default value");
-  const { updateContext } = useConfigDirectorContext();
+  const { updateContext } = useContext();
 
   useEffect(() => {
     updateContext({ id: "54321", name: "Another User" });

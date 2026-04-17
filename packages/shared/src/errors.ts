@@ -19,3 +19,13 @@ export class ConfigDirectorValidationError extends Error {
     Object.setPrototypeOf(this, ConfigDirectorValidationError.prototype);
   }
 }
+
+export class ConfigDirectorInitializationError extends Error {
+  public override readonly name: string = "ConfigDirectorInitializationError";
+
+  constructor(message: string) {
+    super(message);
+
+    Object.setPrototypeOf(this, ConfigDirectorInitializationError.prototype);
+  }
+}

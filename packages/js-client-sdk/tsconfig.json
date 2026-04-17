@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "rootDir": "../",
     "outDir": "./dist",
     "paths": {
       "@eventsource/*": ["../eventsource/src/*"],

@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext } from "react";
+import { useContext as useReactContext } from "react";
 import { reactContext } from "./context";
 import type {
   ConfigDirectorContext,
@@ -21,7 +21,7 @@ const useConfigValue = <T extends ConfigValueType>(
   readyStatus: ClientStatus;
   loading: boolean;
 } => {
-  const configDirectorReactContext = useContext(reactContext);
+  const configDirectorReactContext = useReactContext(reactContext);
   if (!configDirectorReactContext?.client) {
     throw noContextError();
   }
@@ -31,8 +31,8 @@ const useConfigValue = <T extends ConfigValueType>(
   return { value, readyStatus: configDirectorReactContext.status, loading: configDirectorReactContext.status === "loading" };
 };
 
-const useConfigDirectorContext = () => {
-  const configDirectorReactContext = useContext(reactContext);
+const useContext = () => {
+  const configDirectorReactContext = useReactContext(reactContext);
   if (!configDirectorReactContext?.client) {
     throw noContextError();
   }
@@ -44,8 +44,8 @@ const useConfigDirectorContext = () => {
   return { updateContext };
 };
 
-const useConfigDirectorClient = () => {
-  const configDirectorReactContext = useContext(reactContext);
+const useClient = () => {
+  const configDirectorReactContext = useReactContext(reactContext);
   if (!configDirectorReactContext?.client) {
     throw noContextError();
   }
@@ -53,4 +53,4 @@ const useConfigDirectorClient = () => {
   return { client: configDirectorReactContext.client };
 };
 
-export { useConfigValue, useConfigDirectorContext, useConfigDirectorClient };
+export { useConfigValue, useContext, useClient };

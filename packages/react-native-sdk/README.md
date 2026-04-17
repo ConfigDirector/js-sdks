@@ -70,12 +70,12 @@ export default MyComponent;
 
 ### 4. Updating the user context
 
-Update the user context with the `useConfigDirectorContext` hook:
+Update the user context with the `useContext` hook:
 
 ```tsx
 import {
   useConfigValue,
-  useConfigDirectorContext,
+  useContext,
 } from "@configdirector/react-native-sdk";
 
 function MyComponent() {
@@ -83,7 +83,7 @@ function MyComponent() {
     "my-config",
     "default value",
   );
-  const { updateContext } = useConfigDirectorContext();
+  const { updateContext } = useContext();
 
   useEffect(() => {
     updateContext({

@@ -11,8 +11,8 @@ import { renderHook, act, waitFor } from "@testing-library/react-native";
 import { ConfigDirectorProvider } from "../src/provider";
 import {
   useConfigValue,
-  useConfigDirectorContext,
-  useConfigDirectorClient,
+  useContext,
+  useClient,
 } from "../src/hooks";
 import { ConfigDirectorReactContextError } from "../src/errors";
 import {
@@ -147,9 +147,9 @@ describe("hooks", () => {
     });
   });
 
-  describe("useConfigDirectorContext", () => {
+  describe("useContext", () => {
     it("throws when used outside of a ConfigDirectorProvider", () => {
-      expect(() => renderHook(() => useConfigDirectorContext())).toThrow(
+      expect(() => renderHook(() => useContext())).toThrow(
         ConfigDirectorReactContextError,
       );
     });
@@ -167,7 +167,7 @@ describe("hooks", () => {
         ),
       );
 
-      const { result } = renderHook(() => useConfigDirectorContext(), {
+      const { result } = renderHook(() => useContext(), {
         wrapper: wrapper(),
       });
 
@@ -186,9 +186,9 @@ describe("hooks", () => {
     });
   });
 
-  describe("useConfigDirectorClient", () => {
+  describe("useClient", () => {
     it("throws when used outside of a ConfigDirectorProvider", () => {
-      expect(() => renderHook(() => useConfigDirectorClient())).toThrow(
+      expect(() => renderHook(() => useClient())).toThrow(
         ConfigDirectorReactContextError,
       );
     });
@@ -209,7 +209,7 @@ describe("hooks", () => {
         );
       });
 
-      const { result } = renderHook(() => useConfigDirectorClient(), {
+      const { result } = renderHook(() => useClient(), {
         wrapper: wrapper(),
       });
 

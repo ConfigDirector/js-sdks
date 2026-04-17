@@ -26,7 +26,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noPropertyAccessFromIndexSignature": true,
-    "jsx": "react-jsx",
   },
   "exclude": ["dist", "node_modules"]
 }

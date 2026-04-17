@@ -91,6 +91,7 @@ export type ClientConnectAction = "initialization" | "context update" | "network
 export type ClientEvents = {
   configsUpdated: { keys: string[] };
   clientReady: { action: ClientConnectAction };
+  contextUpdated: { context: ConfigDirectorContext | undefined };
 };
 
 export type WatchHandler<T extends ConfigValueType> = (message: T) => void;
@@ -126,6 +127,16 @@ export interface ConfigDirectorClient extends EventProvider<ClientEvents> {
    * @param context The current user's context to be used for evaluating targeting rules (required).
    */
   updateContext(context: ConfigDirectorContext): Promise<void>;
+
+  /**
+   * Returns the current context the client is configured with, or undefined if there is no context.
+   *
+   * Note that the value returned does not updated immediately after calling {@link updateContext}. Only
+   * once the underlying connection was successful or timed out, the current context is updated. This is
+   * because while the context update is in progress, configs are still evaluated on the previous context.
+   *
+   */
+  get context(): ConfigDirectorContext | undefined;
 
   /**
    * Returns whether or not the client is ready after calling {@link initialize} or {@link updateContext}

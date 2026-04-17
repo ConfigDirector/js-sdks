@@ -108,6 +108,10 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     await this.connectToTransport(context, "context update");
   }
 
+  public get context(): ConfigDirectorContext | undefined {
+    return this.currentContext;
+  }
+
   private async connectToTransport(context: ConfigDirectorContext | undefined, caller: ClientConnectAction) {
     try {
       this.ready = false;
@@ -122,6 +126,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       await this.transport.connect(context ?? {}, this.timeout);
       this.currentContext = context;
       this.telemetryClient.updateContext(context);
+      this.eventEmitter.emit("contextUpdated", { context });
 
       const elapsedTime = new Date().getTime() - startTime;
       const remainingTimeout = this.timeout - elapsedTime;
