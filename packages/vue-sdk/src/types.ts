@@ -1,7 +1,4 @@
-import type {
-  ConfigDirectorContext,
-  ConfigDirectorLogger,
-} from "@js-browser-client/index";
+import type { ConfigDirectorContext, ConfigDirectorLogger } from "@js-browser-client/index";
 
 export type ClientStatus = "loading" | "ready" | "default";
 

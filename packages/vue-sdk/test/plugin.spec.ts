@@ -3,6 +3,7 @@ import { commands } from "vitest/browser";
 import { render, screen, fireEvent } from "@testing-library/vue";
 import { defineComponent } from "vue";
 import { ConfigDirectorPlugin } from "../src/plugin";
+import { initializeClient } from "../src/client";
 import { useConfigValue } from "../src/composables/useConfigValue";
 import { useClientStatus } from "../src/composables/useClientStatus";
 import { useContext } from "../src/composables/useContext";
@@ -197,6 +198,89 @@ describe("Vue plugin composables", () => {
 
       expect(screen.getByTestId("status")).toHaveTextContent("loading");
       await screen.findByText("ready", undefined, { timeout: 1_000 });
+    });
+  });
+});
+
+describe("pre-initialized client flow", () => {
+  beforeAll(async () => {
+    await commands.mswSetup();
+  });
+
+  afterAll(async () => {
+    await commands.mswTeardown();
+  });
+
+  describe("initializeClient", () => {
+    it("resolves with a ready client that has already fetched config values", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "example-config": { id: 1000, key: "example-config", type: "string", value: "Hello" },
+            }),
+          },
+        ],
+      ]);
+
+      const client = await initializeClient({ sdkKey: "dummy-key", logger });
+
+      expect(client.isReady).toBe(true);
+      expect(client.getValue("example-config", "Default")).toBe("Hello");
+    });
+  });
+
+  describe("ConfigDirectorPlugin with pre-initialized client", () => {
+    it("status is immediately 'ready' with no loading phase", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "example-config": { id: 1000, key: "example-config", type: "string", value: "Hello" },
+            }),
+          },
+        ],
+      ]);
+
+      const client = await initializeClient({ sdkKey: "dummy-key", logger });
+
+      const TestComponent = defineComponent({
+        setup: () => useClientStatus(),
+        template: "<div data-testid=\"status\">{{ readyStatus }}</div>",
+      });
+
+      render(TestComponent, { global: { plugins: [[ConfigDirectorPlugin, client]] } });
+
+      expect(screen.getByTestId("status")).toHaveTextContent("ready");
+    });
+
+    it("config value is immediately available without flickering through the default", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "example-config": { id: 1000, key: "example-config", type: "string", value: "Hello" },
+            }),
+          },
+        ],
+      ]);
+
+      const client = await initializeClient({ sdkKey: "dummy-key", logger });
+
+      const TestComponent = defineComponent({
+        setup: () => useConfigValue("example-config", "Default"),
+        template: `
+          <div>
+            <div data-testid="value">{{ value }}</div>
+            <div data-testid="loading">{{ loading }}</div>
+          </div>
+        `,
+      });
+
+      render(TestComponent, { global: { plugins: [[ConfigDirectorPlugin, client]] } });
+
+      expect(screen.getByTestId("value")).toHaveTextContent("Hello");
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
     });
   });
 });

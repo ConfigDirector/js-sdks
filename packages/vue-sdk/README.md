@@ -12,6 +12,8 @@ npm install --save @configdirector/vue-sdk
 
 ### 2. Configure the Vue plugin using your client SDK key
 
+This approach installs the ConfigDirectorPlugin and initializes the client asynchronously while your app is rendering:
+
 ```ts
 import { createApp } from "vue";
 import App from "./App.vue";
@@ -22,6 +24,25 @@ const app = createApp(App);
 app.use(ConfigDirectorPlugin, { sdkKey: "YOUR_CLIENT_SDK_KEY" });
 
 app.mount("#app");
+```
+
+Alternatively, you can explicitly await on initializing the client before mounting the Vue app. The initialization timeout can be provided in the `timeout` option in milliseconds (defaults to 3,000ms). If initialization times out, the client will be returned and it will continue to attempt to initialize in the background:
+
+```ts
+import { createApp } from "vue";
+import App from "./App.vue";
+import { ConfigDirectorPlugin, initializeClient } from "@configdirector/vue-sdk";
+
+async function bootstrap() {
+  const app = createApp(App);
+
+  const client = await initializeClient({ sdkKey: "YOUR_CLIENT_SDK_KEY" });
+  app.use(ConfigDirectorPlugin, client);
+
+  app.mount("#app");
+}
+
+bootstrap();
 ```
 
 ### 3. Retrieve config values

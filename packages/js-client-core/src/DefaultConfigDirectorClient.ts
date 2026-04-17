@@ -42,6 +42,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private timeout: number;
   private timeoutTimer: ReturnType<typeof setTimeout> | undefined;
   private ready = false;
+  private initializing = false;
   private readyPromise: Promise<void> | undefined;
   private readyResolve: (() => void) | undefined;
   private currentContext?: ConfigDirectorContext;
@@ -101,6 +102,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   }
 
   public async initialize(context?: ConfigDirectorContext) {
+    this.initializing = true;
     await this.connectToTransport(context, "initialization");
   }
 
@@ -119,6 +121,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         this.readyResolve = resolve;
       }).then(() => {
         this.ready = true;
+        this.initializing = false;
         this.eventEmitter.emit("clientReady", { action: caller });
         this.logger.debug("[ConfigDirectorClient] Received initial payload from the server, client is ready");
       });
@@ -265,6 +268,10 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
 
   public get isReady(): boolean {
     return this.ready;
+  }
+
+  public get isInitializing(): boolean {
+    return this.initializing;
   }
 
   public on<T extends keyof ClientEvents>(eventName: T, handler: (event: ClientEvents[T]) => void): void {

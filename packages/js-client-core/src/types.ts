@@ -147,6 +147,12 @@ export interface ConfigDirectorClient extends EventProvider<ClientEvents> {
   get isReady(): boolean;
 
   /**
+   * Returns whether or not the client is currently initializing. Upon client creation, it is `false`.
+   * It is `true` after calling `initialize` and becomes `false` again once initialization is completed.
+   */
+  get isInitializing(): boolean;
+
+  /**
    * Evaluates a config and returns its value based on the current context and targeting rules
    *
    * @returns The evaluated config value, or the `defaultValue` if the config state was unavailable
