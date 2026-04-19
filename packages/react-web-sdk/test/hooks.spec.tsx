@@ -8,8 +8,8 @@ import { SSE_URL, createStubbedLogger } from "./helpers";
 const logger = createStubbedLogger();
 
 const full = (configs: object = {}) => ({
-  environmentId: 100,
-  projectId: 200,
+  environmentId: "10000000-0000-0000-0000-000000000000",
+  projectId: "20000000-0000-0000-0000-000000000000",
   kind: "full",
   configs,
 });

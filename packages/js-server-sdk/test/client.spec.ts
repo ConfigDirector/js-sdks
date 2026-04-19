@@ -37,7 +37,7 @@ describe("ConfigDirectorClient", () => {
         requestJson = await request.json();
         const stream = new ReadableStream({
           start(controller) {
-            controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+            controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
           },
         });
 
@@ -66,8 +66,8 @@ describe("ConfigDirectorClient", () => {
             setTimeout(() => {
               controller.enqueue(
                 message({
-                  environmentId: 100,
-                  projectId: 200,
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
                   kind: "delta",
                   configs: {
                     "example-config": {
@@ -76,7 +76,7 @@ describe("ConfigDirectorClient", () => {
                       type: "string",
                       variations: [],
                       target: {
-                        environmentId: 100,
+                        environmentId: "10000000-0000-0000-0000-000000000000",
                         rules: [],
                         defaultValue: "Hello",
                       },
@@ -110,8 +110,8 @@ describe("ConfigDirectorClient", () => {
           start(controller) {
             controller.enqueue(
               message({
-                environmentId: 100,
-                projectId: 200,
+                environmentId: "10000000-0000-0000-0000-000000000000",
+                projectId: "20000000-0000-0000-0000-000000000000",
                 kind: "full",
                 configs: {
                   "example-config": {
@@ -120,7 +120,7 @@ describe("ConfigDirectorClient", () => {
                     type: "string",
                     variations: [],
                     target: {
-                      environmentId: 100,
+                      environmentId: "10000000-0000-0000-0000-000000000000",
                       rules: [],
                       defaultValue: "Hello",
                     },
@@ -132,8 +132,8 @@ describe("ConfigDirectorClient", () => {
             setTimeout(() => {
               controller.enqueue(
                 message({
-                  environmentId: 100,
-                  projectId: 200,
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
                   kind: "delta",
                   configs: {
                     "example-config": {
@@ -142,7 +142,7 @@ describe("ConfigDirectorClient", () => {
                       type: "string",
                       variations: [],
                       target: {
-                        environmentId: 100,
+                        environmentId: "10000000-0000-0000-0000-000000000000",
                         rules: [],
                         defaultValue: "Bye",
                       },
@@ -176,7 +176,7 @@ describe("ConfigDirectorClient", () => {
       http.post(SSE_URL, async () => {
         const stream = new ReadableStream({
           start(controller) {
-            controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+            controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
           },
         });
 
@@ -201,8 +201,8 @@ describe("ConfigDirectorClient", () => {
             setTimeout(() => {
               controller.enqueue(
                 message({
-                  environmentId: 100,
-                  projectId: 200,
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
                   kind: "full",
                   configs: {
                     "example-config": {
@@ -217,7 +217,7 @@ describe("ConfigDirectorClient", () => {
                       },
                       variations: [],
                       target: {
-                        environmentId: 100,
+                        environmentId: "10000000-0000-0000-0000-000000000000",
                         rules: [],
                         defaultValue: "50",
                       },
@@ -254,8 +254,8 @@ describe("ConfigDirectorClient", () => {
             setTimeout(() => {
               controller.enqueue(
                 message({
-                  environmentId: 100,
-                  projectId: 200,
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
                   kind: "full",
                   configs: {
                     "example-config": {
@@ -264,7 +264,7 @@ describe("ConfigDirectorClient", () => {
                       type: "float",
                       variations: [],
                       target: {
-                        environmentId: 100,
+                        environmentId: "10000000-0000-0000-0000-000000000000",
                         rules: [
                           {
                             id: crypto.randomUUID(),
@@ -336,8 +336,8 @@ describe("ConfigDirectorClient", () => {
             setTimeout(() => {
               controller.enqueue(
                 message({
-                  environmentId: 100,
-                  projectId: 200,
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
                   kind: "full",
                   configs: {
                     "example-config": {
@@ -346,7 +346,7 @@ describe("ConfigDirectorClient", () => {
                       type: "float",
                       variations: [],
                       target: {
-                        environmentId: 100,
+                        environmentId: "10000000-0000-0000-0000-000000000000",
                         rules: [
                           {
                             id: crypto.randomUUID(),
@@ -438,8 +438,8 @@ describe("ConfigDirectorClient", () => {
             start(controller) {
               controller.enqueue(
                 message({
-                  environmentId: 100,
-                  projectId: 200,
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
                   kind: "full",
                   configs: {
                     "config-a": {
@@ -447,14 +447,14 @@ describe("ConfigDirectorClient", () => {
                       key: "config-a",
                       type: "string",
                       variations: [],
-                      target: { environmentId: 100, rules: [], defaultValue: "original-a" },
+                      target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "original-a" },
                     },
                     "config-b": {
                       id: 2,
                       key: "config-b",
                       type: "string",
                       variations: [],
-                      target: { environmentId: 100, rules: [], defaultValue: "original-b" },
+                      target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "original-b" },
                     },
                   },
                 }),
@@ -462,8 +462,8 @@ describe("ConfigDirectorClient", () => {
               setTimeout(() => {
                 controller.enqueue(
                   message({
-                    environmentId: 100,
-                    projectId: 200,
+                    environmentId: "10000000-0000-0000-0000-000000000000",
+                    projectId: "20000000-0000-0000-0000-000000000000",
                     kind: "delta",
                     configs: {
                       "config-a": {
@@ -471,7 +471,7 @@ describe("ConfigDirectorClient", () => {
                         key: "config-a",
                         type: "string",
                         variations: [],
-                        target: { environmentId: 100, rules: [], defaultValue: "updated-a" },
+                        target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "updated-a" },
                       },
                     },
                   }),
@@ -498,12 +498,12 @@ describe("ConfigDirectorClient", () => {
       key,
       type: "string",
       variations: [],
-      target: { environmentId: 100, rules: [], defaultValue: value },
+      target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: value },
     });
 
     const fullBundle = (configs: Record<string, unknown>) => ({
-      environmentId: 100,
-      projectId: 200,
+      environmentId: "10000000-0000-0000-0000-000000000000",
+      projectId: "20000000-0000-0000-0000-000000000000",
       kind: "full",
       configs,
     });
@@ -663,7 +663,7 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
             },
           });
           return buildResponse(stream);
@@ -687,7 +687,7 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
             },
           });
           return buildResponse(stream);
@@ -715,8 +715,8 @@ describe("ConfigDirectorClient", () => {
             start(controller) {
               controller.enqueue(
                 message({
-                  environmentId: 100,
-                  projectId: 200,
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
                   kind: "full",
                   configs: {
                     "example-config": {
@@ -724,7 +724,7 @@ describe("ConfigDirectorClient", () => {
                       key: "example-config",
                       type: "string",
                       variations: [],
-                      target: { environmentId: 100, rules: [], defaultValue: "Hello" },
+                      target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "Hello" },
                     },
                   },
                 }),
@@ -758,7 +758,7 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
             },
           });
           return buildResponse(stream);
@@ -779,7 +779,7 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
             },
           });
           return buildResponse(stream);
@@ -802,7 +802,7 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
             },
           });
           return buildResponse(stream);

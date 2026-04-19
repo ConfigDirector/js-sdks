@@ -25,15 +25,15 @@ export const message = (data: object): Uint8Array =>
   new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`);
 
 export const full = (configs: object = {}) => ({
-  environmentId: 100,
-  projectId: 200,
+  environmentId: "10000000-0000-0000-0000-000000000000",
+  projectId: "20000000-0000-0000-0000-000000000000",
   kind: "full",
   configs,
 });
 
 export const delta = (configs: object) => ({
-  environmentId: 100,
-  projectId: 200,
+  environmentId: "10000000-0000-0000-0000-000000000000",
+  projectId: "20000000-0000-0000-0000-000000000000",
   kind: "delta",
   configs,
 });

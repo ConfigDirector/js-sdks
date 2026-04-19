@@ -22,15 +22,15 @@ const createClient = (clientSdkKey: string, clientOptions?: ConfigDirectorClient
 };
 
 const full = (configs: object = {}) => ({
-  environmentId: 100,
-  projectId: 200,
+  environmentId: "10000000-0000-0000-0000-000000000000",
+  projectId: "20000000-0000-0000-0000-000000000000",
   kind: "full",
   configs,
 });
 
 const delta = (configs: object) => ({
-  environmentId: 100,
-  projectId: 200,
+  environmentId: "10000000-0000-0000-0000-000000000000",
+  projectId: "20000000-0000-0000-0000-000000000000",
   kind: "delta",
   configs,
 });
@@ -473,8 +473,8 @@ describe("ConfigDirectorClient", () => {
       await commands.mswUseHandlers({
         url: PULL_URL,
         responseBody: {
-          environmentId: 100,
-          projectId: 200,
+          environmentId: "10000000-0000-0000-0000-000000000000",
+          projectId: "20000000-0000-0000-0000-000000000000",
           kind: "full",
           configs: {
             "my-config": { id: 1, key: "my-config", type: "string", value: "from-pull" },

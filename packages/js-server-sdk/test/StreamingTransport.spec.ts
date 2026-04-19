@@ -48,7 +48,7 @@ describe("StreamingTransport", () => {
         http.post(SSE_URL, () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
             },
           });
           return buildResponse(stream);
@@ -65,7 +65,7 @@ describe("StreamingTransport", () => {
           requestJson = await request.json();
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
             },
           });
           return buildResponse(stream);
@@ -106,7 +106,7 @@ describe("StreamingTransport", () => {
           await sleep(200);
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
             },
           });
           return buildResponse(stream);
@@ -123,7 +123,7 @@ describe("StreamingTransport", () => {
         http.post(SSE_URL, () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
             },
           });
           return buildResponse(stream);
@@ -141,7 +141,7 @@ describe("StreamingTransport", () => {
 
   describe("on / off", () => {
     test("emits configBundleReceived when a message is received", async () => {
-      const bundle = { environmentId: "100", projectId: "200", kind: "full" as const, configs: {} };
+      const bundle = { environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full" as const, configs: {} };
       server.use(
         http.post(SSE_URL, () => {
           const stream = new ReadableStream({
@@ -162,8 +162,8 @@ describe("StreamingTransport", () => {
     });
 
     test("emits multiple messages as they arrive", async () => {
-      const bundle1 = { environmentId: "100", projectId: "200", kind: "full" as const, configs: {} };
-      const bundle2 = { environmentId: "100", projectId: "200", kind: "delta" as const, configs: {} };
+      const bundle1 = { environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full" as const, configs: {} };
+      const bundle2 = { environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "delta" as const, configs: {} };
       server.use(
         http.post(SSE_URL, () => {
           const stream = new ReadableStream({
@@ -192,11 +192,11 @@ describe("StreamingTransport", () => {
         http.post(SSE_URL, () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
               setTimeout(
                 () =>
                   controller.enqueue(
-                    message({ environmentId: 100, projectId: 200, kind: "delta", configs: {} }),
+                    message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "delta", configs: {} }),
                   ),
                 30,
               );
@@ -224,11 +224,11 @@ describe("StreamingTransport", () => {
         http.post(SSE_URL, () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
               setTimeout(
                 () =>
                   controller.enqueue(
-                    message({ environmentId: 100, projectId: 200, kind: "delta", configs: {} }),
+                    message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "delta", configs: {} }),
                   ),
                 30,
               );
@@ -258,11 +258,11 @@ describe("StreamingTransport", () => {
         http.post(SSE_URL, () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: 100, projectId: 200, kind: "full", configs: {} }));
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
               setTimeout(
                 () =>
                   controller.enqueue(
-                    message({ environmentId: 100, projectId: 200, kind: "delta", configs: {} }),
+                    message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "delta", configs: {} }),
                   ),
                 30,
               );
