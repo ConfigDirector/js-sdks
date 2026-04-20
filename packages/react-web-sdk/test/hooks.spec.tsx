@@ -28,7 +28,7 @@ describe("useConfigValue", () => {
       [
         {
           data: full({
-            "example-config": { id: 1000, key: "example-config", type: "string", value: "Hello" },
+            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
           }),
         },
       ],
@@ -54,7 +54,7 @@ describe("useConfigValue", () => {
         {
           delay: 100,
           data: full({
-            "example-config": { id: 1000, key: "example-config", type: "string", value: "Hello" },
+            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
           }),
         },
       ],
@@ -81,7 +81,7 @@ describe("useConfigValue", () => {
         {
           data: full({
             "example-config": {
-              id: 1000,
+              id: "00000000-0000-0000-0000-0000000003e8",
               key: "example-config",
               type: "string",
               value: "before-context-update",
@@ -93,7 +93,7 @@ describe("useConfigValue", () => {
         {
           data: full({
             "example-config": {
-              id: 1000,
+              id: "00000000-0000-0000-0000-0000000003e8",
               key: "example-config",
               type: "string",
               value: "after-context-update",
@@ -135,7 +135,7 @@ describe("useConfigValue", () => {
         {
           delay: 100,
           data: full({
-            "example-config": { id: 1000, key: "example-config", type: "string", value: "Hello" },
+            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
           }),
         },
       ],

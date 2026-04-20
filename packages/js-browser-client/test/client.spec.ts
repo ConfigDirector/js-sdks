@@ -75,7 +75,7 @@ describe("ConfigDirectorClient", () => {
       [
         {
           delay: 200,
-          data: full({ "example-config": { id: 1000, key: "example-config", type: "string", value: "Bye" } }),
+          data: full({ "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" } }),
         },
       ],
     ]);
@@ -98,13 +98,13 @@ describe("ConfigDirectorClient", () => {
       [
         {
           data: full({
-            "example-config": { id: 1000, key: "example-config", type: "string", value: "Hello" },
+            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
           }),
         },
         {
           delay: 10,
           data: delta({
-            "example-config": { id: 1000, key: "example-config", type: "string", value: "Bye" },
+            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" },
           }),
         },
       ],
@@ -124,7 +124,7 @@ describe("ConfigDirectorClient", () => {
       [{ data: full() }],
       [
         {
-          data: full({ "example-config": { id: 1000, key: "example-config", type: "string", value: "Bye" } }),
+          data: full({ "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" } }),
         },
       ],
     ]);
@@ -181,7 +181,7 @@ describe("ConfigDirectorClient", () => {
       const watcher1Values: string[] = [];
       const watcher2Values: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
-        [{ data: full({ "my-config": { id: 1, key: "my-config", type: "string", value: "hello" } }) }],
+        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "hello" } }) }],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -196,8 +196,8 @@ describe("ConfigDirectorClient", () => {
     test("the function returned by watch stops that handler from receiving future updates", async () => {
       const receivedValues: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
-        [{ data: full({ "my-config": { id: 1, key: "my-config", type: "string", value: "v1" } }) }],
-        [{ data: full({ "my-config": { id: 1, key: "my-config", type: "string", value: "v2" } }) }],
+        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v1" } }) }],
+        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v2" } }) }],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -217,8 +217,8 @@ describe("ConfigDirectorClient", () => {
       const watcher1Values: string[] = [];
       const watcher2Values: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
-        [{ data: full({ "my-config": { id: 1, key: "my-config", type: "string", value: "v1" } }) }],
-        [{ data: full({ "my-config": { id: 1, key: "my-config", type: "string", value: "v2" } }) }],
+        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v1" } }) }],
+        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v2" } }) }],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -241,8 +241,8 @@ describe("ConfigDirectorClient", () => {
       const watcher1Values: string[] = [];
       const watcher2Values: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
-        [{ data: full({ "my-config": { id: 1, key: "my-config", type: "string", value: "v1" } }) }],
-        [{ data: full({ "my-config": { id: 1, key: "my-config", type: "string", value: "v2" } }) }],
+        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v1" } }) }],
+        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v2" } }) }],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -266,16 +266,16 @@ describe("ConfigDirectorClient", () => {
         [
           {
             data: full({
-              "config-a": { id: 1, key: "config-a", type: "string", value: "v1" },
-              "config-b": { id: 2, key: "config-b", type: "string", value: "v1" },
+              "config-a": { id: "00000000-0000-0000-0000-000000000001", key: "config-a", type: "string", value: "v1" },
+              "config-b": { id: "00000000-0000-0000-0000-000000000002", key: "config-b", type: "string", value: "v1" },
             }),
           },
         ],
         [
           {
             data: full({
-              "config-a": { id: 1, key: "config-a", type: "string", value: "v2" },
-              "config-b": { id: 2, key: "config-b", type: "string", value: "v2" },
+              "config-a": { id: "00000000-0000-0000-0000-000000000001", key: "config-a", type: "string", value: "v2" },
+              "config-b": { id: "00000000-0000-0000-0000-000000000002", key: "config-b", type: "string", value: "v2" },
             }),
           },
         ],
@@ -335,7 +335,7 @@ describe("ConfigDirectorClient", () => {
       const watchValues: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
         [{ data: full() }],
-        [{ data: full({ "my-config": { id: 1, key: "my-config", type: "string", value: "updated" } }) }],
+        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "updated" } }) }],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -383,13 +383,13 @@ describe("ConfigDirectorClient", () => {
         [
           {
             data: full({
-              "config-a": { id: 1, key: "config-a", type: "string", value: "a-original" },
-              "config-b": { id: 2, key: "config-b", type: "string", value: "b-original" },
+              "config-a": { id: "00000000-0000-0000-0000-000000000001", key: "config-a", type: "string", value: "a-original" },
+              "config-b": { id: "00000000-0000-0000-0000-000000000002", key: "config-b", type: "string", value: "b-original" },
             }),
           },
           {
             delay: 10,
-            data: delta({ "config-b": { id: 2, key: "config-b", type: "string", value: "b-updated" } }),
+            data: delta({ "config-b": { id: "00000000-0000-0000-0000-000000000002", key: "config-b", type: "string", value: "b-updated" } }),
           },
         ],
       ]);
@@ -417,7 +417,7 @@ describe("ConfigDirectorClient", () => {
           projectId: "20000000-0000-0000-0000-000000000000",
           kind: "full",
           configs: {
-            "my-config": { id: 1, key: "my-config", type: "string", value: "from-pull" },
+            "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "from-pull" },
           },
         },
       });
@@ -453,7 +453,7 @@ describe("ConfigDirectorClient", () => {
           {
             delay: 100,
             data: delta({
-              "example-config": { id: 1000, key: "example-config", type: "string", value: "Bye" },
+              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" },
             }),
           },
         ],

@@ -26,7 +26,7 @@ import {
 const logger = createStubbedLogger();
 
 const exampleConfig = {
-  id: 1000,
+  id: "00000000-0000-0000-0000-0000000003e8",
   key: "example-config",
   type: "string",
   value: "Hello",

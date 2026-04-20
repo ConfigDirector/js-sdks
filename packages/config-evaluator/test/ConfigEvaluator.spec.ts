@@ -3,13 +3,15 @@ import type { Config } from "../src/types";
 import { ConfigEvaluator } from "../src/ConfigEvaluator";
 import { createStubbedLogger } from "./helpers";
 
+const CONFIG_ID = "11111111-1111-4111-8111-111111111111";
+
 describe("ConfigEvaluator", () => {
   const logger = createStubbedLogger();
   const evaluator = new ConfigEvaluator(logger);
 
   test("evaluates to the defaultValue in the target when there are no targeting rules", () => {
     const config: Config = {
-      id: "1",
+      id: CONFIG_ID,
       key: "config-without-rules",
       type: "string",
       variations: [],
@@ -31,7 +33,7 @@ describe("ConfigEvaluator", () => {
   describe("percentage rules", () => {
     test("assigns percentages when they add up to 100%", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -53,13 +55,13 @@ describe("ConfigEvaluator", () => {
       };
 
       expect(evaluator.evaluate(config, { context: { id: "10" } }).value).toEqual("Group A");
-      expect(evaluator.evaluate(config, { context: { id: "15" } }).value).toEqual("Group B");
-      expect(evaluator.evaluate(config, { context: { id: "20" } }).value).toEqual("Group A");
+      expect(evaluator.evaluate(config, { context: { id: "15" } }).value).toEqual("Group A");
+      expect(evaluator.evaluate(config, { context: { id: "20" } }).value).toEqual("Group B");
     });
 
     test("falls back to the default value for some users if the percentages don't add up to 100%", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -81,13 +83,13 @@ describe("ConfigEvaluator", () => {
       };
 
       expect(evaluator.evaluate(config, { context: { id: "10" } }).value).toEqual("Group A");
-      expect(evaluator.evaluate(config, { context: { id: "15" } }).value).toEqual("this-is-the-default");
-      expect(evaluator.evaluate(config, { context: { id: "80" } }).value).toEqual("Group B");
+      expect(evaluator.evaluate(config, { context: { id: "15" } }).value).toEqual("Group B");
+      expect(evaluator.evaluate(config, { context: { id: "80" } }).value).toEqual("this-is-the-default");
     });
 
     test("falls back to the default if a percentage does not have a value", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -109,15 +111,15 @@ describe("ConfigEvaluator", () => {
       };
 
       expect(evaluator.evaluate(config, { context: { id: "10" } }).value).toEqual("Group A");
-      expect(evaluator.evaluate(config, { context: { id: "15" } }).value).toEqual("this-is-the-default");
-      expect(evaluator.evaluate(config, { context: { id: "20" } }).value).toEqual("Group A");
+      expect(evaluator.evaluate(config, { context: { id: "15" } }).value).toEqual("Group A");
+      expect(evaluator.evaluate(config, { context: { id: "20" } }).value).toEqual("this-is-the-default");
     });
   });
 
   describe("conditional rules", () => {
     test("evaluates a value based conditional rule", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -152,7 +154,7 @@ describe("ConfigEvaluator", () => {
 
     test("evaluates a percentage based conditional rule", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -190,7 +192,7 @@ describe("ConfigEvaluator", () => {
 
     test("cycles through multiple rules", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -244,7 +246,7 @@ describe("ConfigEvaluator", () => {
 
     test("falls back to the default when conditions array is empty", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -269,7 +271,7 @@ describe("ConfigEvaluator", () => {
 
     test("matches on the first true condition (OR semantics across multiple conditions)", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -313,7 +315,7 @@ describe("ConfigEvaluator", () => {
 
     test("falls back to the default when the condition matches but the value is undefined", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -347,7 +349,7 @@ describe("ConfigEvaluator", () => {
 
     test("falls back to the default when no context is provided and the condition cannot match", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -383,7 +385,7 @@ describe("ConfigEvaluator", () => {
   describe("rule ordering", () => {
     test("evaluates rules in ascending order by the order attribute regardless of array order", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -438,7 +440,7 @@ describe("ConfigEvaluator", () => {
   describe("mixed rule types", () => {
     test("evaluates a percentage rule followed by a conditional rule in order", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -483,7 +485,7 @@ describe("ConfigEvaluator", () => {
   describe("no context", () => {
     test("returns a value for a percentage rule when no context is provided", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -509,7 +511,7 @@ describe("ConfigEvaluator", () => {
   describe("unknown rule type", () => {
     test("skips an unknown rule type and falls back to the default value", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "config-without-rules",
         type: "string",
         variations: [],
@@ -527,7 +529,7 @@ describe("ConfigEvaluator", () => {
   describe("resilience to malformed runtime condition data", () => {
     test("does not throw and falls back to default when a text condition has undefined targetValues", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "cfg",
         type: "string",
         variations: [],
@@ -562,7 +564,7 @@ describe("ConfigEvaluator", () => {
 
     test("does not throw and falls back to default when a numeric condition has undefined targetValues", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "cfg",
         type: "string",
         variations: [],
@@ -597,7 +599,7 @@ describe("ConfigEvaluator", () => {
 
     test("does not throw and falls back to default when a semver condition has undefined targetValues", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "cfg",
         type: "string",
         variations: [],
@@ -636,7 +638,7 @@ describe("ConfigEvaluator", () => {
 
     test("does not throw and falls back to default when a datetime condition has undefined targetValues", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "cfg",
         type: "string",
         variations: [],
@@ -679,7 +681,7 @@ describe("ConfigEvaluator", () => {
 
     test("does not throw and falls back to default when an array condition has undefined targetValues", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "cfg",
         type: "string",
         variations: [],
@@ -723,7 +725,7 @@ describe("ConfigEvaluator", () => {
   describe("numeric comparison edge cases", () => {
     test("does not throw when a bigint trait value is compared against a decimal targetValue", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "cfg",
         type: "string",
         variations: [],
@@ -762,7 +764,7 @@ describe("ConfigEvaluator", () => {
 
     test("does not throw when a bigint trait value is compared with an empty targetValues array", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "cfg",
         type: "string",
         variations: [],
@@ -803,7 +805,7 @@ describe("ConfigEvaluator", () => {
   describe("rule ordering with missing order values", () => {
     test("evaluates rules in a stable, predictable order even when order is undefined on some rules", () => {
       const config: Config = {
-        id: "1",
+        id: CONFIG_ID,
         key: "cfg",
         type: "string",
         variations: [],

@@ -3,7 +3,7 @@ import { parseConfigValue } from "../src/value-parser";
 import type { ConfigState, ConfigType } from "../src/types";
 
 const configState = (type: ConfigType, value: string | null | undefined): ConfigState => {
-  return { id: "10", key: "test", type, value };
+  return { id: "00000000-0000-0000-0000-000000000001", key: "test", type, value };
 };
 
 enum StringBasedEnum {

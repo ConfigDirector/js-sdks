@@ -71,7 +71,7 @@ describe("ConfigDirectorClient", () => {
                   kind: "delta",
                   configs: {
                     "example-config": {
-                      id: 1000,
+                      id: "00000000-0000-0000-0000-0000000003e8",
                       key: "example-config",
                       type: "string",
                       variations: [],
@@ -115,7 +115,7 @@ describe("ConfigDirectorClient", () => {
                 kind: "full",
                 configs: {
                   "example-config": {
-                    id: 1000,
+                    id: "00000000-0000-0000-0000-0000000003e8",
                     key: "example-config",
                     type: "string",
                     variations: [],
@@ -137,7 +137,7 @@ describe("ConfigDirectorClient", () => {
                   kind: "delta",
                   configs: {
                     "example-config": {
-                      id: 1000,
+                      id: "00000000-0000-0000-0000-0000000003e8",
                       key: "example-config",
                       type: "string",
                       variations: [],
@@ -206,7 +206,7 @@ describe("ConfigDirectorClient", () => {
                   kind: "full",
                   configs: {
                     "example-config": {
-                      id: 4560,
+                      id: "00000000-0000-0000-0000-0000000011d0",
                       key: "example-config",
                       type: "float",
                       typeConstraints: {
@@ -259,7 +259,7 @@ describe("ConfigDirectorClient", () => {
                   kind: "full",
                   configs: {
                     "example-config": {
-                      id: 4560,
+                      id: "00000000-0000-0000-0000-0000000011d0",
                       key: "example-config",
                       type: "float",
                       variations: [],
@@ -341,7 +341,7 @@ describe("ConfigDirectorClient", () => {
                   kind: "full",
                   configs: {
                     "example-config": {
-                      id: 4560,
+                      id: "00000000-0000-0000-0000-0000000011d0",
                       key: "example-config",
                       type: "float",
                       variations: [],
@@ -443,14 +443,14 @@ describe("ConfigDirectorClient", () => {
                   kind: "full",
                   configs: {
                     "config-a": {
-                      id: 1,
+                      id: "00000000-0000-0000-0000-000000000001",
                       key: "config-a",
                       type: "string",
                       variations: [],
                       target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "original-a" },
                     },
                     "config-b": {
-                      id: 2,
+                      id: "00000000-0000-0000-0000-000000000002",
                       key: "config-b",
                       type: "string",
                       variations: [],
@@ -467,7 +467,7 @@ describe("ConfigDirectorClient", () => {
                     kind: "delta",
                     configs: {
                       "config-a": {
-                        id: 1,
+                        id: "00000000-0000-0000-0000-000000000001",
                         key: "config-a",
                         type: "string",
                         variations: [],
@@ -494,7 +494,7 @@ describe("ConfigDirectorClient", () => {
 
   describe("watch and unwatch", () => {
     const configWithValue = (key: string, value: string) => ({
-      id: 1,
+      id: "00000000-0000-0000-0000-000000000001",
       key,
       type: "string",
       variations: [],
@@ -720,7 +720,7 @@ describe("ConfigDirectorClient", () => {
                   kind: "full",
                   configs: {
                     "example-config": {
-                      id: 1,
+                      id: "00000000-0000-0000-0000-000000000001",
                       key: "example-config",
                       type: "string",
                       variations: [],

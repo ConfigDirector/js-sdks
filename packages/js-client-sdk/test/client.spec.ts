@@ -60,7 +60,7 @@ describe("ConfigDirectorClient", () => {
       [
         {
           delay: 200,
-          data: full({ "example-config": { id: 1000, key: "example-config", type: "string", value: "Bye" } }),
+          data: full({ "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" } }),
         },
       ],
     ]);
@@ -83,13 +83,13 @@ describe("ConfigDirectorClient", () => {
       [
         {
           data: full({
-            "example-config": { id: 1000, key: "example-config", type: "string", value: "Hello" },
+            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
           }),
         },
         {
           delay: 10,
           data: delta({
-            "example-config": { id: 1000, key: "example-config", type: "string", value: "Bye" },
+            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" },
           }),
         },
       ],
@@ -109,7 +109,7 @@ describe("ConfigDirectorClient", () => {
       [{ data: full() }],
       [
         {
-          data: full({ "example-config": { id: 1000, key: "example-config", type: "string", value: "Bye" } }),
+          data: full({ "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" } }),
         },
       ],
     ]);
@@ -140,7 +140,7 @@ describe("ConfigDirectorClient", () => {
           {
             delay: 100,
             data: delta({
-              "example-config": { id: 1000, key: "example-config", type: "string", value: "Bye" },
+              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" },
             }),
           },
         ],

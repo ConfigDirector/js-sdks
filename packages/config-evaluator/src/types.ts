@@ -1,4 +1,5 @@
 import type { ConfigType, ConfigDirectorContext, ConfigDirectorMetaContext } from "@shared/types";
+export type { ConfigState, ConfigDirectorLogger } from "@shared/types";
 
 export const TextOperatorList = [
   "equals",
