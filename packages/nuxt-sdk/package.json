@@ -1,0 +1,52 @@
+{
+  "name": "nuxt-sdk",
+  "version": "1.0.0",
+  "description": "My new Nuxt module",
+  "repository": "your-org/my-module",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/module.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/module.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "nuxt prepare && tsdown",
+    "prepack": "nuxt prepare && tsdown",
+    "release": "yarn lint && yarn test && yarn prepack && changelogen --release && npm publish --access public",
+    "lint": "eslint .",
+    "ci:test": "vitest run",
+    "test": "vitest watch",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.4.2",
+    "@configdirector/server-sdk": "0.2.3"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^3.2.4",
+    "@nuxt/eslint-config": "^1.15.2",
+    "@nuxt/schema": "^4.4.2",
+    "@nuxt/test-utils": "^4.0.2",
+    "@types/node": "latest",
+    "changelogen": "^0.6.2",
+    "eslint": "^10.2.1",
+    "nuxt": "^4.4.2",
+    "tsdown": "^0.21.7",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.4",
+    "vue-tsc": "^3.2.7"
+  }
+}
