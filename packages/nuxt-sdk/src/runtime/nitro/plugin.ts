@@ -5,9 +5,7 @@ import { createDefaultLogger } from "../logger";
 
 export default defineNitroPlugin((nitroApp) => {
   const runtimeConfig = useRuntimeConfig();
-  const logger = createDefaultLogger(
-    runtimeConfig.configdirector?.logLevel ?? "warn",
-  );
+  const logger = createDefaultLogger(runtimeConfig.configdirector?.logLevel);
   logger.debug("Initializing ConfigDirector Nitro plugin");
   const client: ConfigDirectorClient = new DefaultConfigDirectorClient(
     runtimeConfig.configdirector.serverSdkKey,

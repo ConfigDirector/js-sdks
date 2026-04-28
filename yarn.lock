@@ -13624,6 +13624,7 @@ __metadata:
     "@nuxt/test-utils": "npm:^4.0.2"
     "@types/node": "npm:latest"
     changelogen: "npm:^0.6.2"
+    consola: "npm:^3.4.2"
     eslint: "npm:^10.2.1"
     nuxt: "npm:^4.4.2"
     tsdown: "npm:^0.21.7"

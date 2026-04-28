@@ -5,14 +5,16 @@ import {
   addImports,
   addServerPlugin,
   addServerHandler,
+  useLogger,
 } from "@nuxt/kit";
-import type { ConfigDirectorLoggingLevel } from "@shared/types";
+import type { LogLevel } from "consola";
+import { defu } from "defu";
 
 declare module "nuxt/schema" {
   interface RuntimeConfig {
     configdirector: {
       serverSdkKey: string;
-      logLevel?: ConfigDirectorLoggingLevel;
+      logLevel?: number;
     };
   }
   interface PublicRuntimeConfig {
@@ -20,13 +22,19 @@ declare module "nuxt/schema" {
       clientSdkKey: string;
       appName: string;
       appVersion: string;
-      logLevel?: ConfigDirectorLoggingLevel;
+      logLevel?: number;
     };
   }
 }
 
-// Module options TypeScript interface definition
-export interface ModuleOptions {}
+export interface ModuleOptions {
+  /**
+   * Log level for the ConfigDirector SDK, using consola's numeric levels.
+   * 0 = error, 1 = warn, 2 = log, 3 = info, 4 = debug, 5 = trace.
+   * When omitted, the SDK inherits the global Nuxt/consola log level.
+   */
+  logLevel?: LogLevel;
+}
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
@@ -36,10 +44,23 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt: ">=4.0.0",
     },
   },
-  // Default configuration options of the Nuxt module
   defaults: {},
-  setup(_options, nuxt) {
+  setup(options, nuxt) {
+    const logger = useLogger("configdirector");
     const resolver = createResolver(import.meta.url);
+
+    if (options.logLevel !== undefined) {
+      nuxt.options.runtimeConfig.configdirector = defu(
+        { logLevel: options.logLevel },
+        nuxt.options.runtimeConfig.configdirector,
+      );
+      nuxt.options.runtimeConfig.public.configdirector = defu(
+        { logLevel: options.logLevel },
+        nuxt.options.runtimeConfig.public.configdirector,
+      );
+    }
+
+    logger.debug("ConfigDirector Nuxt module setup complete");
 
     addServerPlugin(resolver.resolve("./runtime/nitro/plugin"));
     addServerHandler({ middleware: true, handler: resolver.resolve("./runtime/nitro/middleware") });

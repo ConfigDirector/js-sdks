@@ -14,10 +14,7 @@ import type { ClientStatus } from "./types";
 
 export default defineNuxtPlugin((nuxtApp) => {
   const runtimeConfig = useRuntimeConfig();
-  console.log(`The configured logLevel is ${runtimeConfig.configdirector.logLevel}`);
-  const logger = createDefaultLogger(
-    runtimeConfig.configdirector?.logLevel ?? "warn",
-  );
+  const logger = createDefaultLogger(runtimeConfig.configdirector?.logLevel);
 
   logger.debug("Installed ConfigDirector Nuxt SSR plugin");
 

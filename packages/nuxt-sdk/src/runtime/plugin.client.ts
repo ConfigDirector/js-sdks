@@ -8,9 +8,7 @@ import type { ClientStatus } from "./types";
 
 export default defineNuxtPlugin((nuxtApp) => {
   const runtimeConfig = useRuntimeConfig();
-  const logger = createDefaultLogger(
-    runtimeConfig.public?.configdirector?.logLevel ?? "warn",
-  );
+  const logger = createDefaultLogger(runtimeConfig.public?.configdirector?.logLevel);
 
   if (!runtimeConfig.public?.configdirector?.clientSdkKey) {
     throw new ConfigDirectorInitializationError(
