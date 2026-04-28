@@ -1,21 +1,24 @@
-import {
-  type ConfigDirectorClient,
-  createClient,
-} from "@configdirector/server-sdk";
+import { DefaultConfigDirectorClient } from "@js-server-sdk/DefaultConfigDirectorClient";
+import { type ConfigDirectorClient } from "@js-server-sdk/types";
 import { defineNitroPlugin, useRuntimeConfig } from "nitropack/runtime";
+import { createDefaultLogger } from "../logger";
 
 export default defineNitroPlugin((nitroApp) => {
   const runtimeConfig = useRuntimeConfig();
-  console.log("Initializing ConfigDirector server SDK");
-  const client: ConfigDirectorClient = createClient(
-    runtimeConfig.configdirector.serverSdkKey,
+  const logger = createDefaultLogger(
+    runtimeConfig.configdirector?.logLevel ?? "warn",
   );
-  // Attach it to the nitroApp context to access it elsewhere
+  logger.debug("Initializing ConfigDirector Nitro plugin");
+  const client: ConfigDirectorClient = new DefaultConfigDirectorClient(
+    runtimeConfig.configdirector.serverSdkKey,
+    { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
+    { logger },
+  );
+
   nitroApp.configDirectorClient = client;
   client.initialize();
 });
 
-// Add to your types (types/nitro.d.ts)
 declare module "nitropack" {
   interface NitroApp {
     configDirectorClient: ConfigDirectorClient;

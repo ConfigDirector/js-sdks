@@ -1,14 +1,22 @@
-import { ref, type Ref } from "vue";
-import { useClient } from "./useClient";
+import { shallowRef, onBeforeUnmount } from "vue";
+import type { Ref, ShallowRef } from "vue";
 import type { ConfigValueType } from "@js-client-core/types";
+import type { ClientStatus } from "../../types";
+import { useClient } from "./useClient";
+import { useClientStatus } from "./useClientStatus";
 
-export const useConfigValue = <T extends ConfigValueType>(configKey: string, defaultValue: T): Ref<T> => {
+export const useConfigValue = <T extends ConfigValueType>(
+  configKey: string,
+  defaultValue: T,
+): { value: ShallowRef<T>; readyStatus: Readonly<Ref<ClientStatus>>; loading: Readonly<Ref<boolean>> } => {
   const { client } = useClient();
-  const configValue = ref(client.getValue<T>(configKey, defaultValue)) as Ref<T>;
+  const { readyStatus, loading } = useClientStatus();
+  const configValue = shallowRef(client.getValue<T>(configKey, defaultValue)) as ShallowRef<T>;
 
-  client.watch(configKey, defaultValue, (newValue) => {
-    configValue.value = newValue;
-  });
+  const watcher = (newValue: T) => (configValue.value = newValue);
+  client.watch(configKey, defaultValue, watcher);
 
-  return configValue;
+  onBeforeUnmount(() => client.unwatch(configKey, watcher));
+
+  return { value: configValue, readyStatus, loading };
 };

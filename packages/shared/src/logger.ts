@@ -54,7 +54,7 @@ export class DefaultConsoleLogger implements ConfigDirectorLogger {
     this.log(console.error, "error", message, ...args);
   }
 
-  private log(loggerFunction: (...args: any) => void, level: ConfigDirectorLoggingLevel, message: string, ...args: any) {
+  protected log(loggerFunction: (...args: any) => void, level: ConfigDirectorLoggingLevel, message: string, ...args: any) {
     if (LEVELS[this.level] >= LEVELS[level]) {
       loggerFunction(`[${this.dateFormatter.format(new Date())}] ${this.decorator?.decorateMessage(message)}`, ...args);
     }

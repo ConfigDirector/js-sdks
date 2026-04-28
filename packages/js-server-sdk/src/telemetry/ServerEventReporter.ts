@@ -2,11 +2,12 @@ import { isDroppedEventsEmpty, isEventListEmpty } from "@shared/telemetry/utils"
 import type { ConfigDirectorLogger } from "../types";
 import type { EventReport, EventReporter, EventReporterPayload, ReporterResponse } from "./types";
 import { fetchWithTimeout } from "@shared/fetchWithTimeout";
+import {type UrlLike } from "@shared/url";
 
 export type EventReporterOptions = {
   sdkKey: string;
   logger: ConfigDirectorLogger;
-  baseUrl: URL;
+  baseUrl: UrlLike;
 };
 
 export class ServerEventReporter implements EventReporter {
@@ -18,7 +19,7 @@ export class ServerEventReporter implements EventReporter {
   constructor(options: EventReporterOptions) {
     this.sdkKey = options.sdkKey;
     this.logger = options.logger;
-    this.url = new URL("server/telemetry/v1", options.baseUrl);
+    this.url = new URL("server/telemetry/v1", options.baseUrl.toString());
   }
 
   public async report({

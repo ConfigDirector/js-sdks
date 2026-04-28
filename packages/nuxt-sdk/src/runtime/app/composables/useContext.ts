@@ -1,5 +1,6 @@
 import type { ConfigDirectorContext } from "@js-client-core/types";
 import { useState } from "#app";
+import { toRaw } from "vue";
 import { useClient } from "./useClient";
 
 const DEFAULT_TIMEOUT = 3_000;
@@ -16,19 +17,18 @@ export const useContext = (): {
   const { client } = useClient();
 
   const updateContext = async (context: ConfigDirectorContext, options?: { timeoutMilliseconds: number }) => {
+    const rawContext = toRaw(context);
     const oldContext = JSON.stringify(state.value);
-    const newContext = JSON.stringify(context);
-    state.value = context;
+    const newContext = JSON.stringify(rawContext);
+    state.value = rawContext;
     if (oldContext != newContext) {
       const timeout = getEffectiveTimeout(options?.timeoutMilliseconds);
-      console.info(`[@configdirector/nuxt-sdk] Updating context, timeout is ${timeout}ms`);
       await Promise.race([
-        client.updateContext(context),
+        client.updateContext(rawContext),
         new Promise<void>((resolve) => {
           setTimeout(() => resolve(), timeout);
         }),
       ]);
-      console.info(`[@configdirector/nuxt-sdk] Updated context, ready status is ${client.isReady}`);
     }
   };
 

@@ -18,6 +18,7 @@ import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "@shared/errors";
 import EventEmitter from "node:events";
 import type { ConfigDirectorMetaContext } from "@shared/types";
+import { defaultUrlFactory } from "@shared/url";
 import { ServerTelemetryEventCollector } from "./telemetry";
 
 const defaultBaseUrl = new URL("https://server-sdk-api.configdirector.com");
@@ -66,6 +67,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       flushIntervalDelay: clientOptions?.telemetry?.flushInterval ?? DEFAULT_FLUSH_INTERVAL,
       evaluationQueueLimit: Math.ceil(queueLimit * 0.7),
       contextLimit: Math.floor(queueLimit * 0.3),
+      urlFactory: defaultUrlFactory,
     });
     this.transport = new transportConstructor({
       serverSdkKey,

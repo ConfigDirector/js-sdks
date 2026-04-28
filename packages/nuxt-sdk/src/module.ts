@@ -6,11 +6,13 @@ import {
   addServerPlugin,
   addServerHandler,
 } from "@nuxt/kit";
+import type { ConfigDirectorLoggingLevel } from "@shared/types";
 
 declare module "nuxt/schema" {
   interface RuntimeConfig {
     configdirector: {
       serverSdkKey: string;
+      logLevel?: ConfigDirectorLoggingLevel;
     };
   }
   interface PublicRuntimeConfig {
@@ -18,6 +20,7 @@ declare module "nuxt/schema" {
       clientSdkKey: string;
       appName: string;
       appVersion: string;
+      logLevel?: ConfigDirectorLoggingLevel;
     };
   }
 }
@@ -46,6 +49,11 @@ export default defineNuxtModule<ModuleOptions>({
       name: "useClient",
       as: "useClient",
       from: resolver.resolve("./runtime/app/composables/useClient"),
+    });
+    addImports({
+      name: "useClientStatus",
+      as: "useClientStatus",
+      from: resolver.resolve("./runtime/app/composables/useClientStatus"),
     });
     addImports({
       name: "useContext",
