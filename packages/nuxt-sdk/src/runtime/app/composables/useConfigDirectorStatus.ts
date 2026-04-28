@@ -2,7 +2,7 @@ import type { Ref, ShallowRef } from "vue";
 import { computed } from "vue";
 import type { ClientStatus } from "../../types";
 
-export const useClientStatus = (): {
+export const useConfigDirectorStatus = (): {
   readyStatus: Readonly<ShallowRef<ClientStatus>>;
   loading: Readonly<Ref<boolean>>;
 } => {

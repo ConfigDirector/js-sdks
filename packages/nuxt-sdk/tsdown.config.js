@@ -93,12 +93,13 @@ export default defineConfig([
   },
   {
     entry: {
-      "app/composables/useClient": "src/runtime/app/composables/useClient.ts",
-      "app/composables/useClientStatus": "src/runtime/app/composables/useClientStatus.ts",
-      "app/composables/useContext": "src/runtime/app/composables/useContext.ts",
-      "app/composables/useConfigValue": "src/runtime/app/composables/useConfigValue.ts",
+      "app/composables/useConfigDirectorClient": "src/runtime/app/composables/useConfigDirectorClient.ts",
+      "app/composables/useConfigDirectorStatus": "src/runtime/app/composables/useConfigDirectorStatus.ts",
+      "app/composables/useConfigDirectorContext": "src/runtime/app/composables/useConfigDirectorContext.ts",
+      "app/composables/useConfigDirectorValue": "src/runtime/app/composables/useConfigDirectorValue.ts",
       "nitro/plugin": "src/runtime/nitro/plugin.ts",
       "nitro/middleware": "src/runtime/nitro/middleware.ts",
+      "server/composables/useConfigDirectorClient": "src/runtime/server/composables/useConfigDirectorClient.ts",
     },
     format: "esm",
     outDir: "dist/runtime",
@@ -107,6 +108,7 @@ export default defineConfig([
     alias: localAlias,
     onSuccess() {
       copyDtsAsLegacy(
+        resolve(__dirname, "dist/runtime/server/composables"),
         resolve(__dirname, "dist/runtime/app/composables"),
         resolve(__dirname, "dist/runtime/nitro"),
       );

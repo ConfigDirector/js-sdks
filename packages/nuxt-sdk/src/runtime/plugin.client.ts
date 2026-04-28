@@ -1,19 +1,22 @@
 import { defineNuxtPlugin, useRuntimeConfig } from "#app";
 import { toRaw, shallowRef, readonly } from "vue";
 import { createBrowserClient } from "@js-browser-client/index";
-import { useContext } from "./app/composables/useContext";
+import { useConfigDirectorContext } from "./app/composables/useConfigDirectorContext";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorInitializationError } from "@shared/errors";
 import type { ClientStatus } from "./types";
 
 export default defineNuxtPlugin((nuxtApp) => {
   const runtimeConfig = useRuntimeConfig();
-  const logger = createDefaultLogger(runtimeConfig.public?.configdirector?.logLevel);
+  const logger = createDefaultLogger(
+    runtimeConfig.public?.configdirector?.logLevel,
+  );
 
   if (!runtimeConfig.public?.configdirector?.clientSdkKey) {
-    throw new ConfigDirectorInitializationError(
-      "The ConfigDirector clientSdkKey must be configured for the plugin to initialize",
-    );
+    const message =
+      "The ConfigDirector clientSdkKey must be configured for the plugin to initialize. You can provide it in nuxt.config.ts under 'runtimeConfig.public.configdirector.clientSdkKey' or as a runtime environment variable named NUXT_PUBLIC_CONFIGDIRECTOR_CLIENT_SDK_KEY";
+    logger.error(message);
+    throw new ConfigDirectorInitializationError(message);
   }
 
   logger.debug("Installed ConfigDirector Nuxt plugin");
@@ -33,13 +36,15 @@ export default defineNuxtPlugin((nuxtApp) => {
     },
   );
 
-  const readyStatus = shallowRef<ClientStatus>(client.isReady ? "ready" : "loading");
+  const readyStatus = shallowRef<ClientStatus>(
+    client.isReady ? "ready" : "loading",
+  );
   client.on("clientReady", () => {
     readyStatus.value = "ready";
   });
   nuxtApp.hooks.hook("app:created", async () => {
     logger.debug(`Initializing browser client`);
-    const { context } = useContext();
+    const { context } = useConfigDirectorContext();
     await client.initialize(toRaw(context));
     if (!client.isReady) {
       readyStatus.value = "default";

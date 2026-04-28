@@ -9,7 +9,7 @@ import { createDefaultLogger } from "./logger";
 import type { ConfigDirectorClient as ServerConfigDirectorClient } from "@configdirector/server-sdk";
 import { shallowRef, readonly } from "vue";
 import { defineNuxtPlugin, useRuntimeConfig } from "#app";
-import { useContext } from "./app/composables/useContext";
+import { useConfigDirectorContext } from "./app/composables/useConfigDirectorContext";
 import type { ClientStatus } from "./types";
 
 export default defineNuxtPlugin((nuxtApp) => {
@@ -18,18 +18,18 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   logger.debug("Installed ConfigDirector Nuxt SSR plugin");
 
-  const serverClient = nuxtApp.ssrContext?.event?.context.configDirectorClient;
-  logger.debug("Nitro ConfigDirector client isReady: ", serverClient?.isReady);
-  if (!serverClient) {
+  const serverSdkClient = nuxtApp.ssrContext?.event?.context.configDirectorClient;
+  logger.debug("Nitro ConfigDirector client isReady: ", serverSdkClient?.isReady);
+  if (!serverSdkClient) {
     throw "The nitro ConfigDirector plugin was not initialized";
   }
 
-  const client: ConfigDirectorClient = createSsrClient(serverClient);
-  const readyStatus = shallowRef<ClientStatus>(serverClient.isReady ? "ready" : "default");
+  const client: ConfigDirectorClient = createSsrClient(serverSdkClient);
+  const readyStatus = shallowRef<ClientStatus>(serverSdkClient.isReady ? "ready" : "default");
 
   nuxtApp.hooks.hook("app:created", async () => {
     logger.debug("Updating ConfigDirector context for SSR evaluation");
-    const { context } = useContext();
+    const { context } = useConfigDirectorContext();
     await client.initialize(context);
   });
 
