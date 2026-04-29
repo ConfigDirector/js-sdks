@@ -1,84 +1,136 @@
-<!--
-Get your module up and running quickly.
+# ConfigDirector Nuxt SDK
 
-Find and replace all on all files (CMD+SHIFT+F):
-- Name: My Module
-- Package name: my-module
-- Description: My new Nuxt module
--->
+## Getting started
 
-# My Module
+### 1. Install
 
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![License][license-src]][license-href]
-[![Nuxt][nuxt-src]][nuxt-href]
-
-My new Nuxt module for doing amazing things.
-
-- [✨ &nbsp;Release Notes](/CHANGELOG.md)
-<!-- - [🏀 Online playground](https://stackblitz.com/github/your-org/my-module?file=playground%2Fapp.vue) -->
-<!-- - [📖 &nbsp;Documentation](https://example.com) -->
-
-## Features
-
-<!-- Highlight some of the features your module provide here -->
-- ⛰ &nbsp;Foo
-- 🚠 &nbsp;Bar
-- 🌲 &nbsp;Baz
-
-## Quick Setup
-
-Install the module to your Nuxt application with one command:
+Install from NPM:
 
 ```bash
-npx nuxt module add my-module
+npm install --save @configdirector/nuxt-sdk
 ```
 
-That's it! You can now use My Module in your Nuxt app ✨
+### 2. Configure the Nuxt module
 
+The Nuxt SDK requires the client SDK key for evaluation in the browser, and the server SDK key for server side rendering (SSR) and for server routes.
 
-## Contribution
+You can provide the keys in `nuxt.config.ts`:
 
-<details>
-  <summary>Local development</summary>
-  
-  ```bash
-  # Install dependencies
-  npm install
-  
-  # Generate type stubs
-  npm run dev:prepare
-  
-  # Develop with the playground
-  npm run dev
-  
-  # Build the playground
-  npm run dev:build
-  
-  # Run ESLint
-  npm run lint
-  
-  # Run Vitest
-  npm run test
-  npm run test:watch
-  
-  # Release new version
-  npm run release
-  ```
+```ts
+export default defineNuxtConfig({
+  //...
+  modules: ["@configdirector/nuxt-sdk"],
+  runtimeConfig: {
+    public: {
+      configdirector: {
+        clientSdkKey: "YOUR-CLIENT-SDK-KEY",
+      },
+    },
+    configdirector: {
+      serverSdkKey: "YOUR-SERVER-SDK-KEY", // This is a secret, do not commit to your source repository
+    },
+  },
+});
+```
 
-</details>
+Since the server SDK key is a secret value, the recommended approach is to provide it via an environment variable:
 
+```bash
+export NUXT_CONFIGDIRECTOR_SERVER_SDK_KEY=YOUR-SERVER-SDK-KEY
+```
 
-<!-- Badges -->
-[npm-version-src]: https://img.shields.io/npm/v/my-module/latest.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-version-href]: https://npmjs.com/package/my-module
+The client key can also be provided via an environment variable, which overrides the key provided in: `nuxt.config.ts`:
 
-[npm-downloads-src]: https://img.shields.io/npm/dm/my-module.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-downloads-href]: https://npm.chart.dev/my-module
+```bash
+export NUXT_PUBLIC_CONFIGDIRECTOR_CLIENT_SDK_KEY=YOUR-CLIENT-SDK-KEY
+```
 
-[license-src]: https://img.shields.io/npm/l/my-module.svg?style=flat&colorA=020420&colorB=00DC82
-[license-href]: https://npmjs.com/package/my-module
+### 3. Retrieve config values
 
-[nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt
-[nuxt-href]: https://nuxt.com
+Retrieve a config value with the `useConfigDirectorValue` composable:
+
+```ts
+<script setup lang="ts">
+const { value } = useConfigDirectorValue<string>("my-config", "default value");
+</script>
+
+<template>
+  <div>my-config is : {{ value }}</div>
+</template>
+```
+
+You can also determine if the client is still initializing, so rather than transition from the default value to the evaluated value, you can show a loading state until the client is ready and config values are evaluated:
+
+```ts
+<script setup lang="ts">
+const { value, loading } = useConfigDirectorValue<string>("my-config", "default value");
+</script>
+
+<template>
+  <div v-if="loading">Loading...</div>
+  <div v-else>my-config is : {{ value }}</div>
+</template>
+```
+
+Alternatively, you can also use the `useConfigDirectorStatus` composable to retrieve just the status:
+
+```ts
+<script setup lang="ts">
+const { loading } = useConfigDirectorStatus();
+</script>
+
+<template>
+  <div v-if="loading">Loading...</div>
+  <div v-else><SomeComponentThatUsesConfigValues /></div>
+</template>
+```
+
+### 4. Updating the user context
+
+Update the user context with the `useConfigDirectorContext` composable:
+
+```ts
+<script setup lang="ts">
+const { context, updateContext } = useConfigDirectorContext();
+const { value } = useConfigDirectorValue<string>("my-config", "default value");
+
+const onUpdate = () => {
+  updateContext({
+    id: "54321",
+    name: "Another User",
+  });
+};
+</script>
+
+<template>
+  <div>Current context: {{ context }}</div>
+  <div>my-config is : {{ value }}</div>
+  <button type="button" @click="onUpdate">Update Context</button>
+</template>
+```
+
+### 5. Retrieving config values in a server handler
+
+On the server side, there is a Nitro composable to retrieve the ConfigDirector client:
+
+```ts
+export default defineEventHandler(async (_event) => {
+  const client = useConfigDirectorClient();
+  return client.getValue("my-config", "default value");
+});
+```
+
+`getValue` can also accepts an optional user context:
+
+```ts
+export default defineEventHandler(async (_event) => {
+  const client = useConfigDirectorClient();
+  return client.getValue("my-config", "default value", { id: "some-user-id", name: "Example User" });
+});
+```
+
+The server side evaluation is performed entirely by the SDK. Unlike the browser client which must retrieve new values when the user context is updated, the server evaluator can evaluate targeting rules locally (without additional network requests to ConfigDirector) for any user context.
+
+## Getting Help
+
+Reach out to us via https://www.configdirector.com/support
