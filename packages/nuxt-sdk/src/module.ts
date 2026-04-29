@@ -26,6 +26,12 @@ interface ConfigDirectorRuntimeConfig {
    * This value overrides the module's logLevel and the global Nuxt/consola log level.
    */
   logLevel?: LogLevel;
+  /**
+   * Override the ConfigDirector server API base URL. Only update this if you are using a proxy
+   * for ConfigDirector.
+   * Can be set via the NUXT_CONFIGDIRECTOR_BASE_URL environment variable.
+   */
+  baseUrl?: string;
 }
 
 interface ConfigDirectorPublicRuntimeConfig {
@@ -53,6 +59,12 @@ interface ConfigDirectorPublicRuntimeConfig {
    * This value overrides the module's logLevel and the global Nuxt/consola log level.
    */
   logLevel?: LogLevel;
+  /**
+   * Override the ConfigDirector client API base URL. Primarily useful for testing.
+   * When omitted, the default ConfigDirector client endpoint is used.
+   * Can be set via the NUXT_PUBLIC_CONFIGDIRECTOR_BASE_URL environment variable.
+   */
+  baseUrl?: string;
 }
 
 declare module "nuxt/schema" {
@@ -98,14 +110,14 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.runtimeConfig.configdirector = defu(
       nuxt.options.runtimeConfig.configdirector,
       options.logLevel !== undefined
-        ? { serverSdkKey: "", logLevel: options.logLevel }
-        : { serverSdkKey: "" },
+        ? { serverSdkKey: "", logLevel: options.logLevel, baseUrl: "" }
+        : { serverSdkKey: "", baseUrl: "" },
     );
     nuxt.options.runtimeConfig.public.configdirector = defu(
       nuxt.options.runtimeConfig.public.configdirector,
       options.logLevel !== undefined
-        ? { clientSdkKey: "", logLevel: options.logLevel }
-        : { clientSdkKey: "" },
+        ? { clientSdkKey: "", logLevel: options.logLevel, baseUrl: "" }
+        : { clientSdkKey: "", baseUrl: "" },
     );
 
     logger.debug("ConfigDirector Nuxt module setup complete");

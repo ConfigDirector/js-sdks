@@ -30,7 +30,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hooks.hook("app:created", async () => {
     logger.debug("Updating ConfigDirector context for SSR evaluation");
     const { context } = useConfigDirectorContext();
-    await client.initialize(context);
+    await client.initialize(context.value);
   });
 
   return {

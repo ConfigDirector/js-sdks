@@ -13627,6 +13627,7 @@ __metadata:
     consola: "npm:^3.4.2"
     eslint: "npm:^10.2.1"
     nuxt: "npm:^4.4.2"
+    playwright: "npm:^1.52.0"
     tsdown: "npm:^0.21.7"
     typescript: "npm:~6.0.3"
     vitest: "npm:^4.1.4"
@@ -14473,7 +14474,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright@npm:^1.59.1":
+"playwright@npm:^1.52.0, playwright@npm:^1.59.1":
   version: 1.59.1
   resolution: "playwright@npm:1.59.1"
   dependencies:

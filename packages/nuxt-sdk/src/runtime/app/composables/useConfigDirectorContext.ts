@@ -1,6 +1,7 @@
 import type { ConfigDirectorContext } from "@js-client-core/types";
 import { useState } from "#app";
-import { toRaw } from "vue";
+import { toRaw, readonly } from "vue";
+import type { Ref } from "vue";
 import { useConfigDirectorClient } from "./useConfigDirectorClient";
 
 const DEFAULT_TIMEOUT = 3_000;
@@ -10,7 +11,7 @@ const getEffectiveTimeout = (option?: number) => {
 };
 
 export const useConfigDirectorContext = (): {
-  context: ConfigDirectorContext | undefined;
+  context: Readonly<Ref<ConfigDirectorContext | undefined>>;
   updateContext: (context: ConfigDirectorContext, options?: { timeoutMilliseconds: number }) => Promise<void>;
 } => {
   const state = useState<ConfigDirectorContext | undefined>("configdirector-context");
@@ -33,7 +34,7 @@ export const useConfigDirectorContext = (): {
   };
 
   return {
-    context: state.value,
+    context: readonly(state),
     updateContext,
   };
 };

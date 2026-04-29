@@ -44,6 +44,7 @@
     "changelogen": "^0.6.2",
     "eslint": "^10.2.1",
     "nuxt": "^4.4.2",
+    "playwright": "^1.52.0",
     "tsdown": "^0.21.7",
     "typescript": "~6.0.3",
     "vitest": "^4.1.4",

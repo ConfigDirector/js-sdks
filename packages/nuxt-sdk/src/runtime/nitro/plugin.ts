@@ -16,10 +16,14 @@ export default defineNitroPlugin((nitroApp) => {
   }
 
   logger.debug("Initializing ConfigDirector Nitro plugin");
+  const { serverSdkKey, baseUrl } = runtimeConfig.configdirector;
   const client: ConfigDirectorClient = new DefaultConfigDirectorClient(
-    runtimeConfig.configdirector.serverSdkKey,
+    serverSdkKey,
     { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
-    { logger },
+    {
+      logger,
+      ...(baseUrl ? { connection: { url: baseUrl } } : {}),
+    },
   );
 
   nitroApp.configDirectorClient = client;

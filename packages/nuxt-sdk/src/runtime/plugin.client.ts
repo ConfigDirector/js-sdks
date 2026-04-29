@@ -21,16 +21,15 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   logger.debug("Installed ConfigDirector Nuxt plugin");
 
+  const { clientSdkKey, appName, appVersion, baseUrl } = runtimeConfig.public.configdirector;
   const client = createBrowserClient(
-    runtimeConfig.public.configdirector.clientSdkKey,
+    clientSdkKey,
     { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
     {
-      metadata: {
-        appName: runtimeConfig.public.configdirector.appName,
-        appVersion: runtimeConfig.public.configdirector.appVersion,
-      },
+      metadata: { appName, appVersion },
       connection: {
         timeout: 2_000,
+        ...(baseUrl ? { url: baseUrl } : {}),
       },
       logger,
     },
@@ -45,7 +44,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hooks.hook("app:created", async () => {
     logger.debug(`Initializing browser client`);
     const { context } = useConfigDirectorContext();
-    await client.initialize(toRaw(context));
+    await client.initialize(toRaw(context.value));
     if (!client.isReady) {
       readyStatus.value = "default";
     }
