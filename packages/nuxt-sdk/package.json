@@ -1,5 +1,5 @@
 {
-  "name": "nuxt-sdk",
+  "name": "@configdirector/nuxt-sdk",
   "version": "0.1.0",
   "description": "Nuxt SDK for ConfigDirector. ConfigDirector is a remote configuration and feature flag service.",
   "license": "MIT",

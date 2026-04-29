@@ -120,7 +120,7 @@ export default defineEventHandler(async (_event) => {
 });
 ```
 
-`getValue` can also accepts an optional user context:
+`getValue` also accepts an optional user context:
 
 ```ts
 export default defineEventHandler(async (_event) => {
