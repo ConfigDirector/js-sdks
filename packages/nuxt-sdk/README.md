@@ -59,6 +59,21 @@ const { value } = useConfigDirectorValue<string>("my-config", "default value");
 </template>
 ```
 
+The `value` returned is a ShallowRef that will update whenever the config value is updated in the ConfigDirector dashboard, or if it evaluates to a different value due to targeting rules (for example, if the user context is updated). Keep in mind that it is a ShallowRef when accessing it in scripts:
+
+```ts
+<script setup lang="ts">
+const { value: myConfigValue } = useConfigDirectorValue<string>("my-config", "default value");
+
+const someOtherDerivedValue = computed(() => `Hello ${myConfigValue.value}`);
+</script>
+
+<template>
+  <div>my-config is : {{ someOtherDerivedValue }}</div>
+</template>
+```
+
+
 You can also determine if the client is still initializing, so rather than transition from the default value to the evaluated value, you can show a loading state until the client is ready and config values are evaluated:
 
 ```ts
@@ -72,7 +87,7 @@ const { value, loading } = useConfigDirectorValue<string>("my-config", "default 
 </template>
 ```
 
-Alternatively, you can also use the `useConfigDirectorStatus` composable to retrieve just the status:
+Additionally, you can also use the `useConfigDirectorStatus` composable to retrieve just the status:
 
 ```ts
 <script setup lang="ts">
