@@ -8,9 +8,7 @@ import type { ClientStatus } from "./types";
 
 export default defineNuxtPlugin((nuxtApp) => {
   const runtimeConfig = useRuntimeConfig();
-  const logger = createDefaultLogger(
-    runtimeConfig.public?.configdirector?.logLevel,
-  );
+  const logger = createDefaultLogger(runtimeConfig.public?.configdirector?.logLevel);
 
   if (!runtimeConfig.public?.configdirector?.clientSdkKey) {
     const message =
@@ -35,22 +33,18 @@ export default defineNuxtPlugin((nuxtApp) => {
     },
   );
 
-  const readyStatus = shallowRef<ClientStatus>(
-    client.isReady ? "ready" : "loading",
-  );
+  const readyStatus = shallowRef<ClientStatus>(client.isReady ? "ready" : "loading");
   client.on("clientReady", () => {
     readyStatus.value = "ready";
   });
   nuxtApp.hooks.hook("app:created", async () => {
-    logger.debug(`Initializing browser client`);
+    logger.debug("Initializing browser client");
     const { context } = useConfigDirectorContext();
     await client.initialize(toRaw(context.value));
     if (!client.isReady) {
       readyStatus.value = "default";
     }
-    logger.debug(
-      `Browser client initialization awaited, ready status: ${client.isReady}`,
-    );
+    logger.debug(`Browser client initialization awaited, ready status: ${client.isReady}`);
   });
 
   return {

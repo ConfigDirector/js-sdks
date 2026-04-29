@@ -8576,7 +8576,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"defu@npm:^6.1.6":
+"defu@npm:^6.1.6, defu@npm:^6.1.7":
   version: 6.1.7
   resolution: "defu@npm:6.1.7"
   checksum: 10c0/e6635388103c8be3c574ac31302f6930e5e6eeedba32cb1b30cf993c7d9fb571aec2485446dfa23bfa63e55e66156fe109027a9695db82a50f931e91e8d4bedb
@@ -13617,6 +13617,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "nuxt-sdk@workspace:packages/nuxt-sdk"
   dependencies:
+    "@jsonjoy.com/json-pointer": "npm:^18.1.0"
     "@nuxt/devtools": "npm:^3.2.4"
     "@nuxt/eslint-config": "npm:^1.15.2"
     "@nuxt/kit": "npm:^4.4.2"
@@ -13625,9 +13626,12 @@ __metadata:
     "@types/node": "npm:latest"
     changelogen: "npm:^0.6.2"
     consola: "npm:^3.4.2"
+    defu: "npm:^6.1.7"
     eslint: "npm:^10.2.1"
     nuxt: "npm:^4.4.2"
     playwright: "npm:^1.52.0"
+    rapidhash-js: "npm:^3.0.0"
+    semver: "npm:^7.7.4"
     tsdown: "npm:^0.21.7"
     typescript: "npm:~6.0.3"
     vitest: "npm:^4.1.4"

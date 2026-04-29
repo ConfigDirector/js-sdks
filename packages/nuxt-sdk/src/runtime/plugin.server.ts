@@ -1,9 +1,8 @@
-import {
-  type ConfigDirectorClient,
-  type ConfigDirectorContext,
-  type ConfigValueType,
-  type ClientEvents,
-  type WatchHandler,
+import type {
+  ConfigDirectorClient,
+  ConfigDirectorContext,
+  ConfigValueType,
+  WatchHandler,
 } from "@js-client-core/index";
 import { createDefaultLogger } from "./logger";
 import type { ConfigDirectorClient as ServerConfigDirectorClient } from "@configdirector/server-sdk";
@@ -69,11 +68,7 @@ class SsrClient implements ConfigDirectorClient {
   }
 
   getValue<T extends ConfigValueType>(configKey: string, defaultValue: T): T {
-    return this.serverClient.getValue(
-      configKey,
-      defaultValue,
-      this.currentContext,
-    );
+    return this.serverClient.getValue(configKey, defaultValue, this.currentContext);
   }
 
   watch<T extends ConfigValueType>(
@@ -81,18 +76,10 @@ class SsrClient implements ConfigDirectorClient {
     defaultValue: T,
     callback: WatchHandler<T>,
   ): () => void {
-    return this.serverClient.watch(
-      configKey,
-      defaultValue,
-      callback,
-      this.currentContext,
-    );
+    return this.serverClient.watch(configKey, defaultValue, callback, this.currentContext);
   }
 
-  unwatch<T extends ConfigValueType>(
-    configKey: string,
-    callback?: WatchHandler<T>,
-  ): void {
+  unwatch<T extends ConfigValueType>(configKey: string, callback?: WatchHandler<T>): void {
     return this.serverClient.unwatch(configKey, callback);
   }
 
@@ -106,21 +93,13 @@ class SsrClient implements ConfigDirectorClient {
 
   dispose(): void {}
 
-  on<TName extends keyof ClientEvents>(
-    name: TName,
-    handler: (payload: ClientEvents[TName]) => void,
-  ): void {}
+  on(): void {}
 
-  off<TName extends keyof ClientEvents>(
-    name: TName,
-    handler?: ((payload: ClientEvents[TName]) => void) | undefined,
-  ): void {}
+  off(): void {}
 
   clear(): void {}
 }
 
-const createSsrClient = (
-  serverClient: ServerConfigDirectorClient,
-): ConfigDirectorClient => {
+const createSsrClient = (serverClient: ServerConfigDirectorClient): ConfigDirectorClient => {
   return new SsrClient(serverClient);
 };

@@ -130,9 +130,7 @@ export default defineNuxtModule<ModuleOptions>({
     addServerImports({
       name: "useConfigDirectorClient",
       as: "useConfigDirectorClient",
-      from: resolver.resolve(
-        "./runtime/server/composables/useConfigDirectorClient",
-      ),
+      from: resolver.resolve("./runtime/server/composables/useConfigDirectorClient"),
     });
 
     addPlugin(resolver.resolve("./runtime/plugin.server"));
@@ -140,30 +138,22 @@ export default defineNuxtModule<ModuleOptions>({
     addImports({
       name: "useConfigDirectorClient",
       as: "useConfigDirectorClient",
-      from: resolver.resolve(
-        "./runtime/app/composables/useConfigDirectorClient",
-      ),
+      from: resolver.resolve("./runtime/app/composables/useConfigDirectorClient"),
     });
     addImports({
       name: "useConfigDirectorStatus",
       as: "useConfigDirectorStatus",
-      from: resolver.resolve(
-        "./runtime/app/composables/useConfigDirectorStatus",
-      ),
+      from: resolver.resolve("./runtime/app/composables/useConfigDirectorStatus"),
     });
     addImports({
       name: "useConfigDirectorContext",
       as: "useConfigDirectorContext",
-      from: resolver.resolve(
-        "./runtime/app/composables/useConfigDirectorContext",
-      ),
+      from: resolver.resolve("./runtime/app/composables/useConfigDirectorContext"),
     });
     addImports({
       name: "useConfigDirectorValue",
       as: "useConfigDirectorValue",
-      from: resolver.resolve(
-        "./runtime/app/composables/useConfigDirectorValue",
-      ),
+      from: resolver.resolve("./runtime/app/composables/useConfigDirectorValue"),
     });
   },
 });

@@ -2,9 +2,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import { setup, $fetch } from "@nuxt/test-utils/e2e";
 
-const FIXTURE_DIR = fileURLToPath(
-  new URL("./fixtures/configdirector", import.meta.url),
-);
+const FIXTURE_DIR = fileURLToPath(new URL("./fixtures/configdirector", import.meta.url));
 
 describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
   await setup({ rootDir: FIXTURE_DIR });
@@ -17,9 +15,7 @@ describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
 
     it("renders the boolean config value during SSR", async () => {
       const html = await $fetch("/");
-      const match = html.match(
-        /data-testid="feature-enabled"[^>]*>([^<]*)<\/div>/,
-      );
+      const match = html.match(/data-testid="feature-enabled"[^>]*>([^<]*)<\/div>/);
       expect(match?.[1]?.trim()).toBe("true");
     });
 

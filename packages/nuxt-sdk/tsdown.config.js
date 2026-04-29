@@ -1,8 +1,8 @@
 import { defineConfig } from "tsdown";
 import replace from "@rollup/plugin-replace";
-import * as fs from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import * as fs from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { inlineWorkerPlugin } from "../../scripts/inline-worker-plugin.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

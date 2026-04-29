@@ -1,9 +1,18 @@
 <template>
   <div>
-    <div data-testid="welcome">{{ welcomeMessage }}</div>
-    <div data-testid="status">{{ readyStatus }}</div>
-    <div data-testid="context-id">{{ context?.id ?? "none" }}</div>
-    <button data-testid="set-context-btn" @click="setUserContext">
+    <div data-testid="welcome">
+      {{ welcomeMessage }}
+    </div>
+    <div data-testid="status">
+      {{ readyStatus }}
+    </div>
+    <div data-testid="context-id">
+      {{ context?.id ?? "none" }}
+    </div>
+    <button
+      data-testid="set-context-btn"
+      @click="setUserContext"
+    >
       Set Context
     </button>
   </div>

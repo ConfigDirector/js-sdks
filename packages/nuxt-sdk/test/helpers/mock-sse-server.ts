@@ -97,7 +97,7 @@ const handleSseRequest = (
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+      "Connection": "keep-alive",
       ...CORS_HEADERS,
     });
     res.write(sseEvent(bundle));
@@ -141,14 +141,17 @@ export const startMockSseServer = (): Promise<MockSseServer> => {
 
         if (pathname === "/server/sse/v1") {
           handleSseRequest(SERVER_BUNDLE, req, res);
-        } else if (pathname === "/client/sse/v1") {
+        }
+        else if (pathname === "/client/sse/v1") {
           handleSseRequest(CLIENT_BUNDLE, req, res);
-        } else if (
-          pathname === "/server/telemetry/v1" ||
-          pathname === "/client/telemetry/v1"
+        }
+        else if (
+          pathname === "/server/telemetry/v1"
+          || pathname === "/client/telemetry/v1"
         ) {
           handleTelemetryRequest(req, res);
-        } else {
+        }
+        else {
           res.writeHead(404);
           res.end();
         }

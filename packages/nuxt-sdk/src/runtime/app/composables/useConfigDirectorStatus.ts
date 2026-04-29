@@ -1,6 +1,7 @@
 import type { Ref, ShallowRef } from "vue";
 import { computed } from "vue";
 import type { ClientStatus } from "../../types";
+import { useNuxtApp } from "#app";
 
 export const useConfigDirectorStatus = (): {
   readyStatus: Readonly<ShallowRef<ClientStatus>>;

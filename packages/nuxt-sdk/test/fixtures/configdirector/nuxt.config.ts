@@ -18,6 +18,6 @@ const alias: Record<string, string> = {
 
 export default defineNuxtConfig({
   modules: [MyModule],
-  vite: { resolve: { alias } },
   nitro: { alias },
+  vite: { resolve: { alias } },
 });

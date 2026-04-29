@@ -1,5 +1,5 @@
 import { DefaultConfigDirectorClient } from "@js-server-sdk/DefaultConfigDirectorClient";
-import { type ConfigDirectorClient } from "@js-server-sdk/types";
+import type { ConfigDirectorClient } from "@js-server-sdk/types";
 import { defineNitroPlugin, useRuntimeConfig } from "nitropack/runtime";
 import { createDefaultLogger } from "../logger";
 import { ConfigDirectorInitializationError } from "@shared/errors";
