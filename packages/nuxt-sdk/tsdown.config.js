@@ -106,6 +106,12 @@ export default defineConfig([
     dts: true,
     deps: { neverBundle: ["#app", /^#app\//, "vue", /^vue\//, "nuxt", /^nuxt\//, "nitropack", /^nitropack\//, "h3", "@configdirector/client-sdk"] },
     alias: localAlias,
+    plugins: [
+      replace({
+        __VERSION__: pkg.version,
+        preventAssignment: true,
+      }),
+    ],
     onSuccess() {
       copyDtsAsLegacy(
         resolve(__dirname, "dist/runtime/server/composables"),
