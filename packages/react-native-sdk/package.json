@@ -78,9 +78,9 @@
     "wtfnode": "^0.10.1"
   },
   "peerDependencies": {
-    "expo": ">=48",
+    "expo": ">=52",
     "react": "*",
-    "react-native": ">=0.71"
+    "react-native": ">=0.75"
   },
   "peerDependenciesMeta": {
     "expo": {

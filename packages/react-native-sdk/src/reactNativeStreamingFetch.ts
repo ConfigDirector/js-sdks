@@ -1,5 +1,13 @@
 import { encodeUtf8 } from "./utf8Encoder";
 
+// DOMException is not available in Hermes. Create abort errors using a plain
+// Error with name="AbortError" — EventSourceClient only checks error.name.
+const abortError = (message: string): Error => {
+  const err = new Error(message);
+  err.name = "AbortError";
+  return err;
+};
+
 /**
  * A fetch-compatible function for React Native that uses XMLHttpRequest to
  * support streaming SSE responses. React Native's built-in fetch accumulates
@@ -12,9 +20,7 @@ export const reactNativeStreamingFetch = (
   init: RequestInit,
 ): Promise<Response> => {
   if (init.signal?.aborted) {
-    return Promise.reject(
-      new DOMException("Request was aborted before it was opened", "AbortError"),
-    );
+    return Promise.reject(abortError("Request was aborted before it was opened"));
   }
 
   return new Promise<Response>((resolve, reject) => {
@@ -84,7 +90,7 @@ export const reactNativeStreamingFetch = (
       init.signal.addEventListener("abort", () => {
         xhr.abort();
         if (!responseResolved) {
-          reject(new DOMException("Request was aborted", "AbortError"));
+          reject(abortError("Request was aborted"));
         } else {
           try {
             streamController.close();
