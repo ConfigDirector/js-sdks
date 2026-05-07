@@ -1433,9 +1433,9 @@ __metadata:
     typescript-eslint: "npm:^8.58.1"
     wtfnode: "npm:^0.10.1"
   peerDependencies:
-    expo: ">=48"
+    expo: ">=52"
     react: "*"
-    react-native: ">=0.71"
+    react-native: ">=0.75"
   peerDependenciesMeta:
     expo:
       optional: true
@@ -1549,7 +1549,7 @@ __metadata:
     vitest: "npm:^4.1.2"
     vue: "npm:^3.5.32"
   peerDependencies:
-    vue: ">=3.2"
+    vue: ">=3.2.24"
   languageName: unknown
   linkType: soft
 
