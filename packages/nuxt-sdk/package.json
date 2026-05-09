@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "@jsonjoy.com/json-pointer": "^18.1.0",
-    "@nuxt/kit": "^4.4.2",
+    "@nuxt/kit": "^3.7.0 || ^4.0.0",
     "consola": "^3.4.2",
     "defu": "^6.1.7",
     "rapidhash-js": "^3.0.0",

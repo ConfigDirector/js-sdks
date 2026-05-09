@@ -30,3 +30,25 @@ jobs:
 
       - name: yarn test
         run: yarn test
+
+  nuxt3-compat:
+    name: Nuxt SDK — Nuxt 3 compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: yarn install
+        run: yarn install
+
+      - name: Override nuxt-sdk devDeps to Nuxt 3
+        run: yarn workspace @configdirector/nuxt-sdk add --dev "nuxt@^3" "@nuxt/kit@^3" "@nuxt/schema@^3" "@nuxt/test-utils@^3"
+
+      - name: yarn playwright install
+        run: yarn playwright install --with-deps
+        working-directory: ./packages/nuxt-sdk
+
+      - name: Run nuxt-sdk tests against Nuxt 3
+        run: yarn workspace @configdirector/nuxt-sdk ci:test

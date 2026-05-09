@@ -99,7 +99,7 @@ export default defineNuxtModule<ModuleOptions>({
     name: "@configdirector/nuxt-sdk",
     configKey: "configdirector",
     compatibility: {
-      nuxt: ">=4.0.0",
+      nuxt: ">=3.7.0",
     },
   },
   defaults: {},
@@ -127,33 +127,37 @@ export default defineNuxtModule<ModuleOptions>({
       middleware: true,
       handler: resolver.resolve("./runtime/nitro/middleware"),
     });
-    addServerImports({
-      name: "useConfigDirectorClient",
-      as: "useConfigDirectorClient",
-      from: resolver.resolve("./runtime/server/composables/useConfigDirectorClient"),
-    });
+    addServerImports([
+      {
+        name: "useConfigDirectorClient",
+        as: "useConfigDirectorClient",
+        from: resolver.resolve("./runtime/server/composables/useConfigDirectorClient"),
+      },
+    ]);
 
     addPlugin(resolver.resolve("./runtime/plugin.server"));
     addPlugin(resolver.resolve("./runtime/plugin.client"));
-    addImports({
-      name: "useConfigDirectorClient",
-      as: "useConfigDirectorClient",
-      from: resolver.resolve("./runtime/app/composables/useConfigDirectorClient"),
-    });
-    addImports({
-      name: "useConfigDirectorStatus",
-      as: "useConfigDirectorStatus",
-      from: resolver.resolve("./runtime/app/composables/useConfigDirectorStatus"),
-    });
-    addImports({
-      name: "useConfigDirectorContext",
-      as: "useConfigDirectorContext",
-      from: resolver.resolve("./runtime/app/composables/useConfigDirectorContext"),
-    });
-    addImports({
-      name: "useConfigDirectorValue",
-      as: "useConfigDirectorValue",
-      from: resolver.resolve("./runtime/app/composables/useConfigDirectorValue"),
-    });
+    addImports([
+      {
+        name: "useConfigDirectorClient",
+        as: "useConfigDirectorClient",
+        from: resolver.resolve("./runtime/app/composables/useConfigDirectorClient"),
+      },
+      {
+        name: "useConfigDirectorStatus",
+        as: "useConfigDirectorStatus",
+        from: resolver.resolve("./runtime/app/composables/useConfigDirectorStatus"),
+      },
+      {
+        name: "useConfigDirectorContext",
+        as: "useConfigDirectorContext",
+        from: resolver.resolve("./runtime/app/composables/useConfigDirectorContext"),
+      },
+      {
+        name: "useConfigDirectorValue",
+        as: "useConfigDirectorValue",
+        from: resolver.resolve("./runtime/app/composables/useConfigDirectorValue"),
+      },
+    ]);
   },
 });
