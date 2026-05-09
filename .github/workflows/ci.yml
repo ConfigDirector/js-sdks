@@ -48,6 +48,9 @@ jobs:
           yarn workspace @configdirector/nuxt-sdk add "@nuxt/kit@^3"
           yarn workspace @configdirector/nuxt-sdk add --dev "nuxt@^3" "@nuxt/schema@^3" "@nuxt/test-utils@^3"
 
+      - name: Generate Nuxt types
+        run: yarn workspace @configdirector/nuxt-sdk exec nuxt prepare
+
       - name: yarn playwright install
         run: yarn playwright install --with-deps
         working-directory: ./packages/nuxt-sdk
