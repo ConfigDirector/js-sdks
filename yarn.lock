@@ -1368,7 +1368,7 @@ __metadata:
     "@jsonjoy.com/json-pointer": "npm:^18.1.0"
     "@nuxt/devtools": "npm:^3.2.4"
     "@nuxt/eslint-config": "npm:^1.15.2"
-    "@nuxt/kit": "npm:^4.4.2"
+    "@nuxt/kit": "npm:^3.7.0 || ^4.0.0"
     "@nuxt/schema": "npm:^4.4.2"
     "@nuxt/test-utils": "npm:^4.0.2"
     "@types/node": "npm:latest"
@@ -3368,6 +3368,34 @@ __metadata:
     unctx: "npm:^2.5.0"
     untyped: "npm:^2.0.0"
   checksum: 10c0/5fd3ae0433c7007f78572615d84711e6e3db54e17b34ec648af4d8d2d82ec326666ea77aee8587c7afd089ebe5f258473e122cec99372462c0989a5d68636917
+  languageName: node
+  linkType: hard
+
+"@nuxt/kit@npm:^3.7.0 || ^4.0.0":
+  version: 4.4.4
+  resolution: "@nuxt/kit@npm:4.4.4"
+  dependencies:
+    c12: "npm:^3.3.4"
+    consola: "npm:^3.4.2"
+    defu: "npm:^6.1.7"
+    destr: "npm:^2.0.5"
+    errx: "npm:^0.1.0"
+    exsolve: "npm:^1.0.8"
+    ignore: "npm:^7.0.5"
+    jiti: "npm:^2.6.1"
+    klona: "npm:^2.0.6"
+    mlly: "npm:^1.8.2"
+    ohash: "npm:^2.0.11"
+    pathe: "npm:^2.0.3"
+    pkg-types: "npm:^2.3.1"
+    rc9: "npm:^3.0.1"
+    scule: "npm:^1.3.0"
+    semver: "npm:^7.7.4"
+    tinyglobby: "npm:^0.2.16"
+    ufo: "npm:^1.6.4"
+    unctx: "npm:^2.5.0"
+    untyped: "npm:^2.0.0"
+  checksum: 10c0/9d9289d4715c454e72deebc1e1e38faf943599b0710b7dd5716e6a9ad9b433a532802506ed49a32ed0bf907aec0e231e6f74e3b6c7ebda05578b12350ef5a738
   languageName: node
   linkType: hard
 
@@ -14619,6 +14647,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"pkg-types@npm:^2.3.1":
+  version: 2.3.1
+  resolution: "pkg-types@npm:2.3.1"
+  dependencies:
+    confbox: "npm:^0.2.4"
+    exsolve: "npm:^1.0.8"
+    pathe: "npm:^2.0.3"
+  checksum: 10c0/dd9b20682426abaddcac9dc786aa22542e12df15a03dea2afa7bf54da0933358c6c7f545c0c3c1c7b24a2904ab4a451bf4e34a50c6837e458359eea30c257ed4
+  languageName: node
+  linkType: hard
+
 "playwright-core@npm:1.59.1":
   version: 1.59.1
   resolution: "playwright-core@npm:1.59.1"
@@ -17514,6 +17553,13 @@ __metadata:
   version: 1.6.3
   resolution: "ufo@npm:1.6.3"
   checksum: 10c0/bf0e4ebff99e54da1b9c7182ac2f40475988b41faa881d579bc97bc2a0509672107b0a0e94c4b8d31a0ab8c4bf07f4aa0b469ac6da8536d56bda5b085ea2e953
+  languageName: node
+  linkType: hard
+
+"ufo@npm:^1.6.4":
+  version: 1.6.4
+  resolution: "ufo@npm:1.6.4"
+  checksum: 10c0/3a2b29e7e3d772fbf6893d7d23bf442981457adb2fe122828abdbda89bedcb81aafd0dcc080e41b45f9a877db00cb42cbfee9639753a19d9b9bd39b5627039cf
   languageName: node
   linkType: hard
 
