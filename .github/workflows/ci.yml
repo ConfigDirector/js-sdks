@@ -43,8 +43,10 @@ jobs:
       - name: yarn install
         run: yarn install
 
-      - name: Override nuxt-sdk devDeps to Nuxt 3
-        run: yarn workspace @configdirector/nuxt-sdk add --dev "nuxt@^3" "@nuxt/kit@^3" "@nuxt/schema@^3" "@nuxt/test-utils@^3"
+      - name: Override nuxt-sdk deps to Nuxt 3
+        run: |
+          yarn workspace @configdirector/nuxt-sdk add "@nuxt/kit@^3"
+          yarn workspace @configdirector/nuxt-sdk add --dev "nuxt@^3" "@nuxt/schema@^3" "@nuxt/test-utils@^3"
 
       - name: yarn playwright install
         run: yarn playwright install --with-deps
