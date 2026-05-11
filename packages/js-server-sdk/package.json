@@ -37,6 +37,9 @@
   ],
   "types": "dist/configdirector-server.d.mts",
   "module": "dist/configdirector-server.mjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "tsdown",
     "clean": "rimraf dist/**",
@@ -44,6 +47,8 @@
     "test": "vitest",
     "coverage": "vitest run --coverage",
     "ci:test": "vitest run",
+    "ci:test:bun": "bun run vitest run",
+    "ci:test:deno": "deno run -A npm:vitest run",
     "release": "yarn clean && yarn lint && yarn ci:test && yarn build && npm publish --access public"
   },
   "devDependencies": {

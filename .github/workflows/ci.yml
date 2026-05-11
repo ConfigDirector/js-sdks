@@ -31,6 +31,46 @@ jobs:
       - name: yarn test
         run: yarn test
 
+  server-sdk-bun:
+    name: Server SDK — Bun compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+      - uses: oven-sh/setup-bun@v2
+
+      - name: yarn install
+        run: yarn install
+
+      - name: yarn build
+        run: yarn build
+
+      - name: Run server-sdk tests under Bun
+        run: yarn workspace @configdirector/server-sdk ci:test:bun
+
+  server-sdk-deno:
+    name: Server SDK — Deno compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: yarn install
+        run: yarn install
+
+      - name: yarn build
+        run: yarn build
+
+      - name: Run server-sdk tests under Deno
+        run: yarn workspace @configdirector/server-sdk ci:test:deno
+
   nuxt3-compat:
     name: Nuxt SDK — Nuxt 3 compatibility
     runs-on: ubuntu-latest
