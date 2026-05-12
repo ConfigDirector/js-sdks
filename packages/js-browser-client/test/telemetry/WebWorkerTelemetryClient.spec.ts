@@ -4,6 +4,7 @@ import { WebWorkerTelemetryClient } from "../../src/telemetry/WebWorkerTelemetry
 import type { EventReport } from "@js-client-core/telemetry/types";
 import { BASE_URL, TELEMETRY_URL, createStubbedLogger, sleep } from "../helpers";
 import type { ConfigType, ConfigValueType } from "@shared/types";
+import { defaultUrlFactory } from "@shared/url";
 
 const logger = createStubbedLogger();
 
@@ -19,6 +20,7 @@ const createClient = (options: Record<string, unknown> = {}) =>
     baseUrl: new URL(BASE_URL),
     initialFlushIntervalDelay: INITIAL_FLUSH_DELAY,
     flushIntervalDelay: FLUSH_DELAY,
+    urlFactory: defaultUrlFactory,
     ...options,
   });
 

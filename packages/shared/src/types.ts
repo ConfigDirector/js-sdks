@@ -87,3 +87,5 @@ export type ConfigDirectorMetaContext = {
   appVersion?: string;
   appName?: string;
 };
+
+export type ConnectionMode = "streaming" | "polling" | "one-time";

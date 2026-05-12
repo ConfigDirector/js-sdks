@@ -43,7 +43,7 @@ yarn clean       # rimraf dist/**
 
 **Transport abstraction** — both client and server SDKs support pluggable transports:
 - `StreamingTransport`: Server-Sent Events via `eventsource-client`
-- `PullTransport`: Long-polling (client only)
+- `OneTimeTransport`: One-time data fetch (client only)
 
 **Layered structure:**
 - Core (`js-client-core`): Base client, transport contracts, emitter

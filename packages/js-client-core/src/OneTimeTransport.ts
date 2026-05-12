@@ -10,7 +10,7 @@ import { ConfigDirectorConnectionError, isFetchErrorFatal } from "./errors";
 import { fetchWithTimeout } from "@shared/fetchWithTimeout";
 import type { UrlLike } from "@shared/url";
 
-export class PullTransport implements Transport {
+export class OneTimeTransport implements Transport {
   private logger: ConfigDirectorLogger;
   private eventEmitter = new Emitter<TransportEvents>();
   private url: UrlLike;

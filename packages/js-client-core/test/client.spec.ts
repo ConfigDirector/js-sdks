@@ -468,7 +468,7 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
-  describe("PullTransport (connection.streaming: false)", () => {
+  describe("OneTimeTransport (connection.mode: 'one-time')", () => {
     test("initializes and evaluates config values from the pull endpoint", async () => {
       await commands.mswUseHandlers({
         url: PULL_URL,
@@ -482,7 +482,7 @@ describe("ConfigDirectorClient", () => {
         },
       });
 
-      client = createClient("sdk-key", { logger, connection: { streaming: false } });
+      client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
       await client.initialize();
 
       expect(client.isReady).toBe(true);
@@ -495,7 +495,7 @@ describe("ConfigDirectorClient", () => {
     test("does not retry after a fatal 4xx response", async () => {
       await commands.mswUseHandlers({ url: PULL_URL, status: 401 });
 
-      client = createClient("sdk-key", { logger, connection: { streaming: false } });
+      client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
       await client.initialize();
       await commands.mswUseHandlers({ url: PULL_URL, status: 401 });
       await client.updateContext({ id: "user-1", name: "Alice", traits: {} });

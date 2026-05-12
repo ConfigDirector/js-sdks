@@ -57,7 +57,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.metaContext = clientOptions?.metadata ?? {};
     this.configEvaluator = new ConfigEvaluator(this.logger);
     const baseUrl = this.parseUrl(clientOptions?.connection?.url) ?? defaultBaseUrl;
-    this.streaming = clientOptions?.connection?.streaming === false ? false : true;
+    this.streaming = clientOptions?.connection?.mode == "streaming" ? false : true;
     const transportConstructor = StreamingTransport;
     const queueLimit = clientOptions?.telemetry?.eventQueueLimit ?? DEFAULT_EVENT_QUEUE_LIMIT;
     this.usageEventCollector = new ServerTelemetryEventCollector({

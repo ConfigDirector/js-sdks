@@ -3,11 +3,18 @@ import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { ServerTelemetryEventCollector } from "../../src/telemetry/ServerTelemetryEventCollector";
 import { BASE_URL, createStubbedLogger, TELEMETRY_URL } from "../helpers";
+import { defaultUrlFactory } from "@shared/url";
 
 const logger = createStubbedLogger();
 
 const createCollector = (options: Record<string, unknown> = {}) =>
-  new ServerTelemetryEventCollector({ sdkKey: "sdk-key", logger, baseUrl: new URL(BASE_URL), ...options });
+  new ServerTelemetryEventCollector({
+    sdkKey: "sdk-key",
+    logger,
+    baseUrl: new URL(BASE_URL),
+    urlFactory: defaultUrlFactory,
+    ...options,
+  });
 
 const baseEvaluation = {
   key: "my-config",

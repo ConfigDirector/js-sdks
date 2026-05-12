@@ -16,10 +16,11 @@ import type {
   ClientConnectAction,
   IdentifyingSdkOptions,
   InternalClientOptions,
+  ConnectionMode,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "./errors";
-import { PullTransport } from "./PullTransport";
+import { OneTimeTransport } from "./OneTimeTransport";
 import type { TelemetryClient } from "./telemetry";
 import { defaultUrlFactory } from "@shared/url";
 import type { UrlFactory, UrlLike } from "@shared/url";
@@ -46,7 +47,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private readyPromise: Promise<void> | undefined;
   private readyResolve: (() => void) | undefined;
   private currentContext?: ConfigDirectorContext;
-  private streaming: boolean;
+  private connectionMode: ConnectionMode;
+  private pollingInterval: number;
 
   constructor(
     telemetryClient: TelemetryClient,
@@ -59,8 +61,9 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
     const urlFactory: UrlFactory = internalClientOptions?.urlFactory ?? defaultUrlFactory;
     const baseUrl = this.parseUrl(clientOptions?.connection?.url, urlFactory) ?? CLIENT_BASE_URL;
-    this.streaming = clientOptions?.connection?.streaming === false ? false : true;
-    const transportConstructor = this.streaming ? StreamingTransport : PullTransport;
+    this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
+    this.pollingInterval = clientOptions?.connection?.pollingInterval ?? 60;
+    const transportConstructor = this.connectionMode == "streaming" ? StreamingTransport : OneTimeTransport;
     this.telemetryClient = telemetryClient;
     this.transport = new transportConstructor({
       clientSdkKey,
@@ -80,6 +83,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           const seconds = Math.pow(2, Math.min(attempt, MAX_EXPONENTIAL_DELAY));
           return seconds * 1_000;
         }),
+      pollingInterval: this.pollingInterval,
     });
 
     this.transport.on("configSetReceived", (configSet: ConfigSet) => {
@@ -145,9 +149,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       }
 
       if (!this.ready) {
-        const warningDetails = this.streaming
-          ? "The client will continue to retry since there were no fatal errors detected. Configs will return the default value until the connection succeeds."
-          : "Since the client was configured without streaming, configs may not update and always return the default value.";
+        const warningDetails =
+          "The client will continue to retry since there were no fatal errors detected. Configs will return the default value until the connection succeeds.";
         this.logger.warn(
           `[ConfigDirectorClient] Timed out waiting for ${caller} after ${this.timeout}ms. ${warningDetails}`,
         );

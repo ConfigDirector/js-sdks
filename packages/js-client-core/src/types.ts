@@ -7,6 +7,7 @@ import type {
   IdentifyingSdkOptions,
   ConfigValueType,
   ConfigState,
+  ConnectionMode,
 } from "../../shared/src/types";
 export * from "../../shared/src/types";
 
@@ -46,18 +47,26 @@ export type ConfigDirectorClientOptions = {
    */
   connection?: {
     /**
-     * Whether to open a streaming connection or use a one-time pull of configuration state.
-     * If set to true, the streaming connection will remain open and receive updates whenever
+     * The connection mode to be used, one of `streaming` (default), `polling`, or `one-time`.
+     * If set to `streaming`, the connection will remain open and receive updates whenever
      * config state is updated on the ConfigDirector dashboard.
-     * When set to false, there will be an initial request to retrieve config state during
-     * initialization, and an additional request whenever {@link ConfigDirectorClient.updateContext}
-     * is called. But not updates will be received after those requests.
+     * When set to `polling`, there will be an initial request to retrieve config state during
+     * initialization, and additional requests on a `pollingInterval`.
+     * The `one-time` connection mode will only retrieve config state during initialization and
+     * context updates. It will not poll for regular updates.
      *
-     * Defaults to true (streaming connection)
+     * Defaults to `streaming`
      */
-    streaming?: boolean;
+    mode?: ConnectionMode;
     /**
-     * The timeout, in milliseconds, to be used in initialization and when updating the context.
+     * The polling interval in _seconds_ when the `mode` is set to `polling`. This option has no
+     * effect when the `mode` is set to `streaming` or `one-time`.
+     *
+     * Defaults to 60 seconds
+     */
+    pollingInterval?: number;
+    /**
+     * The timeout, in _milliseconds_, to be used in initialization and when updating the context.
      * If streaming is enabled, the operation (initialization or context update) may still succeed
      * after it times out if no unrecoverable errors are encountered (like an invalid SDK key).
      * If streaming is disabled, if the operation times out, it will not be retried.
@@ -223,6 +232,7 @@ export type TransportOptions = {
   logger: ConfigDirectorLogger;
   fetch?: (url: string, init: RequestInit) => Promise<Response>;
   connectionRetryDelay: ConnectionRetryDelayCalculator;
+  pollingInterval?: number;
 };
 
 export type TransportEvents = {

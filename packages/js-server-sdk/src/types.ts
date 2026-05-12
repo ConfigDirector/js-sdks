@@ -4,6 +4,7 @@ import type {
   ConfigDirectorLogger,
   ConfigValueType,
   IdentifyingSdkOptions,
+  ConnectionMode,
 } from "@shared/types";
 import type { Config } from "@config-evaluator/types";
 export type {
@@ -13,6 +14,7 @@ export type {
   ConfigState,
   ConfigValueType,
   ConfigType,
+  ConnectionMode,
   EvaluationReason,
   IdentifyingSdkOptions,
 } from "@shared/types";
@@ -30,16 +32,24 @@ export type ConfigDirectorClientOptions = {
    */
   connection?: {
     /**
-     * Whether to open a streaming connection or use a one-time pull of configuration state.
-     * If set to true, the streaming connection will remain open and receive updates whenever
+     * The connection mode to be used, one of `streaming` (default), `polling`, or `one-time`.
+     * If set to `streaming`, the connection will remain open and receive updates whenever
      * config state is updated on the ConfigDirector dashboard.
-     * When set to false, there will be an initial request to retrieve config state during
-     * initialization, and an additional request whenever {@link ConfigDirectorClient.updateContext}
-     * is called. But not updates will be received after those requests.
+     * When set to `polling`, there will be an initial request to retrieve config state during
+     * initialization, and additional requests on a `pollingInterval`.
+     * The `one-time` connection mode will only retrieve config state during initialization. It
+     * will not poll for regular updates.
      *
-     * Defaults to true (streaming connection)
+     * Defaults to `streaming`
      */
-    streaming?: boolean;
+    mode?: ConnectionMode;
+    /**
+     * The polling interval in _seconds_ when the `mode` is set to `polling`. This option has no
+     * effect when the `mode` is set to `streaming` or `one-time`.
+     *
+     * Defaults to 60 seconds
+     */
+    pollingInterval?: number;
     /**
      * The timeout, in milliseconds, to be used in initialization and when updating the context.
      * If streaming is enabled, the operation (initialization or context update) may still succeed
