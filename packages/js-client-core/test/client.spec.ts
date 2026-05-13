@@ -666,6 +666,21 @@ describe("ConfigDirectorClient", () => {
       expect(client.isReady).toBe(false);
       expect(await commands.mswWasRequestReceived()).toBe(false); // second connect attempt is silently ignored after fatal error
     });
+
+    test("does not poll on an interval after initialization", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
+
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
+      await client.initialize();
+
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
+      await vi.advanceTimersByTimeAsync(300_000);
+      await sleep(100);
+
+      expect(await commands.mswWasRequestReceived()).toBe(false);
+      vi.useRealTimers();
+    });
   });
 
   describe("PollingTransport (connection.mode: 'polling')", () => {

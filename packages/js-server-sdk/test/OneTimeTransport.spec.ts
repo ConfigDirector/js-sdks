@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { OneTimeTransport } from "../src/OneTimeTransport";
@@ -34,7 +34,10 @@ describe("OneTimeTransport", () => {
     transport = createTransport();
   });
   afterAll(() => server.close());
-  afterEach(() => transport?.dispose());
+  afterEach(() => {
+    transport?.dispose();
+    vi.useRealTimers();
+  });
 
   describe("connect", () => {
     test("resolves when the server returns a 200 response", async () => {
@@ -128,6 +131,22 @@ describe("OneTimeTransport", () => {
       server.use(http.post(POLLING_URL, () => HttpResponse.text("Server Error", { status: 500 })));
 
       await expect(transport.connect(5000)).rejects.toThrow("Connection failed with status: 500");
+    });
+
+    test("does not poll on an interval after connecting", async () => {
+      let callCount = 0;
+      server.use(
+        http.post(POLLING_URL, () => {
+          callCount++;
+          return HttpResponse.json(fullBundle);
+        }),
+      );
+
+      vi.useFakeTimers();
+      await transport.connect(5000);
+      await vi.advanceTimersByTimeAsync(300_000);
+
+      expect(callCount).toBe(1);
     });
   });
 
