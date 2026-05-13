@@ -1,9 +1,9 @@
-import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
 import type { ConfigDirectorClient, ConfigDirectorClientOptions } from "../src";
 import { DefaultConfigDirectorClient } from "../src";
 import { type TelemetryClient } from "../src";
-import { SSE_URL, PULL_URL, createStubbedLogger } from "./helpers";
+import { SSE_URL, PULL_URL, POLL_URL, sleep, createStubbedLogger } from "./helpers";
 
 const logger = createStubbedLogger();
 const telemetryClient: TelemetryClient = {
@@ -21,19 +21,21 @@ const createClient = (clientSdkKey: string, clientOptions?: ConfigDirectorClient
   );
 };
 
-const full = (configs: object = {}) => ({
+const buildPayload = (kind: "full" | "delta", configs: object = {}, lastUpdateTimestamp?: string) => ({
   environmentId: "10000000-0000-0000-0000-000000000000",
   projectId: "20000000-0000-0000-0000-000000000000",
-  kind: "full",
+  kind,
   configs,
+  ...(lastUpdateTimestamp != null
+    ? { timestamp: lastUpdateTimestamp }
+    : { timestamp: new Date().toISOString() }),
 });
 
-const delta = (configs: object) => ({
-  environmentId: "10000000-0000-0000-0000-000000000000",
-  projectId: "20000000-0000-0000-0000-000000000000",
-  kind: "delta",
-  configs,
-});
+const full = (configs: object = {}, lastUpdateTimestamp?: string) =>
+  buildPayload("full", configs, lastUpdateTimestamp);
+
+const delta = (configs: object, lastUpdateTimestamp?: string) =>
+  buildPayload("delta", configs, lastUpdateTimestamp);
 
 describe("ConfigDirectorClient", () => {
   let client: ConfigDirectorClient;
@@ -82,7 +84,14 @@ describe("ConfigDirectorClient", () => {
       [
         {
           delay: 200,
-          data: full({ "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" } }),
+          data: full({
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Bye",
+            },
+          }),
         },
       ],
     ]);
@@ -105,13 +114,23 @@ describe("ConfigDirectorClient", () => {
       [
         {
           data: full({
-            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Hello",
+            },
           }),
         },
         {
           delay: 10,
           data: delta({
-            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" },
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Bye",
+            },
           }),
         },
       ],
@@ -131,7 +150,14 @@ describe("ConfigDirectorClient", () => {
       [{ data: full() }],
       [
         {
-          data: full({ "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" } }),
+          data: full({
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Bye",
+            },
+          }),
         },
       ],
     ]);
@@ -188,7 +214,18 @@ describe("ConfigDirectorClient", () => {
       const watcher1Values: string[] = [];
       const watcher2Values: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
-        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "hello" } }) }],
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "hello",
+              },
+            }),
+          },
+        ],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -203,8 +240,30 @@ describe("ConfigDirectorClient", () => {
     test("the function returned by watch stops that handler from receiving future updates", async () => {
       const receivedValues: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
-        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v1" } }) }],
-        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v2" } }) }],
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "v1",
+              },
+            }),
+          },
+        ],
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "v2",
+              },
+            }),
+          },
+        ],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -224,8 +283,30 @@ describe("ConfigDirectorClient", () => {
       const watcher1Values: string[] = [];
       const watcher2Values: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
-        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v1" } }) }],
-        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v2" } }) }],
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "v1",
+              },
+            }),
+          },
+        ],
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "v2",
+              },
+            }),
+          },
+        ],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -248,8 +329,30 @@ describe("ConfigDirectorClient", () => {
       const watcher1Values: string[] = [];
       const watcher2Values: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
-        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v1" } }) }],
-        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "v2" } }) }],
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "v1",
+              },
+            }),
+          },
+        ],
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "v2",
+              },
+            }),
+          },
+        ],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -273,16 +376,36 @@ describe("ConfigDirectorClient", () => {
         [
           {
             data: full({
-              "config-a": { id: "00000000-0000-0000-0000-000000000001", key: "config-a", type: "string", value: "v1" },
-              "config-b": { id: "00000000-0000-0000-0000-000000000002", key: "config-b", type: "string", value: "v1" },
+              "config-a": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "config-a",
+                type: "string",
+                value: "v1",
+              },
+              "config-b": {
+                id: "00000000-0000-0000-0000-000000000002",
+                key: "config-b",
+                type: "string",
+                value: "v1",
+              },
             }),
           },
         ],
         [
           {
             data: full({
-              "config-a": { id: "00000000-0000-0000-0000-000000000001", key: "config-a", type: "string", value: "v2" },
-              "config-b": { id: "00000000-0000-0000-0000-000000000002", key: "config-b", type: "string", value: "v2" },
+              "config-a": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "config-a",
+                type: "string",
+                value: "v2",
+              },
+              "config-b": {
+                id: "00000000-0000-0000-0000-000000000002",
+                key: "config-b",
+                type: "string",
+                value: "v2",
+              },
             }),
           },
         ],
@@ -342,7 +465,18 @@ describe("ConfigDirectorClient", () => {
       const watchValues: string[] = [];
       await commands.mswUseSseHandler(SSE_URL, [
         [{ data: full() }],
-        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "updated" } }) }],
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "updated",
+              },
+            }),
+          },
+        ],
       ]);
 
       client = createClient("sdk-key", { logger });
@@ -401,7 +535,18 @@ describe("ConfigDirectorClient", () => {
       let eventCount = 0;
       await commands.mswUseSseHandler(SSE_URL, [
         [{ data: full() }],
-        [{ data: full({ "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "after-resume" } }) }],
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "after-resume",
+              },
+            }),
+          },
+        ],
       ]);
       client = createClient("sdk-key", { logger });
       client.on("configsUpdated", () => eventCount++);
@@ -418,11 +563,7 @@ describe("ConfigDirectorClient", () => {
     });
 
     test("resumeNetwork uses the last context set via updateContext", async () => {
-      await commands.mswUseSseHandler(SSE_URL, [
-        [{ data: full() }],
-        [{ data: full() }],
-        [{ data: full() }],
-      ]);
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }], [{ data: full() }]]);
       client = createClient("sdk-key", { logger });
       await client.initialize();
       await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
@@ -443,13 +584,30 @@ describe("ConfigDirectorClient", () => {
         [
           {
             data: full({
-              "config-a": { id: "00000000-0000-0000-0000-000000000001", key: "config-a", type: "string", value: "a-original" },
-              "config-b": { id: "00000000-0000-0000-0000-000000000002", key: "config-b", type: "string", value: "b-original" },
+              "config-a": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "config-a",
+                type: "string",
+                value: "a-original",
+              },
+              "config-b": {
+                id: "00000000-0000-0000-0000-000000000002",
+                key: "config-b",
+                type: "string",
+                value: "b-original",
+              },
             }),
           },
           {
             delay: 10,
-            data: delta({ "config-b": { id: "00000000-0000-0000-0000-000000000002", key: "config-b", type: "string", value: "b-updated" } }),
+            data: delta({
+              "config-b": {
+                id: "00000000-0000-0000-0000-000000000002",
+                key: "config-b",
+                type: "string",
+                value: "b-updated",
+              },
+            }),
           },
         ],
       ]);
@@ -477,7 +635,12 @@ describe("ConfigDirectorClient", () => {
           projectId: "20000000-0000-0000-0000-000000000000",
           kind: "full",
           configs: {
-            "my-config": { id: "00000000-0000-0000-0000-000000000001", key: "my-config", type: "string", value: "from-pull" },
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "from-pull",
+            },
           },
         },
       });
@@ -505,6 +668,217 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("PollingTransport (connection.mode: 'polling')", () => {
+    beforeAll(() => {
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    });
+
+    afterAll(() => {
+      vi.useRealTimers();
+    });
+
+    beforeEach(() => {
+      client?.dispose();
+    });
+
+    test("fetches config state on initialize", async () => {
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "from-server",
+            },
+          },
+          "2024-01-01T00:00:00.000Z",
+        ),
+      });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+      await client.initialize();
+
+      expect(client.isReady).toBe(true);
+      expect(client.getValue("my-config", "default")).toBe("from-server");
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads[0]).toMatchObject({ clientSdkKey: "sdk-key", givenContext: {} });
+    });
+
+    test("fetches config state on updateContext and sends the updated context", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+      await client.initialize();
+      await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads).toHaveLength(2);
+      expect((payloads[0] as any).givenContext).toEqual({});
+      expect((payloads[1] as any).givenContext).toEqual({ id: "user-1", name: "Alice", traits: {} });
+    });
+
+    test("polls for config state changes on the configured interval", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      await client.initialize();
+      expect(client.getValue("my-config", "default")).toBe("default");
+
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "polled-value",
+            },
+          },
+          "2024-01-02T00:00:00.000Z",
+        ),
+      });
+
+      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.waitFor(() => expect(client.getValue("my-config", "default")).toBe("polled-value"), { timeout: 1_000 });
+    });
+
+    test("sends the lastUpdateTimestamp from the previous response on subsequent poll requests", async () => {
+      const timestamp = "2024-06-15T12:00:00.000Z";
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, timestamp) });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      await client.initialize();
+
+      // Advance time to trigger one poll, then wait for the fetch to complete
+      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.waitFor(async () => {
+        const payloads = await commands.mswGetPayloads();
+        expect(payloads.length).toBeGreaterThanOrEqual(2);
+      }, { timeout: 1_000 });
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as any).lastUpdateTimestamp).toBeUndefined(); // first request has no prior timestamp
+      expect((payloads[1] as any).lastUpdateTimestamp).toBe(timestamp); // poll includes timestamp from previous response
+    });
+
+    test("continues polling but does not emit configsUpdated on a 204 response", async () => {
+      let updateCount = 0;
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "initial",
+            },
+          },
+          "2024-01-01T00:00:00.000Z",
+        ),
+      });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      client.on("configsUpdated", () => updateCount++);
+      await client.initialize();
+      expect(updateCount).toBe(1);
+      expect(client.getValue("my-config", "default")).toBe("initial");
+
+      // Server reports no changes — switch to 204 and trigger two polls
+      await commands.mswUseHandlers({ url: POLL_URL, status: 204 });
+      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.waitFor(async () => expect((await commands.mswGetPayloads()).length).toBeGreaterThanOrEqual(1), { timeout: 1_000 });
+      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.waitFor(async () => expect((await commands.mswGetPayloads()).length).toBeGreaterThanOrEqual(2), { timeout: 1_000 });
+
+      expect(updateCount).toBe(1); // no new events emitted for 204 responses
+      expect(client.getValue("my-config", "default")).toBe("initial"); // value preserved from initial load
+    });
+
+    test("emits configsUpdated each time a poll returns new config state", async () => {
+      let updateCount = 0;
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "v1",
+            },
+          },
+          "2024-01-01T00:00:00.000Z",
+        ),
+      });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      client.on("configsUpdated", () => updateCount++);
+      await client.initialize();
+      expect(updateCount).toBe(1);
+
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "v2",
+            },
+          },
+          "2024-01-02T00:00:00.000Z",
+        ),
+      });
+
+      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.waitFor(() => expect(updateCount).toBeGreaterThanOrEqual(2), { timeout: 1_000 });
+      expect(client.getValue("my-config", "default")).toBe("v2");
+    });
+
+    test("stops polling after dispose", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      await client.initialize();
+
+      // Trigger a poll and confirm the polling loop is active before stopping it
+      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.waitFor(async () => {
+        const payloads = await commands.mswGetPayloads();
+        expect(payloads.length).toBeGreaterThanOrEqual(2);
+      }, { timeout: 1_000 });
+
+      client.dispose();
+
+      // Reset tracking, advance past further intervals, and verify no more requests arrive
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
+      await vi.advanceTimersByTimeAsync(20_000);
+      await sleep(100); // real-time settle for any I/O that may still be in flight
+      expect(await commands.mswWasRequestReceived()).toBe(false);
+    });
+
+    test("does not retry after a fatal 4xx response on initialize", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, status: 401 });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      await client.initialize();
+
+      // Reset tracking, then verify neither updateContext nor the polling timer retries
+      await commands.mswUseHandlers({ url: POLL_URL, status: 401 });
+      await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
+      await vi.advanceTimersByTimeAsync(30_000); // advance past multiple polling intervals
+      await sleep(100); // real-time settle
+
+      expect(client.isReady).toBe(false);
+      expect(await commands.mswWasRequestReceived()).toBe(false);
+    });
+  });
+
   test("returns from initialize if the timeout is reached, but eventually connects", async () => {
     await commands.mswUseSseHandler(
       SSE_URL,
@@ -513,7 +887,12 @@ describe("ConfigDirectorClient", () => {
           {
             delay: 100,
             data: delta({
-              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" },
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Bye",
+              },
             }),
           },
         ],

@@ -10,36 +10,58 @@ import { ConfigDirectorConnectionError, isFetchErrorFatal } from "./errors";
 import { fetchWithTimeout } from "@shared/fetchWithTimeout";
 import type { UrlLike } from "@shared/url";
 
-export class OneTimeTransport implements Transport {
+export class PollingTransport implements Transport {
   private logger: ConfigDirectorLogger;
   private eventEmitter = new Emitter<TransportEvents>();
   private url: UrlLike;
   private fatalError = false;
+  private lastUpdateTimestamp: string | undefined;
+  private pollingIntervalSeconds: number;
+  private pollingInterval: ReturnType<typeof setInterval> | undefined;
 
   constructor(private readonly options: TransportOptions) {
     this.options = options;
     this.logger = options.logger;
-    this.url = options.resolveUrl("client/pull/v1", options.baseUrl);
+    this.url = options.resolveUrl("client/polling/v1", options.baseUrl);
+    this.pollingIntervalSeconds = options.pollingInterval ?? 60;
   }
 
   public async connect(context: ConfigDirectorContext, timeout: number): Promise<this> {
+    clearInterval(this.pollingInterval);
+
+    await this.fetchConfigs(context, timeout);
+
+    this.pollingInterval = setInterval(() => {
+      void this.fetchConfigs(context, timeout);
+    }, this.pollingIntervalSeconds * 1_000);
+
+    return this;
+  }
+
+  private async fetchConfigs(context: ConfigDirectorContext, timeout: number) {
     if (this.fatalError) {
       this.logger.warn(
-        "[OneTimeTransport] There was a prior unrecoverable error. Ignoring attempt to reconnect.",
+        "[PollingTransport] There was a prior unrecoverable error. Ignoring attempt to reconnect.",
       );
-      return this;
+      return;
     }
 
     try {
-      const response = await fetchWithTimeout(timeout, this.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          givenContext: context,
-          metaContext: this.options.metaContext,
-          clientSdkKey: this.options.clientSdkKey,
-        }),
-      }, this.logger);
+      const response = await fetchWithTimeout(
+        timeout,
+        this.url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            givenContext: context,
+            metaContext: this.options.metaContext,
+            clientSdkKey: this.options.clientSdkKey,
+            lastUpdateTimestamp: this.lastUpdateTimestamp,
+          }),
+        },
+        this.logger,
+      );
 
       if (!response.ok) {
         if (this.isStatusFatal(response.status)) {
@@ -53,12 +75,15 @@ export class OneTimeTransport implements Transport {
         }
       }
 
-      const json = JSON.parse(await response.text());
-      this.eventEmitter.emit("configSetReceived", json);
-      return this;
+      if (response.status == 200) {
+        const json = JSON.parse(await response.text());
+        this.lastUpdateTimestamp = json.timestamp;
+        this.eventEmitter.emit("configSetReceived", json);
+      }
     } catch (fetchError) {
       if (isFetchErrorFatal(fetchError)) {
         this.fatalError = true;
+        this.close();
         throw new ConfigDirectorConnectionError(
           `Connection failed with fatal error: ${fetchError}. This is an unrecoverable error, retry attempts will be ignored.`,
         );
@@ -105,7 +130,9 @@ export class OneTimeTransport implements Transport {
     this.eventEmitter.clear();
   }
 
-  public close() {}
+  public close() {
+    clearInterval(this.pollingInterval);
+  }
 
   public dispose(): void {
     this.close();

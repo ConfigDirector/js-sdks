@@ -25,6 +25,7 @@ import type { TelemetryClient } from "./telemetry";
 import { defaultUrlFactory } from "@shared/url";
 import type { UrlFactory, UrlLike } from "@shared/url";
 import { CLIENT_BASE_URL } from "@shared/constants";
+import { PollingTransport } from "./PollingTransport";
 const MAX_EXPONENTIAL_DELAY = 9; // 2^9 = 512 seconds, to cap it to under 10min
 
 type WatchHandlerWithOptions<T extends ConfigValueType> = {
@@ -48,7 +49,6 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private readyResolve: (() => void) | undefined;
   private currentContext?: ConfigDirectorContext;
   private connectionMode: ConnectionMode;
-  private pollingInterval: number;
 
   constructor(
     telemetryClient: TelemetryClient,
@@ -62,8 +62,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     const urlFactory: UrlFactory = internalClientOptions?.urlFactory ?? defaultUrlFactory;
     const baseUrl = this.parseUrl(clientOptions?.connection?.url, urlFactory) ?? CLIENT_BASE_URL;
     this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
-    this.pollingInterval = clientOptions?.connection?.pollingInterval ?? 60;
-    const transportConstructor = this.connectionMode == "streaming" ? StreamingTransport : OneTimeTransport;
+    const transportConstructor = this.getTransportConstructor(this.connectionMode);
     this.telemetryClient = telemetryClient;
     this.transport = new transportConstructor({
       clientSdkKey,
@@ -83,7 +82,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           const seconds = Math.pow(2, Math.min(attempt, MAX_EXPONENTIAL_DELAY));
           return seconds * 1_000;
         }),
-      pollingInterval: this.pollingInterval,
+      pollingInterval: clientOptions?.connection?.pollingInterval,
     });
 
     this.transport.on("configSetReceived", (configSet: ConfigSet) => {
@@ -103,6 +102,17 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       }
       this.logger.debug("[ConfigDirectorClient] ConfigSet updated from server:", { keys: configKeys });
     });
+  }
+
+  private getTransportConstructor(connectionMode?: ConnectionMode) {
+    switch (connectionMode) {
+      case "one-time":
+        return OneTimeTransport;
+      case "polling":
+        return PollingTransport;
+      default:
+        return StreamingTransport;
+    };
   }
 
   public async initialize(context?: ConfigDirectorContext) {
