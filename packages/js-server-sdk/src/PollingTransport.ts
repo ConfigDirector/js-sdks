@@ -1,36 +1,34 @@
 import type {
-  ConfigDirectorContext,
   ConfigDirectorLogger,
   Transport,
   TransportEvents,
   TransportOptions,
 } from "./types";
-import { Emitter } from "./Emitter";
 import { AbstractPollingTransport } from "@shared/transport/AbstractPollingTransport";
+import { EventEmitter } from "node:events";
 import { fetchWithTimeout } from "@shared/fetchWithTimeout";
-import type { UrlLike } from "@shared/url";
 
 export class PollingTransport extends AbstractPollingTransport implements Transport {
   private logger: ConfigDirectorLogger;
-  private eventEmitter = new Emitter<TransportEvents>();
-  private url: UrlLike;
+  private eventEmitter = new EventEmitter();
+  private url: URL;
   private lastUpdateTimestamp: string | undefined;
 
   constructor(private readonly options: TransportOptions) {
     super();
     this.options = options;
     this.logger = options.logger;
-    this.url = options.resolveUrl("client/polling/v1", options.baseUrl);
+    this.url = new URL("server/polling/v1", options.baseUrl);
     this.pollingIntervalSeconds = options.pollingInterval ?? 60;
   }
 
-  public async connect(context: ConfigDirectorContext, timeout: number): Promise<this> {
+  public async connect(timeout: number): Promise<this> {
     this.clearPollingInterval();
 
-    await this.fetchConfigs(context, timeout);
+    await this.fetchConfigs(timeout);
 
     this.schedulePollingInterval(() => {
-      void this.fetchConfigs(context, timeout).catch((error) => {
+      void this.fetchConfigs(timeout).catch((error) => {
         this.logger.error("[PollingTransport] Error during polling:", error);
       });
     });
@@ -38,7 +36,7 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     return this;
   }
 
-  private async fetchConfigs(context: ConfigDirectorContext, timeout: number) {
+  private async fetchConfigs(timeout: number) {
     if (this.fatalError) {
       this.logger.warn(
         "[PollingTransport] There was a prior unrecoverable error. Ignoring attempt to reconnect.",
@@ -54,9 +52,8 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            givenContext: context,
             metaContext: this.options.metaContext,
-            clientSdkKey: this.options.clientSdkKey,
+            serverSdkKey: this.options.serverSdkKey,
             lastUpdateTimestamp: this.lastUpdateTimestamp,
           }),
         },
@@ -65,10 +62,10 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
 
       await this.handleNonOkResponse(response);
 
-      if (response.status == 200) {
+      if (response.status === 200) {
         const json = JSON.parse(await response.text());
         this.lastUpdateTimestamp = json.timestamp;
-        this.eventEmitter.emit("configSetReceived", json);
+        this.eventEmitter.emit("configBundleReceived", json);
       }
     } catch (fetchError) {
       this.handleFetchError(fetchError);
@@ -86,10 +83,14 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     name: TName,
     handler?: ((payload: TransportEvents[TName]) => void) | undefined,
   ): void {
-    this.eventEmitter.off(name, handler);
+    if (handler) {
+      this.eventEmitter.off(name, handler);
+    } else {
+      this.eventEmitter.removeAllListeners(name);
+    }
   }
 
   public clear(): void {
-    this.eventEmitter.clear();
+    this.eventEmitter.removeAllListeners();
   }
 }

@@ -1,4 +1,6 @@
 import { StreamingTransport } from "./StreamingTransport";
+import { OneTimeTransport } from "./OneTimeTransport";
+import { PollingTransport } from "./PollingTransport";
 import { ConfigEvaluator } from "@config-evaluator/ConfigEvaluator";
 import { getRequestedType, parseConfigValue } from "@shared/value-parser";
 import type {
@@ -13,6 +15,7 @@ import type {
   IdentifyingSdkOptions,
   ConfigBundle,
   ConfigDefinition,
+  ConnectionMode,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "@shared/errors";
@@ -43,7 +46,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private ready = false;
   private readyPromise: Promise<void> | undefined;
   private readyResolve: (() => void) | undefined;
-  private streaming: boolean;
+  private connectionMode: ConnectionMode;
   private configEvaluator: ConfigEvaluator;
   private metaContext: ConfigDirectorMetaContext;
 
@@ -57,8 +60,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.metaContext = clientOptions?.metadata ?? {};
     this.configEvaluator = new ConfigEvaluator(this.logger);
     const baseUrl = this.parseUrl(clientOptions?.connection?.url) ?? defaultBaseUrl;
-    this.streaming = clientOptions?.connection?.mode == "streaming" ? false : true;
-    const transportConstructor = StreamingTransport;
+    this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
+    const transportConstructor = this.getTransportConstructor(this.connectionMode);
     const queueLimit = clientOptions?.telemetry?.eventQueueLimit ?? DEFAULT_EVENT_QUEUE_LIMIT;
     this.usageEventCollector = new ServerTelemetryEventCollector({
       sdkKey: serverSdkKey,
@@ -78,6 +81,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         sdkVersion: sdkOptions.sdkVersion,
       },
       logger: this.logger,
+      pollingInterval: clientOptions?.connection?.pollingInterval,
     });
 
     this.transport.on("configBundleReceived", (configBundle: ConfigBundle) => {
@@ -125,7 +129,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         ]);
       }
       if (!this.ready) {
-        const warningDetails = this.streaming
+        const warningDetails = this.connectionMode === "streaming"
           ? "The client will continue to retry since there were no fatal errors detected. Configs will return the default value until the connection succeeds."
           : "Since the client was configured without streaming, configs may not update and always return the default value.";
         this.logger.warn(
@@ -134,6 +138,17 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       }
     } catch (error) {
       this.logger.error("[ConfigDirectorClient] An error occurred during initialization: ", error);
+    }
+  }
+
+  private getTransportConstructor(mode: ConnectionMode) {
+    switch (mode) {
+      case "one-time":
+        return OneTimeTransport;
+      case "polling":
+        return PollingTransport;
+      default:
+        return StreamingTransport;
     }
   }
 

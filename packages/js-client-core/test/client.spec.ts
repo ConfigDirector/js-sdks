@@ -3,7 +3,7 @@ import { commands } from "vitest/browser";
 import type { ConfigDirectorClient, ConfigDirectorClientOptions } from "../src";
 import { DefaultConfigDirectorClient } from "../src";
 import { type TelemetryClient } from "../src";
-import { SSE_URL, PULL_URL, POLL_URL, sleep, createStubbedLogger } from "./helpers";
+import { SSE_URL, POLL_URL, sleep, createStubbedLogger } from "./helpers";
 
 const logger = createStubbedLogger();
 const telemetryClient: TelemetryClient = {
@@ -629,7 +629,7 @@ describe("ConfigDirectorClient", () => {
   describe("OneTimeTransport (connection.mode: 'one-time')", () => {
     test("initializes and evaluates config values from the pull endpoint", async () => {
       await commands.mswUseHandlers({
-        url: PULL_URL,
+        url: POLL_URL,
         responseBody: {
           environmentId: "10000000-0000-0000-0000-000000000000",
           projectId: "20000000-0000-0000-0000-000000000000",
@@ -656,11 +656,11 @@ describe("ConfigDirectorClient", () => {
     });
 
     test("does not retry after a fatal 4xx response", async () => {
-      await commands.mswUseHandlers({ url: PULL_URL, status: 401 });
+      await commands.mswUseHandlers({ url: POLL_URL, status: 401 });
 
       client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
       await client.initialize();
-      await commands.mswUseHandlers({ url: PULL_URL, status: 401 });
+      await commands.mswUseHandlers({ url: POLL_URL, status: 401 });
       await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
 
       expect(client.isReady).toBe(false);

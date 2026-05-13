@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
 import type { ConfigDirectorClient, ConfigDirectorClientOptions } from "../src";
 import { createBrowserClient } from "../src";
-import { SSE_URL, PULL_URL, createStubbedLogger } from "./helpers";
+import { SSE_URL, POLLING_URL, createStubbedLogger } from "./helpers";
 
 const logger = createStubbedLogger();
 
@@ -411,7 +411,7 @@ describe("ConfigDirectorClient", () => {
   describe("OneTimeTransport (connection.mode: 'one-time')", () => {
     test("initializes and evaluates config values from the pull endpoint", async () => {
       await commands.mswUseHandlers({
-        url: PULL_URL,
+        url: POLLING_URL,
         responseBody: {
           environmentId: "10000000-0000-0000-0000-000000000000",
           projectId: "20000000-0000-0000-0000-000000000000",
@@ -433,11 +433,11 @@ describe("ConfigDirectorClient", () => {
     });
 
     test("does not retry after a fatal 4xx response", async () => {
-      await commands.mswUseHandlers({ url: PULL_URL, status: 401 });
+      await commands.mswUseHandlers({ url: POLLING_URL, status: 401 });
 
       client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
       await client.initialize();
-      await commands.mswUseHandlers({ url: PULL_URL, status: 401 });
+      await commands.mswUseHandlers({ url: POLLING_URL, status: 401 });
       await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
 
       expect(client.isReady).toBe(false);

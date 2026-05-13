@@ -215,6 +215,7 @@ export type TransportOptions = {
   baseUrl: URL;
   metaContext: ConfigDirectorClientOptions["metadata"] & IdentifyingSdkOptions;
   logger: ConfigDirectorLogger;
+  pollingInterval?: number;
 };
 
 export interface Transport {
