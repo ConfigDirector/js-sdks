@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ConfigDirector JS Client Sample</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="header">
+        <picture class="header-logo">
+          <source srcset="/assets/ConfigDirector-Logo-DarkMode.svg" media="(prefers-color-scheme: dark)" />
+          <img src="/assets/ConfigDirector-Logo-LightMode.svg" alt="ConfigDirector" height="32" />
+        </picture>
+        <nav class="tab-bar">
+          <button class="tab-btn active" data-tab="configs">Configs</button>
+          <button class="tab-btn" data-tab="context">Context</button>
+        </nav>
+      </header>
+
+      <main>
+        <section id="tab-configs" class="tab-panel active">
+          <h2 class="section-title">Feature Flags</h2>
+          <div id="configs-list"></div>
+        </section>
+
+        <section id="tab-context" class="tab-panel">
+          <h2 class="section-title">Context</h2>
+          <p class="description">Configure the context sent to ConfigDirector when evaluating feature flags.</p>
+          <form id="context-form">
+            <div class="field-group">
+              <label class="label" for="user-id-input">User ID</label>
+              <input id="user-id-input" class="input" type="text" placeholder="e.g. user-123" autocomplete="off" />
+            </div>
+            <div class="field-group">
+              <label class="label" for="user-name-input">User Name</label>
+              <input id="user-name-input" class="input" type="text" placeholder="e.g. Jane Smith" autocomplete="off" />
+            </div>
+            <div class="field-group">
+              <label class="label" for="user-role-input">User Role</label>
+              <input id="user-role-input" class="input" type="text" placeholder="e.g. admin, viewer, editor" autocomplete="off" />
+            </div>
+            <div class="button-row">
+              <button id="save-button" class="btn btn-primary" type="submit">Save</button>
+              <button id="clear-button" class="btn btn-secondary" type="button">Clear</button>
+            </div>
+            <div class="confirmation-area">
+              <span id="saved-message" class="confirmation-msg green hidden">Context saved</span>
+              <span id="cleared-message" class="confirmation-msg gray hidden">Context cleared</span>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
