@@ -1,0 +1,23 @@
+name: Release @configdirector/client-sdk
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: yarn install
+        run: yarn install
+
+      - name: yarn playwright install
+        run: yarn playwright install --with-deps
+        working-directory: ./packages/js-client-core
+
+      - run: yarn release
+        working-directory: ./packages/js-client-sdk
