@@ -1,6 +1,6 @@
 {
   "name": "@configdirector/react-native-sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "React Native client SDK for ConfigDirector. ConfigDirector is a remote configuration and feature flag service.",
   "license": "MIT",
   "author": "ConfigDirector",
@@ -21,7 +21,7 @@
   "homepage": "https://www.configdirector.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ConfigDirector/js-sdks"
+    "url": "git+https://github.com/ConfigDirector/js-sdks.git"
   },
   "main": "./dist/configdirector-react-native.mjs",
   "types": "./dist/configdirector-react-native.d.mts",
