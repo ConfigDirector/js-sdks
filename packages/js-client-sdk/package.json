@@ -17,7 +17,7 @@
   "homepage": "https://www.configdirector.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ConfigDirector/js-sdks"
+    "url": "git+https://github.com/ConfigDirector/js-sdks.git"
   },
   "type": "module",
   "exports": {
