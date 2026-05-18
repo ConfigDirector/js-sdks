@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/prepare-release-build
-
-      - run: yarn playwright install --with-deps
-        working-directory: ./packages/js-client-core
+        with:
+          needs_playwright: 'true'
 
       - run: yarn release
         working-directory: ./packages/js-client-sdk

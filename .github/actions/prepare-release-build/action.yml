@@ -1,9 +1,13 @@
 name: Checkout and yarn install
 description: Checks out the repo, sets up node for release, and installs dependencies
+inputs:
+  needs_playwright:
+    description: 'If playwright needs to be installed for usage in browser tests'
+    default: 'false'
+    required: false
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v5
     - uses: actions/setup-node@v6
       with:
         node-version-file: ".nvmrc"
@@ -12,3 +16,8 @@ runs:
 
     - run: yarn install
       shell: bash
+
+    - if: inputs.needs_playwright == 'true'
+      run: yarn playwright install --with-deps
+      shell: bash
+      working-directory: ./packages/js-client-core
