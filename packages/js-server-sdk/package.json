@@ -42,7 +42,7 @@
   },
   "scripts": {
     "build": "tsdown",
-    "clean": "rimraf dist/**",
+    "clean": "rm -fr dist",
     "lint": "eslint .",
     "test": "vitest",
     "coverage": "vitest run --coverage",

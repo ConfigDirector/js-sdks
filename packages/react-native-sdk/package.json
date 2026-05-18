@@ -39,7 +39,7 @@
   ],
   "scripts": {
     "example": "yarn workspace @configdirector/react-native-sdk-example",
-    "clean": "del-cli dist",
+    "clean": "rm -fr dist",
     "build": "tsdown",
     "prepare": "yarn build",
     "typecheck": "tsc",
