@@ -1,4 +1,4 @@
-name: Release @configdirector/client-sdk
+name: Release @configdirector/react-web-sdk
 
 on:
   workflow_dispatch:
@@ -18,4 +18,4 @@ jobs:
         working-directory: ./packages/js-client-core
 
       - run: yarn release
-        working-directory: ./packages/js-client-sdk
+        working-directory: ./packages/react-web-sdk

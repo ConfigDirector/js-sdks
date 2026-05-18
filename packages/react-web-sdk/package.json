@@ -1,6 +1,6 @@
 {
   "name": "@configdirector/react-web-sdk",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "React web client SDK for ConfigDirector. ConfigDirector is a remote configuration and feature flag service.",
   "license": "MIT",
   "author": "ConfigDirector",
@@ -18,7 +18,7 @@
   "homepage": "https://www.configdirector.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ConfigDirector/js-sdks"
+    "url": "git+https://github.com/ConfigDirector/js-sdks.git"
   },
   "type": "module",
   "exports": {

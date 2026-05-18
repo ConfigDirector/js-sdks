@@ -1,0 +1,14 @@
+name: Checkout and yarn install
+description: Checks out the repo, sets up node for release, and installs dependencies
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: ".nvmrc"
+        registry-url: "https://registry.npmjs.org"
+        package-manager-cache: false
+
+    - run: yarn install
+      shell: bash
