@@ -1,4 +1,3 @@
-import { DefaultConfigDirectorClient } from "@js-server-sdk/DefaultConfigDirectorClient";
 import type { ConfigDirectorClient, ConfigDirectorClientOptions } from "@js-server-sdk/types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorInitializationError } from "@shared/errors";
@@ -22,14 +21,16 @@ export type RegisterOptions = {
  * ```ts
  * // instrumentation.ts
  * export async function register() {
- *   if (process.env.NEXT_RUNTIME === "nodejs") {
- *     const { register } = await import("@configdirector/nextjs-sdk/server");
- *     await register({ serverSdkKey: process.env.CONFIGDIRECTOR_SERVER_KEY! });
- *   }
+ *   const { register } = await import("@configdirector/nextjs-sdk/server");
+ *   await register({ serverSdkKey: process.env.CONFIGDIRECTOR_SERVER_KEY! });
  * }
  * ```
  */
 export async function register(options: RegisterOptions): Promise<void> {
+  if (process.env["NEXT_RUNTIME"] !== "nodejs") {
+    return;
+  }
+
   if (!options.serverSdkKey) {
     const message =
       "The ConfigDirector serverSdkKey must be provided to register(). You can pass it via process.env.CONFIGDIRECTOR_SERVER_KEY.";
@@ -38,6 +39,7 @@ export async function register(options: RegisterOptions): Promise<void> {
   }
 
   if (!globalThis.__configDirectorServerClient) {
+    const { DefaultConfigDirectorClient } = await import("@js-server-sdk/DefaultConfigDirectorClient");
     const { serverSdkKey, ...clientOptions } = options;
     const client = new DefaultConfigDirectorClient(
       serverSdkKey,
