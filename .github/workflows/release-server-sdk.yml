@@ -1,0 +1,21 @@
+name: Release @configdirector/server-sdk
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/prepare-release-build
+        with:
+          needs_playwright: 'true'
+
+      - run: yarn release
+        working-directory: ./packages/js-server-sdk

@@ -1,49 +1,12 @@
-# ConfigDirector JavaScript Server SDK
+# ConfigDirector Node.js SDK
 
-## Getting started
+This is the Node.js SDK for [ConfigDirector](https://www.configdirector.com) to be used in Node.js, Deno, and Bun.
 
-### 1. Install
+## Documentation
 
-Install from NPM:
+Refer to the [official documentation for the Node.js SDK](https://docs.configdirector.com/sdks/server/node-js).
 
-```bash
-npm install --save @configdirector/server-sdk
-```
-
-### 2. Create and initialize a client using your server SDK key
-
-```ts
-import { createClient } from "@configdirector/server-sdk";
-
-const client = createClient("YOUR-SERVER-SDK-KEY");
-await client.initialize();
-```
-
-### 3. Retrieve config values
-
-Retrieve a config value synchronously via `getValue`. The first argument is the config key, and the second the default value to be returned if the config state is not available. The third (optional) argument is the user context for targeting rules evaluation.
-
-If `getValue` is called before initialization is complete, the default value will be returned.
-
-```ts
-client.getValue("my-string-config-key", "Default");
-
-client.getValue("my-boolean-config-key", false, { id: "user-id", name: "Example User" });
-
-client.getValue<MyEnum>("my-enum-config-key", MyEnum.SomeDefaultValue);
-```
-
-You can also subscribe to config value updates:
-
-```ts
-const unwatchMyKey = client.watch("my-string-config-key", "Default", (newValue) => {
-  console.log("Value updated:", newValue);
-}, { id: "user-id" } /* Optional user context */);
-
-unwatchMyKey(); // Call the unwatch function returned to remove the observer
-
-client.unwatch("my-string-config-key"); // Removes all observers for that key
-```
+There is also [a quickstart guide for ConfigDirector and any of our SDKs](https://docs.configdirector.com/getting-started/quickstart).
 
 ## Getting Help
 

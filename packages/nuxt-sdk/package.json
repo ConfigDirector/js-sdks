@@ -41,7 +41,7 @@
   "scripts": {
     "build": "nuxt prepare && tsdown",
     "prepack": "nuxt prepare && tsdown",
-    "release": "yarn lint && yarn ci:test && yarn build && npm publish --access public",
+    "release": "nuxt prepare && yarn lint && yarn ci:test && yarn build && npm publish --access public",
     "lint": "eslint .",
     "ci:test": "vitest run",
     "test": "vitest watch",
