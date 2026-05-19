@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "rootDir": "../",
+    "outDir": "./dist",
+    "paths": {
+      "@config-evaluator/*": ["../config-evaluator/src/*"],
+      "@eventsource/*": ["../eventsource/src/*"],
+      "@js-client-core/*": ["../js-client-core/src/*"],
+      "@js-browser-client/*": ["../js-browser-client/src/*"],
+      "@js-server-sdk/*": ["../js-server-sdk/src/*"],
+      "@shared/*": ["../shared/src/*"]
+    },
+    "target": "es2020",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "types": ["vitest/globals", "node"],
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "lib": ["ES2020", "DOM"],
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "jsx": "react-jsx"
+  },
+  "exclude": ["dist", "node_modules"]
+}
