@@ -15,6 +15,7 @@ logs
 .npmrc
 .claude
 coverage/
+.yarn
 .yarn/*
 !.yarn/cache
 !.yarn/patches
