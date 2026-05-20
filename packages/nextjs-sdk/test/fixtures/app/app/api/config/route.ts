@@ -1,7 +1,7 @@
-import { createSsrClient } from "@configdirector/nextjs-sdk/server";
+import { getServerSingleton } from "@configdirector/nextjs-sdk/server";
 
 export async function GET() {
-  const client = createSsrClient();
+  const client = getServerSingleton();
   return Response.json({
     welcomeMessage: client.getValue("welcome-message", "default-message"),
     featureEnabled: client.getValue("feature-enabled", false),

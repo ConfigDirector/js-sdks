@@ -32,7 +32,7 @@ export default function FlagsPage() {
       <h2 className="section-title">Feature Flags</h2>
       <ConfigCard configKey="temporary-feature-flag" defaultValue={true} />
       <ConfigCard configKey="permanent-kill-switch" defaultValue={false} />
-      <ConfigCard configKey="integer-config" defaultValue="10" />
+      <ConfigCard configKey="integer-config" defaultValue={10} />
       <ConfigCard configKey="day-of-the-week-config" defaultValue="Friday" />
     </div>
   );

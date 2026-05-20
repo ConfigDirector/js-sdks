@@ -9,38 +9,10 @@ import type { ConfigDirectorProviderOptions, ConfigDirectorProviderState } from 
 /**
  * Initializes the ConfigDirector browser client and provides it to all descendant hooks.
  *
- * Place this in your root layout, wrapping your application. Pass server-evaluated
- * `initialConfigs` to ensure Client Components render the correct values during SSR and before
- * the browser client finishes initializing, preventing a flash of wrong content on hydration:
- *
- * ```tsx
- * // app/layout.tsx
- * import { createSsrClient } from "@configdirector/nextjs-sdk/server";
- * import { ConfigDirectorProvider } from "@configdirector/nextjs-sdk/client";
- * import { cookies } from "next/headers";
- *
- * export default async function RootLayout({ children }) {
- *   const userId = (await cookies()).get("userId")?.value;
- *   const ssrClient = createSsrClient({ userId });
- *
- *   return (
- *     <html>
- *       <body>
- *         <ConfigDirectorProvider
- *           sdkKey={process.env.NEXT_PUBLIC_CONFIGDIRECTOR_CLIENT_KEY!}
- *           context={{ userId }}
- *           initialConfigs={{
- *             "new-dashboard": ssrClient.getValue("new-dashboard", false),
- *             "theme": ssrClient.getValue("theme", "light"),
- *           }}
- *         >
- *           {children}
- *         </ConfigDirectorProvider>
- *       </body>
- *     </html>
- *   );
- * }
- * ```
+ * Place this in your root layout, wrapping your application. In most cases prefer the
+ * `ConfigDirectorProvider` exported from `@configdirector/nextjs-sdk/server` — it is a React
+ * Server Component that populates `initialConfigs` automatically, ensuring Client Components
+ * render the correct values during SSR without any extra wiring.
  */
 export class ConfigDirectorProvider extends Component<
   PropsWithChildren<ConfigDirectorProviderOptions>,

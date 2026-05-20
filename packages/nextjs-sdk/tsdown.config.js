@@ -33,6 +33,9 @@ export default defineConfig([
     dts: true,
     minify: true,
     alias: localAlias,
+    // Keep the client provider as an external import so the "use client" boundary
+    // in dist/client/index.mjs is visible to Next.js rather than being inlined away.
+    external: ["@configdirector/nextjs-sdk"],
     plugins: [versionReplace],
   },
   {

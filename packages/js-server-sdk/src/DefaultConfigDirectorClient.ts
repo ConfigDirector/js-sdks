@@ -15,6 +15,7 @@ import type {
   IdentifyingSdkOptions,
   ConfigBundle,
   ConfigDefinition,
+  ConfigState,
   ConnectionMode,
 } from "./types";
 import { createDefaultLogger } from "./logger";
@@ -313,6 +314,20 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
 
   public unwatchAll() {
     this.handlersMap.clear();
+  }
+
+  public getAllConfigs(
+    options?: { context?: ConfigDirectorContext; configKeys?: string[] },
+  ): Record<string, ConfigState> {
+    if (!this.configSet) return {};
+    const entries = Object.entries(this.configSet.configs);
+    const filtered = options?.configKeys ? entries.filter(([key]) => options.configKeys!.includes(key)) : entries;
+    return Object.fromEntries(
+      filtered.map(([key, config]) => [
+        key,
+        this.configEvaluator.evaluate(config, { context: options?.context, metadata: this.metaContext }),
+      ]),
+    );
   }
 
   public closeConnection() {

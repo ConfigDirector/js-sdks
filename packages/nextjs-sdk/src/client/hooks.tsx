@@ -3,6 +3,7 @@
 import { useContext as useReactContext } from "react";
 import { reactContext } from "./context";
 import type { ConfigDirectorContext, ConfigValueType } from "@js-browser-client/index";
+import { parseConfigValue } from "@shared/value-parser";
 import { ConfigDirectorNextContextError } from "./errors";
 import type { ClientStatus } from "./types";
 
@@ -32,9 +33,12 @@ export const useConfigValue = <T extends ConfigValueType>(
   // The client is undefined during SSR and briefly during the first client render before componentDidMount
   // fires. Fall through to initialConfigs in both cases so the rendered output matches the server HTML,
   // avoiding a hydration mismatch.
+  const initialConfigState = configDirectorReactContext.initialConfigs?.[key];
   const value = configDirectorReactContext.client?.isReady
     ? configDirectorReactContext.client.getValue(key, defaultValue)
-    : ((configDirectorReactContext.initialConfigs?.[key] as T | undefined) ?? defaultValue);
+    : initialConfigState
+      ? parseConfigValue(initialConfigState, defaultValue).parsedValue
+      : defaultValue;
 
   return {
     value,

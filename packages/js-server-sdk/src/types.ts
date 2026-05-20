@@ -3,6 +3,7 @@ import type {
   ConfigDirectorMetaContext,
   ConfigDirectorLogger,
   ConfigValueType,
+  ConfigState,
   IdentifyingSdkOptions,
   ConnectionMode,
 } from "@shared/types";
@@ -192,6 +193,15 @@ export interface ConfigDirectorClient {
    * Removes all subscribers from all config keys
    */
   unwatchAll(): void;
+
+  /**
+   * Returns the evaluated {@link ConfigState} for every known config key, or only the keys
+   * listed in `configKeys` when provided.
+   *
+   * Intended for SSR hydration — does NOT record telemetry events. Returns an empty object
+   * when the client is not yet ready.
+   */
+  getAllConfigs(options?: { context?: ConfigDirectorContext; configKeys?: string[] }): Record<string, ConfigState>;
 
   on<T extends keyof ClientEvents>(eventName: T, handler: (args: ClientEvents[T]) => void): void;
 
