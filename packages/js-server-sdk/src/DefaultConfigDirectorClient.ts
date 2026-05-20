@@ -130,9 +130,10 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         ]);
       }
       if (!this.ready) {
-        const warningDetails = this.connectionMode === "streaming"
-          ? "The client will continue to retry since there were no fatal errors detected. Configs will return the default value until the connection succeeds."
-          : "Since the client was configured without streaming, configs may not update and always return the default value.";
+        const warningDetails =
+          this.connectionMode === "streaming"
+            ? "The client will continue to retry since there were no fatal errors detected. Configs will return the default value until the connection succeeds."
+            : "Since the client was configured without streaming, configs may not update and always return the default value.";
         this.logger.warn(
           `[ConfigDirectorClient] Timed out waiting for initialization after ${this.timeout}ms. ${warningDetails}`,
         );
@@ -316,12 +317,17 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.handlersMap.clear();
   }
 
-  public getAllConfigs(
-    options?: { context?: ConfigDirectorContext; configKeys?: string[] },
-  ): Record<string, ConfigState> {
+  public getAllConfigs(options?: {
+    context?: ConfigDirectorContext;
+    configKeys?: string[];
+  }): Record<string, ConfigState> {
     if (!this.configSet) return {};
+
     const entries = Object.entries(this.configSet.configs);
-    const filtered = options?.configKeys ? entries.filter(([key]) => options.configKeys!.includes(key)) : entries;
+    const filtered = options?.configKeys
+      ? entries.filter(([key]) => options.configKeys?.includes(key))
+      : entries;
+
     return Object.fromEntries(
       filtered.map(([key, config]) => [
         key,
