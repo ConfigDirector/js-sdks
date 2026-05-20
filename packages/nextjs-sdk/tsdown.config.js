@@ -33,10 +33,17 @@ export default defineConfig([
     dts: true,
     minify: true,
     alias: localAlias,
-    // Keep the client provider as an external import so the "use client" boundary
-    // in dist/client/index.mjs is visible to Next.js rather than being inlined away.
-    external: ["@configdirector/nextjs-sdk"],
-    plugins: [versionReplace],
+    plugins: [
+      // Intercept self-referential imports before rolldown attempts resolution, keeping
+      // them external so the "use client" boundary in dist/client/ is visible to Next.js.
+      {
+        name: "external-self-client",
+        resolveId(id) {
+          if (id.startsWith("@configdirector/nextjs-sdk")) return { id, external: true };
+        },
+      },
+      versionReplace,
+    ],
   },
   {
     entry: { index: "src/client/index.ts" },
