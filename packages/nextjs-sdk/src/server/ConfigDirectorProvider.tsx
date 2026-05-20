@@ -7,7 +7,14 @@ import { generateSsrConfigSet } from "./ssr";
  * Props for {@link ConfigDirectorProvider}. Identical to the client provider options
  * except `initialConfigs` is omitted — SSR-evaluated values are injected automatically.
  */
-export type ConfigDirectorProviderProps = Omit<ConfigDirectorProviderOptions, "initialConfigs">;
+export type ConfigDirectorProviderProps = Omit<ConfigDirectorProviderOptions, "initialConfigs"> & {
+  /**
+   * Restrict SSR pre-evaluation to these config keys. When omitted, all known configs are
+   * pre-evaluated. Useful when you have a large config set and only need a subset hydrated
+   * on this layout.
+   */
+  configKeys?: string[];
+};
 
 /**
  * React Server Component wrapper around the ConfigDirector client provider.
@@ -43,9 +50,10 @@ export type ConfigDirectorProviderProps = Omit<ConfigDirectorProviderOptions, "i
  */
 export async function ConfigDirectorProvider({
   children,
+  configKeys,
   ...props
 }: PropsWithChildren<ConfigDirectorProviderProps>) {
-  const initialConfigs = generateSsrConfigSet({ context: props.context });
+  const initialConfigs = generateSsrConfigSet({ context: props.context, configKeys });
   return (
     <ClientProvider {...props} initialConfigs={initialConfigs}>
       {children}
