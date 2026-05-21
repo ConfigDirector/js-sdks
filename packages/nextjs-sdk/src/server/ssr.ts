@@ -1,5 +1,5 @@
 import type { ConfigDirectorContext, ConfigState } from "@js-server-sdk/types";
-import { getServerSingleton } from "./singleton";
+import { getConfigClient } from "./singleton";
 import { createDefaultLogger } from "./logger";
 
 const logger = createDefaultLogger();
@@ -26,7 +26,7 @@ export type GenerateSsrConfigSetOptions = {
  */
 export function generateSsrConfigSet(options?: GenerateSsrConfigSetOptions): Record<string, ConfigState> {
   try {
-    return getServerSingleton().getAllConfigs(options);
+    return getConfigClient().getAllConfigs(options);
   } catch (error) {
     logger.error("Error retrieving SSR config set:", error);
     return {};

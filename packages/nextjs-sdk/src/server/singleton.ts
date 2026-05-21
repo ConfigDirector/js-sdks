@@ -60,7 +60,7 @@ export function getAppMeta(): { appName?: string; appVersion?: string } {
   return globalThis.__configDirectorAppMeta ?? {};
 }
 
-export function getServerSingleton(): ConfigDirectorClient {
+export function getConfigClient(): ConfigDirectorClient {
   if (!globalThis.__configDirectorServerClient) {
     throw new ConfigDirectorInitializationError(
       "[ConfigDirector] Server client not initialized. Make sure to call register() in your instrumentation.ts file before using the SDK.",
