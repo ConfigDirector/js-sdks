@@ -1,4 +1,4 @@
-export { register, getServerSingleton } from "./singleton";
+export { register, getServerSingleton, getAppMeta } from "./singleton";
 export type { RegisterOptions } from "./singleton";
 
 export { generateSsrConfigSet } from "./ssr";

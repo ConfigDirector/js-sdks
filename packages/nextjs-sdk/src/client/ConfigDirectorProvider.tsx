@@ -30,7 +30,7 @@ export class ConfigDirectorProvider extends Component<
       {
         connection: { url: this.props.url, timeout: this.props.timeout },
         metadata: { appName: this.props.appName, appVersion: this.props.appVersion },
-        logger: this.props.logger ?? createConsoleLogger("warn"),
+        logger: createConsoleLogger(this.props.logLevel ?? "warn"),
       },
     );
   }

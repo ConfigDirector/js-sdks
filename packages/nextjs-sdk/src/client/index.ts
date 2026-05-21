@@ -3,7 +3,7 @@ export { useConfigValue, useContext, useClient, useConfigDirectorStatus } from "
 export { createConsoleLogger } from "./logger";
 export { ConfigDirectorNextContextError } from "./errors";
 
-export type { ClientStatus, ConfigDirectorProviderOptions } from "./types";
+export type { ClientStatus, ConfigDirectorProviderOptions, ConfigDirectorLoggingLevel } from "./types";
 export type {
   ConfigDirectorClient,
   ConfigDirectorContext,

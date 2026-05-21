@@ -3,5 +3,6 @@ export async function register() {
   await register({
     serverSdkKey: process.env["CONFIGDIRECTOR_SERVER_KEY"] ?? "",
     connection: { url: process.env.CONFIGDIRECTOR_BASE_URL },
+    metadata: { appName: "test-app", appVersion: "1.2.3" },
   });
 }

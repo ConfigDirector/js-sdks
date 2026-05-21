@@ -1,5 +1,7 @@
-import type { ConfigDirectorClient, ConfigDirectorContext, ConfigDirectorLogger } from "@js-browser-client/index";
+import type { ConfigDirectorClient, ConfigDirectorContext, ConfigDirectorLoggingLevel } from "@js-browser-client/index";
 import type { ConfigState } from "@shared/types";
+
+export type { ConfigDirectorLoggingLevel };
 
 export type ClientStatus = "loading" | "ready" | "default";
 
@@ -32,9 +34,9 @@ export type ConfigDirectorProviderOptions = {
    */
   context?: ConfigDirectorContext;
   /**
-   * A logger instance created with {@link createConsoleLogger}.
+   * Log level for the console logger. Defaults to "warn".
    */
-  logger?: ConfigDirectorLogger;
+  logLevel?: ConfigDirectorLoggingLevel;
   /**
    * Pre-evaluated config states from the server, used to hydrate client components correctly
    * during SSR. Obtain these via {@link generateSsrConfigSet} or by using the

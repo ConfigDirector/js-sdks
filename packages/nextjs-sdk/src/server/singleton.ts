@@ -4,6 +4,7 @@ import { ConfigDirectorInitializationError } from "@shared/errors";
 
 declare global {
   var __configDirectorServerClient: ConfigDirectorClient | undefined;
+  var __configDirectorAppMeta: { appName?: string; appVersion?: string } | undefined;
 }
 
 export type RegisterOptions = {
@@ -41,6 +42,10 @@ export async function register(options: RegisterOptions): Promise<void> {
   if (!globalThis.__configDirectorServerClient) {
     const { DefaultConfigDirectorClient } = await import("@js-server-sdk/DefaultConfigDirectorClient");
     const { serverSdkKey, ...clientOptions } = options;
+    globalThis.__configDirectorAppMeta = {
+      appName: options.metadata?.appName,
+      appVersion: options.metadata?.appVersion,
+    };
     const client = new DefaultConfigDirectorClient(
       serverSdkKey,
       { sdkName: "nextjs-sdk", sdkVersion: "__VERSION__" },
@@ -49,6 +54,10 @@ export async function register(options: RegisterOptions): Promise<void> {
     globalThis.__configDirectorServerClient = client;
     await client.initialize();
   }
+}
+
+export function getAppMeta(): { appName?: string; appVersion?: string } {
+  return globalThis.__configDirectorAppMeta ?? {};
 }
 
 export function getServerSingleton(): ConfigDirectorClient {

@@ -2,6 +2,7 @@ import type { PropsWithChildren } from "react";
 import { ConfigDirectorProvider as ClientProvider } from "@configdirector/nextjs-sdk/client";
 import type { ConfigDirectorProviderOptions } from "../client/types";
 import { generateSsrConfigSet } from "./ssr";
+import { getAppMeta } from "./singleton";
 
 /**
  * Props for {@link ConfigDirectorProvider}. Identical to the client provider options
@@ -54,8 +55,13 @@ export async function ConfigDirectorProvider({
   ...props
 }: PropsWithChildren<ConfigDirectorProviderProps>) {
   const initialConfigs = generateSsrConfigSet({ context: props.context, configKeys });
+  const appMeta = getAppMeta();
   return (
-    <ClientProvider {...props} initialConfigs={initialConfigs}>
+    <ClientProvider
+      {...props}
+      appName={props.appName ?? appMeta.appName}
+      appVersion={props.appVersion ?? appMeta.appVersion}
+      initialConfigs={initialConfigs}>
       {children}
     </ClientProvider>
   );
