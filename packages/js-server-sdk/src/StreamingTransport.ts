@@ -43,7 +43,7 @@ export class StreamingTransport implements Transport {
           this.dispatchMessage(data);
         },
         onConnect: () => {
-          this.logger.debug("[EventSourceTransport] Connected");
+          this.logger.debug("[StreamingTransport] Connected");
           resolve(this);
         },
         shouldReconnect: (state) => {
@@ -56,11 +56,16 @@ export class StreamingTransport implements Transport {
         calculateReconnectDelay: (state) => {
           const seconds = Math.pow(2, Math.min(state.attempt, MAX_EXPONENTIAL_DELAY));
           const delay = seconds * 1_000;
-          this.logger.warn(`[EventSourceTransport] Scheduling reconnect in ${delay}ms.`);
+          const logMessage = `[StreamingTransport] Scheduling reconnect attempt #${state.attempt} in ${delay}ms.`;
+          if (state.attempt <= 5) {
+            this.logger.info(logMessage);
+          } else {
+            this.logger.warn(logMessage);
+          }
           return delay;
         },
         onDisconnect: () => {
-          this.logger.debug("[EventSourceTransport] Disconnected");
+          this.logger.debug("[StreamingTransport] Disconnected");
         },
       });
       this.eventSource.connect();
@@ -78,7 +83,7 @@ export class StreamingTransport implements Transport {
       const json = JSON.parse(data);
       this.eventEmitter.emit("configBundleReceived", json as ConfigBundle);
     } catch (error) {
-      this.logger.error("[EventSourceTransport] Error parsing and dispatching config data update: ", error);
+      this.logger.error("[StreamingTransport] Error parsing and dispatching config data update: ", error);
     }
   }
 
