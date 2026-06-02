@@ -49,6 +49,7 @@ export type EvaluationReason =
   | "type-mismatch"
   | "value-missing"
   | "invalid-number"
+  | "invalid-json"
   | "invalid-boolean";
 
 /**

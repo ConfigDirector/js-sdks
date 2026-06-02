@@ -1,14 +1,6 @@
 import type { ConfigState, ConfigValueType, EvaluationReason } from "./types";
 
-type NativeType =
-  | "string"
-  | "number"
-  | "bigint"
-  | "boolean"
-  | "symbol"
-  | "undefined"
-  | "object"
-  | "function";
+type NativeType = "string" | "number" | "bigint" | "boolean" | "symbol" | "undefined" | "object" | "function";
 
 type ParseResult<T extends ConfigValueType> = {
   parsedValue: T;
@@ -56,6 +48,10 @@ export const parseConfigValue = <T extends ConfigValueType>(
     };
   }
 
+  if (configState.type === "json") {
+    return parseJson(value, defaultValue, requestedType);
+  }
+
   if (typeof defaultValue === "string") {
     return {
       parsedValue: value as T,
@@ -86,7 +82,10 @@ export const parseConfigValue = <T extends ConfigValueType>(
       reason: hasNumber ? "found-match" : "invalid-number",
     };
   }
-  if (isNumericNativeType(typeof defaultValue) && (configState.type === "float" || configState.type === "enum" )) {
+  if (
+    isNumericNativeType(typeof defaultValue) &&
+    (configState.type === "float" || configState.type === "enum")
+  ) {
     const numValue = parseConfigFloat(value);
     const hasNumber = typeof numValue === "number";
     return {
@@ -136,4 +135,35 @@ const parseConfigFloat = (value: string): number | undefined => {
     return;
   }
   return num;
+};
+
+const parseJson = <T extends ConfigValueType>(
+  jsonString: string,
+  defaultValue: T,
+  requestedType: string,
+): ParseResult<T> => {
+  if (typeof defaultValue === "string") {
+    return {
+      parsedValue: jsonString as T,
+      requestedType,
+      usedDefault: false,
+      reason: "found-match",
+    };
+  }
+
+  try {
+    return {
+      parsedValue: JSON.parse(jsonString),
+      requestedType,
+      usedDefault: false,
+      reason: "found-match",
+    };
+  } catch {
+    return {
+      parsedValue: defaultValue,
+      requestedType,
+      usedDefault: true,
+      reason: "invalid-json",
+    };
+  }
 };

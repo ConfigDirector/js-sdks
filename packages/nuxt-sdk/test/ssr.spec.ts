@@ -37,6 +37,13 @@ describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
       const match = html.match(/data-testid="loading"[^>]*>([^<]*)<\/div>/);
       expect(match?.[1]?.trim()).toBe("done");
     });
+
+    it("renders the json config value as a parsed object in SSR HTML", async () => {
+      const html = await $fetch("/");
+      const match = html.match(/data-testid="json-data"[^>]*>([^<]*)<\/div>/);
+      const decoded = match?.[1]?.trim().replace(/&quot;/g, '"');
+      expect(decoded).toBe(JSON.stringify({ greeting: "hello", count: 3 }));
+    });
   });
 
   describe("Server composable (useConfigDirectorClient) in a Nitro event handler", () => {
@@ -61,6 +68,21 @@ describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
     it("returns the default value for an unknown config key", async () => {
       const data = await $fetch<{ nonExistentKey: string }>("/api/config");
       expect(data.nonExistentKey).toBe("default-value");
+    });
+
+    it("returns the json config value as a parsed object", async () => {
+      const data = await $fetch<{ jsonData: object }>("/api/config");
+      expect(data.jsonData).toEqual({ greeting: "hello", count: 3 });
+    });
+
+    it("returns the raw json string when the default value type is string", async () => {
+      const data = await $fetch<{ jsonDataRaw: string }>("/api/config");
+      expect(data.jsonDataRaw).toBe(JSON.stringify({ greeting: "hello" }));
+    });
+
+    it("returns the default object when the json config key is not in the server bundle", async () => {
+      const data = await $fetch<{ jsonDataFallback: object }>("/api/config");
+      expect(data.jsonDataFallback).toEqual({ label: "default" });
     });
   });
 });

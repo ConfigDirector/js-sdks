@@ -28,7 +28,12 @@ describe("useConfigValue", () => {
       [
         {
           data: full({
-            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Hello",
+            },
           }),
         },
       ],
@@ -54,7 +59,12 @@ describe("useConfigValue", () => {
         {
           delay: 100,
           data: full({
-            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Hello",
+            },
           }),
         },
       ],
@@ -129,13 +139,95 @@ describe("useConfigValue", () => {
     expect((payloads[1] as any)?.givenContext).toMatchObject({ id: "user-2" });
   });
 
+  it("returns the parsed object when the server sends a json config and the default is an object", async () => {
+    await commands.mswUseSseHandler(SSE_URL, [
+      [
+        {
+          data: full({
+            "json-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "json-config",
+              type: "json",
+              value: JSON.stringify({ greeting: "hello", count: 3 }),
+            },
+          }),
+        },
+      ],
+    ]);
+
+    const TestComponent = () => {
+      const { value } = useConfigValue("json-config", { greeting: "default", count: 0 });
+      return <div data-testid="target">{JSON.stringify(value)}</div>;
+    };
+
+    render(
+      <ConfigDirectorProvider sdkKey="dummy-key" logger={logger}>
+        <TestComponent />
+      </ConfigDirectorProvider>,
+    );
+
+    await screen.findByText(JSON.stringify({ greeting: "hello", count: 3 }), undefined, { timeout: 1_000 });
+  });
+
+  it("returns the default object when the json config key is not present in the server response", async () => {
+    await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+
+    const TestComponent = () => {
+      const { value } = useConfigValue("json-config", { greeting: "default" });
+      return <div data-testid="target">{JSON.stringify(value)}</div>;
+    };
+
+    render(
+      <ConfigDirectorProvider sdkKey="dummy-key" logger={logger}>
+        <TestComponent />
+      </ConfigDirectorProvider>,
+    );
+
+    await screen.findByText(JSON.stringify({ greeting: "default" }), undefined, { timeout: 1_000 });
+  });
+
+  it("returns the raw json string when the default value type is string", async () => {
+    await commands.mswUseSseHandler(SSE_URL, [
+      [
+        {
+          data: full({
+            "json-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "json-config",
+              type: "json",
+              value: JSON.stringify({ greeting: "hello" }),
+            },
+          }),
+        },
+      ],
+    ]);
+
+    const TestComponent = () => {
+      const { value } = useConfigValue("json-config", "{}");
+      return <div data-testid="target">{value}</div>;
+    };
+
+    render(
+      <ConfigDirectorProvider sdkKey="dummy-key" logger={logger}>
+        <TestComponent />
+      </ConfigDirectorProvider>,
+    );
+
+    await screen.findByText(JSON.stringify({ greeting: "hello" }), undefined, { timeout: 1_000 });
+  });
+
   it("is 'loading' until configs are loaded", async () => {
     await commands.mswUseSseHandler(SSE_URL, [
       [
         {
           delay: 100,
           data: full({
-            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Hello",
+            },
           }),
         },
       ],

@@ -99,6 +99,115 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
     },
   );
 
+  it(
+    "returns the parsed object when the server sends a json config and the default is an object",
+    { timeout: 30_000 },
+    async () => {
+      const page = await createPage();
+
+      const jsonBundle = {
+        ...CLIENT_BUNDLE,
+        configs: {
+          ...CLIENT_BUNDLE.configs,
+          "json-data": {
+            id: "00000000-0000-0000-0000-000000000004",
+            key: "json-data",
+            type: "json",
+            value: JSON.stringify({ greeting: "hello", count: 3 }),
+          },
+        },
+      };
+
+      await page.route("**/client/sse/v1", async (route) => {
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+          return;
+        }
+        await route.fulfill({ status: 200, headers: SSE_HEADERS, body: sseBody(jsonBundle) });
+      });
+      await page.route("**/client/telemetry/v1", async (route) => {
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+          return;
+        }
+        await route.fulfill({ status: 202, headers: { "access-control-allow-origin": "*" } });
+      });
+
+      await page.goto(url("/"));
+
+      await textOf(page, '[data-testid="json-data"]').toBe(JSON.stringify({ greeting: "hello", count: 3 }));
+
+      await page.close();
+    },
+  );
+
+  it(
+    "falls back to the default object when the json config is not in the server response",
+    { timeout: 30_000 },
+    async () => {
+      const page = await createPage();
+
+      await page.route("**/client/sse/v1", async (route) => {
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+          return;
+        }
+        await route.fulfill({ status: 200, headers: SSE_HEADERS, body: sseBody(CLIENT_BUNDLE) });
+      });
+      await page.route("**/client/telemetry/v1", async (route) => {
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+          return;
+        }
+        await route.fulfill({ status: 202, headers: { "access-control-allow-origin": "*" } });
+      });
+
+      await page.goto(url("/"));
+
+      await textOf(page, '[data-testid="json-data"]').toBe(JSON.stringify({ label: "default" }));
+
+      await page.close();
+    },
+  );
+
+  it("returns the raw json string when the default value type is string", { timeout: 30_000 }, async () => {
+    const page = await createPage();
+
+    const jsonBundle = {
+      ...CLIENT_BUNDLE,
+      configs: {
+        ...CLIENT_BUNDLE.configs,
+        "json-data-raw": {
+          id: "00000000-0000-0000-0000-000000000005",
+          key: "json-data-raw",
+          type: "json",
+          value: JSON.stringify({ greeting: "hello" }),
+        },
+      },
+    };
+
+    await page.route("**/client/sse/v1", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+        return;
+      }
+      await route.fulfill({ status: 200, headers: SSE_HEADERS, body: sseBody(jsonBundle) });
+    });
+    await page.route("**/client/telemetry/v1", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+        return;
+      }
+      await route.fulfill({ status: 202, headers: { "access-control-allow-origin": "*" } });
+    });
+
+    await page.goto(url("/"));
+
+    await textOf(page, '[data-testid="json-data-raw"]').toBe(JSON.stringify({ greeting: "hello" }));
+
+    await page.close();
+  });
+
   it("reconnects and sends the new context when updateContext is called", { timeout: 30_000 }, async () => {
     const capturedPayloads: unknown[] = [];
     const page = await createPage();

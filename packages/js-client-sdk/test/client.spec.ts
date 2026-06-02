@@ -132,6 +132,61 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("json configs", () => {
+    test("returns the parsed object when the server sends a json config and the default is an object", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "json-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "json-config",
+                type: "json",
+                value: JSON.stringify({ greeting: "hello", count: 3 }),
+              },
+            }),
+          },
+        ],
+      ]);
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      expect(client.getValue("json-config", { greeting: "default", count: 0 })).toEqual({ greeting: "hello", count: 3 });
+    });
+
+    test("returns the default object when the json config key is not present in the server response", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      expect(client.getValue("json-config", { greeting: "default" })).toEqual({ greeting: "default" });
+    });
+
+    test("returns the raw json string when the default value type is string", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "json-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "json-config",
+                type: "json",
+                value: JSON.stringify({ greeting: "hello" }),
+              },
+            }),
+          },
+        ],
+      ]);
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      expect(client.getValue("json-config", "{}")).toBe(JSON.stringify({ greeting: "hello" }));
+    });
+  });
+
   test("returns from initialize if the timeout is reached, but eventually connects", async () => {
     await commands.mswUseSseHandler(
       SSE_URL,

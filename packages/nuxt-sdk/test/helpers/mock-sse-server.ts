@@ -43,6 +43,28 @@ const SERVER_BUNDLE = {
         defaultValue: "7",
       },
     },
+    "json-data": {
+      id: "00000000-0000-0000-0000-000000000004",
+      key: "json-data",
+      type: "json",
+      variations: [],
+      target: {
+        environmentId: ENVIRONMENT_ID,
+        rules: [],
+        defaultValue: JSON.stringify({ greeting: "hello", count: 3 }),
+      },
+    },
+    "json-data-raw": {
+      id: "00000000-0000-0000-0000-000000000005",
+      key: "json-data-raw",
+      type: "json",
+      variations: [],
+      target: {
+        environmentId: ENVIRONMENT_ID,
+        rules: [],
+        defaultValue: JSON.stringify({ greeting: "hello" }),
+      },
+    },
   },
 };
 

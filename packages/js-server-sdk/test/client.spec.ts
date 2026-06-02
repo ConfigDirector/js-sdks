@@ -37,7 +37,14 @@ describe("ConfigDirectorClient", () => {
         requestJson = await request.json();
         const stream = new ReadableStream({
           start(controller) {
-            controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
+            controller.enqueue(
+              message({
+                environmentId: "10000000-0000-0000-0000-000000000000",
+                projectId: "20000000-0000-0000-0000-000000000000",
+                kind: "full",
+                configs: {},
+              }),
+            );
           },
         });
 
@@ -176,7 +183,14 @@ describe("ConfigDirectorClient", () => {
       http.post(SSE_URL, async () => {
         const stream = new ReadableStream({
           start(controller) {
-            controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
+            controller.enqueue(
+              message({
+                environmentId: "10000000-0000-0000-0000-000000000000",
+                projectId: "20000000-0000-0000-0000-000000000000",
+                kind: "full",
+                configs: {},
+              }),
+            );
           },
         });
 
@@ -191,6 +205,232 @@ describe("ConfigDirectorClient", () => {
     expect(client.getValue("example-config", new URL("http://example.com"))).toEqual(
       new URL("http://example.com"),
     );
+  });
+
+  describe("json configs", () => {
+    test("returns the parsed object when the server sends a json config and the default is an object", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {
+                    "json-config": {
+                      id: "00000000-0000-0000-0000-000000000001",
+                      key: "json-config",
+                      type: "json",
+                      variations: [],
+                      target: {
+                        environmentId: "10000000-0000-0000-0000-000000000000",
+                        rules: [],
+                        defaultValue: JSON.stringify({ greeting: "hello", count: 3 }),
+                      },
+                    },
+                  },
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      expect(client.getValue("json-config", { greeting: "default", count: 0 })).toEqual({
+        greeting: "hello",
+        count: 3,
+      });
+    });
+
+    test("returns the default object when the json config key is not present in the server response", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      expect(client.getValue("json-config", { greeting: "default" })).toEqual({ greeting: "default" });
+    });
+
+    test("returns the raw json string when the default value type is string", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {
+                    "json-config": {
+                      id: "00000000-0000-0000-0000-000000000001",
+                      key: "json-config",
+                      type: "json",
+                      variations: [],
+                      target: {
+                        environmentId: "10000000-0000-0000-0000-000000000000",
+                        rules: [],
+                        defaultValue: JSON.stringify({ greeting: "hello" }),
+                      },
+                    },
+                  },
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      expect(client.getValue("json-config", "{}")).toBe(JSON.stringify({ greeting: "hello" }));
+    });
+
+    test("returns the rule-matched json value when a targeting rule condition is satisfied", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {
+                    "json-config": {
+                      id: "00000000-0000-0000-0000-000000000001",
+                      key: "json-config",
+                      type: "json",
+                      variations: [],
+                      target: {
+                        environmentId: "10000000-0000-0000-0000-000000000000",
+                        rules: [
+                          {
+                            id: crypto.randomUUID(),
+                            order: 0,
+                            type: "conditional",
+                            target: "value",
+                            percentages: null,
+                            value: JSON.stringify({ theme: "dark", version: 2 }),
+                            conditions: [
+                              {
+                                id: crypto.randomUUID(),
+                                attribute: "name",
+                                trait: null,
+                                operator: "=",
+                                targetType: "text",
+                                targetValues: ["Alice"],
+                              },
+                            ],
+                          },
+                        ],
+                        defaultValue: JSON.stringify({ theme: "light", version: 1 }),
+                      },
+                    },
+                  },
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      expect(client.getValue("json-config", { theme: "default" }, { name: "Alice" })).toEqual({
+        theme: "dark",
+        version: 2,
+      });
+      expect(client.getValue("json-config", { theme: "default" }, { name: "Bob" })).toEqual({
+        theme: "light",
+        version: 1,
+      });
+    });
+
+    test("watch delivers the rule-matched json value for the registered context", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {
+                    "json-config": {
+                      id: "00000000-0000-0000-0000-000000000001",
+                      key: "json-config",
+                      type: "json",
+                      variations: [],
+                      target: {
+                        environmentId: "10000000-0000-0000-0000-000000000000",
+                        rules: [
+                          {
+                            id: crypto.randomUUID(),
+                            order: 0,
+                            type: "conditional",
+                            target: "value",
+                            percentages: null,
+                            value: JSON.stringify({ theme: "dark", version: 2 }),
+                            conditions: [
+                              {
+                                id: crypto.randomUUID(),
+                                attribute: "name",
+                                trait: null,
+                                operator: "=",
+                                targetType: "text",
+                                targetValues: ["Alice"],
+                              },
+                            ],
+                          },
+                        ],
+                        defaultValue: JSON.stringify({ theme: "light", version: 1 }),
+                      },
+                    },
+                  },
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      const watchedValue = new Promise<object>((resolve) => {
+        client.watch("json-config", { theme: "default" }, (value) => resolve(value), { name: "Alice" });
+      });
+      await client.initialize();
+
+      await expect(watchedValue).resolves.toEqual({ theme: "dark", version: 2 });
+    });
   });
 
   test("returns the evaluated config value when the server sends the config set", async () => {
@@ -447,14 +687,22 @@ describe("ConfigDirectorClient", () => {
                       key: "config-a",
                       type: "string",
                       variations: [],
-                      target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "original-a" },
+                      target: {
+                        environmentId: "10000000-0000-0000-0000-000000000000",
+                        rules: [],
+                        defaultValue: "original-a",
+                      },
                     },
                     "config-b": {
                       id: "00000000-0000-0000-0000-000000000002",
                       key: "config-b",
                       type: "string",
                       variations: [],
-                      target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "original-b" },
+                      target: {
+                        environmentId: "10000000-0000-0000-0000-000000000000",
+                        rules: [],
+                        defaultValue: "original-b",
+                      },
                     },
                   },
                 }),
@@ -471,7 +719,11 @@ describe("ConfigDirectorClient", () => {
                         key: "config-a",
                         type: "string",
                         variations: [],
-                        target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "updated-a" },
+                        target: {
+                          environmentId: "10000000-0000-0000-0000-000000000000",
+                          rules: [],
+                          defaultValue: "updated-a",
+                        },
                       },
                     },
                   }),
@@ -663,7 +915,14 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
             },
           });
           return buildResponse(stream);
@@ -687,7 +946,14 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
             },
           });
           return buildResponse(stream);
@@ -724,7 +990,11 @@ describe("ConfigDirectorClient", () => {
                       key: "example-config",
                       type: "string",
                       variations: [],
-                      target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "Hello" },
+                      target: {
+                        environmentId: "10000000-0000-0000-0000-000000000000",
+                        rules: [],
+                        defaultValue: "Hello",
+                      },
                     },
                   },
                 }),
@@ -758,7 +1028,14 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
             },
           });
           return buildResponse(stream);
@@ -779,7 +1056,14 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
             },
           });
           return buildResponse(stream);
@@ -802,7 +1086,14 @@ describe("ConfigDirectorClient", () => {
         http.post(SSE_URL, async () => {
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
             },
           });
           return buildResponse(stream);

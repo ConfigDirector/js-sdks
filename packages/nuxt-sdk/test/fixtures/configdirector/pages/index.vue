@@ -9,6 +9,12 @@
     <div data-testid="item-count">
       {{ String(itemCount) }}
     </div>
+    <div data-testid="json-data">
+      {{ JSON.stringify(jsonData) }}
+    </div>
+    <div data-testid="json-data-raw">
+      {{ jsonDataRaw }}
+    </div>
     <div data-testid="status">
       {{ readyStatus }}
     </div>
@@ -28,5 +34,7 @@ const { value: featureEnabled } = useConfigDirectorValue(
   false,
 );
 const { value: itemCount } = useConfigDirectorValue("item-count", 0);
+const { value: jsonData } = useConfigDirectorValue("json-data", { label: "default" });
+const { value: jsonDataRaw } = useConfigDirectorValue("json-data-raw", "{}");
 const { readyStatus, loading } = useConfigDirectorStatus();
 </script>

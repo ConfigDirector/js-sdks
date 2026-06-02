@@ -10,19 +10,19 @@ enum StringBasedEnum {
   One = "one",
   Two = "two",
   Three = "three",
-};
+}
 
 enum FloatEnum {
   One = 1.5,
   Two = 2.6,
   Three = 3.7,
-};
+}
 
 enum DefaultEnum {
   One,
   Two,
   Three,
-};
+}
 
 describe("value parser", () => {
   describe("string", () => {
@@ -215,7 +215,9 @@ describe("value parser", () => {
 
   describe("enum", () => {
     test("returns the value as enum when the config value is enum and the generic type is string", () => {
-      expect(parseConfigValue<StringBasedEnum>(configState("enum", "one"), StringBasedEnum.Two)).toMatchObject({
+      expect(
+        parseConfigValue<StringBasedEnum>(configState("enum", "one"), StringBasedEnum.Two),
+      ).toMatchObject({
         parsedValue: StringBasedEnum.One,
         reason: "found-match",
         requestedType: "string",
@@ -257,7 +259,9 @@ describe("value parser", () => {
     });
 
     test("returns the value as string or number when the config is enum and the value is not in the enum list", () => {
-      expect(parseConfigValue<StringBasedEnum>(configState("enum", "other"), StringBasedEnum.Two)).toMatchObject({
+      expect(
+        parseConfigValue<StringBasedEnum>(configState("enum", "other"), StringBasedEnum.Two),
+      ).toMatchObject({
         parsedValue: "other",
         reason: "found-match",
         requestedType: "string",
@@ -268,6 +272,70 @@ describe("value parser", () => {
         reason: "found-match",
         requestedType: "number",
         usedDefault: false,
+      });
+    });
+  });
+
+  describe("json", () => {
+    test("returns the value as an object when the config type is json and generic type is object", () => {
+      expect(
+        parseConfigValue(configState("json", JSON.stringify({ data: "Hello" })), { otherData: "bye" }),
+      ).toMatchObject({
+        parsedValue: { data: "Hello" },
+        reason: "found-match",
+        requestedType: "Object",
+        usedDefault: false,
+      });
+
+      expect(
+        parseConfigValue(configState("json", JSON.stringify(["Hello", "Hi"])), { otherData: "bye" }),
+      ).toMatchObject({
+        parsedValue: ["Hello", "Hi"],
+        reason: "found-match",
+        requestedType: "Object",
+        usedDefault: false,
+      });
+
+      expect(parseConfigValue(configState("json", JSON.stringify(null)), { otherData: "bye" })).toMatchObject(
+        {
+          parsedValue: null,
+          reason: "found-match",
+          requestedType: "Object",
+          usedDefault: false,
+        },
+      );
+    });
+
+    test("returns the value as an array when the config type is json and generic type is array", () => {
+      expect(
+        parseConfigValue(configState("json", JSON.stringify(["Hello", "Hi"])), [{ otherData: "bye" }]),
+      ).toMatchObject({
+        parsedValue: ["Hello", "Hi"],
+        reason: "found-match",
+        requestedType: "Array",
+        usedDefault: false,
+      });
+    });
+
+    test("returns the value as a string when the config type is json and generic type is string", () => {
+      expect(
+        parseConfigValue(configState("json", JSON.stringify({ data: "Hello" })), "{ otherData: 'bye' }"),
+      ).toMatchObject({
+        parsedValue: '{"data":"Hello"}',
+        reason: "found-match",
+        requestedType: "string",
+        usedDefault: false,
+      });
+    });
+
+    test("returns the default value when parsing the JSON string fails", () => {
+      expect(
+        parseConfigValue(configState("json", "{'data': 'bad json'"), { otherData: "bye" }),
+      ).toMatchObject({
+        parsedValue: { otherData: "bye" },
+        reason: "invalid-json",
+        requestedType: "Object",
+        usedDefault: true,
       });
     });
   });
