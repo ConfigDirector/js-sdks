@@ -14,6 +14,7 @@ export default function FlagsScreen() {
   const permanentKillSwitch = useConfigValue("permanent-kill-switch", false);
   const integerConfig = useConfigValue("integer-config", "10");
   const dayOfTheWeekConfig = useConfigValue("day-of-the-week-config", "Friday");
+  const jsonValueConfig = useConfigValue("json-value-config", {});
 
   const cardStyle = [
     styles.flagCard,
@@ -71,6 +72,17 @@ export default function FlagsScreen() {
             <ThemedText style={styles.badgeText}>{dayOfTheWeekConfig.value}</ThemedText>
           </View>
         </View>
+
+        <View style={[...cardStyle, styles.jsonCard]}>
+          <View style={styles.flagInfo}>
+            <ThemedText type="defaultSemiBold">json-value-config</ThemedText>
+            <ThemedText style={[styles.flagKey, { color: colors.icon }]}>json-value-config</ThemedText>
+          </View>
+          <ThemedText
+            style={[styles.jsonValue, { borderColor: colors.icon + "30", color: colors.icon }]}>
+            {JSON.stringify(jsonValueConfig.value, null, 2)}
+          </ThemedText>
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -116,5 +128,19 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "600",
+  },
+  jsonCard: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+  },
+  jsonValue: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    fontFamily: "monospace",
+    fontSize: 12,
+    lineHeight: 18,
+    width: "100%",
   },
 });

@@ -2,16 +2,21 @@ import type { ConfigDirectorClient, ConfigValueType } from "@configdirector/clie
 
 type ConfigDef<T extends ConfigValueType> = { key: string; label: string; defaultValue: T };
 
-const CONFIGS: [ConfigDef<boolean>, ConfigDef<boolean>, ConfigDef<string>, ConfigDef<string>] = [
+const CONFIGS: ConfigDef<ConfigValueType>[] = [
   { key: "temporary-feature-flag", label: "temporary-feature-flag", defaultValue: true },
   { key: "permanent-kill-switch", label: "permanent-kill-switch", defaultValue: false },
   { key: "integer-config", label: "integer-config", defaultValue: "10" },
   { key: "day-of-the-week-config", label: "day-of-the-week-config", defaultValue: "Friday" },
+  { key: "json-value-config", label: "json-value-config", defaultValue: {} },
 ];
 
+function isJsonValue(value: ConfigValueType): value is object {
+  return typeof value === "object"; // catches objects, arrays, and null (typeof null === "object")
+}
+
 function badgeClass(value: ConfigValueType): string {
-  if (typeof value === "boolean") return value ? "badge badge-on" : "badge badge-off";
-  return "badge badge-val";
+  if (typeof value === "boolean") return value ? "badge badge-on config-value" : "badge badge-off config-value";
+  return "badge badge-val config-value";
 }
 
 function badgeText(value: ConfigValueType): string {
@@ -21,7 +26,7 @@ function badgeText(value: ConfigValueType): string {
 
 function createCard(key: string, label: string, value: ConfigValueType): HTMLElement {
   const cardElement = document.createElement("div");
-  cardElement.className = "config-card";
+  cardElement.className = isJsonValue(value) ? "config-card config-card-json" : "config-card";
   cardElement.dataset.configKey = key;
 
   const infoElement = document.createElement("div");
@@ -37,11 +42,18 @@ function createCard(key: string, label: string, value: ConfigValueType): HTMLEle
 
   infoElement.append(nameElement, keyElement);
 
-  const badgeElement = document.createElement("div");
-  badgeElement.className = badgeClass(value);
-  badgeElement.textContent = badgeText(value);
+  let valueElement: HTMLElement;
+  if (isJsonValue(value)) {
+    valueElement = document.createElement("pre");
+    valueElement.className = "config-json config-value";
+    valueElement.textContent = JSON.stringify(value, null, 2);
+  } else {
+    valueElement = document.createElement("div");
+    valueElement.className = badgeClass(value);
+    valueElement.textContent = badgeText(value);
+  }
 
-  cardElement.append(infoElement, badgeElement);
+  cardElement.append(infoElement, valueElement);
   return cardElement;
 }
 
@@ -54,9 +66,13 @@ export function initConfigsTab(client: ConfigDirectorClient): void {
     list.appendChild(card);
 
     client.watch(config.key, config.defaultValue, (value) => {
-      const badge = card.querySelector<HTMLElement>(".badge")!;
-      badge.className = badgeClass(value);
-      badge.textContent = badgeText(value);
+      const valueEl = card.querySelector<HTMLElement>(".config-value")!;
+      if (isJsonValue(value)) {
+        valueEl.textContent = JSON.stringify(value, null, 2);
+      } else {
+        valueEl.className = badgeClass(value);
+        valueEl.textContent = badgeText(value);
+      }
     });
   }
 }

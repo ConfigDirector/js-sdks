@@ -1,13 +1,21 @@
 import type { ConfigDirectorContext, ConfigValueType } from "../types";
 import { ServerEventReporter } from "./ServerEventReporter";
 import type { EvaluatedConfigEvent } from "./telemetry-events";
-import type { EvaluatedConfig, EventReporter, ReporterResponse, ServerTelemetryEventCollectorOptions } from "./types";
+import type {
+  EvaluatedConfig,
+  EventReporter,
+  ReporterResponse,
+  ServerTelemetryEventCollectorOptions,
+} from "./types";
 import { TelemetryEventCollector } from "@shared/telemetry/TelemetryEventCollector";
 import { LimitedMap } from "@shared/LimitedMap";
+import type { TelemetryValue } from "@shared/telemetry/utils";
 
 const DEFAULT_CONTEXTS_LIMIT = 1_000;
 
-export class ServerTelemetryEventCollector extends TelemetryEventCollector<EvaluatedConfigEvent<string>> {
+export class ServerTelemetryEventCollector extends TelemetryEventCollector<
+  EvaluatedConfigEvent<TelemetryValue>
+> {
   protected readonly reporter: EventReporter;
   protected _context?: ConfigDirectorContext;
   private readonly contexts: LimitedMap<string, ConfigDirectorContext>;
@@ -35,7 +43,7 @@ export class ServerTelemetryEventCollector extends TelemetryEventCollector<Evalu
 
   private sanitizeEvaluatedConfigEvent<T extends ConfigValueType>(
     event: EvaluatedConfigEvent<T>,
-  ): EvaluatedConfigEvent<string> {
+  ): EvaluatedConfigEvent<TelemetryValue> {
     return {
       ...event,
       defaultValue: this.sanitizeValue(event.defaultValue, event.type),

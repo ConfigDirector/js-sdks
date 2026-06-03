@@ -13,15 +13,24 @@ function badgeText(value: ConfigValueType): string {
   return String(value);
 }
 
+function isJsonValue(value: ConfigValueType): value is object {
+  return typeof value === "object"; // catches objects, arrays, and null (typeof null === "object")
+}
+
 function ConfigCard({ configKey, defaultValue }: { configKey: string; defaultValue: ConfigValueType }) {
   const { value } = useConfigValue(configKey, defaultValue);
+  const json = isJsonValue(value);
   return (
-    <div className="config-card">
+    <div className={json ? "config-card config-card-json" : "config-card"}>
       <div className="config-info">
         <div className="config-name">{configKey}</div>
         <div className="config-key">{configKey}</div>
       </div>
-      <div className={badgeClass(value)}>{badgeText(value)}</div>
+      {json ? (
+        <pre className="config-json">{JSON.stringify(value, null, 2)}</pre>
+      ) : (
+        <div className={badgeClass(value)}>{badgeText(value)}</div>
+      )}
     </div>
   );
 }
@@ -34,6 +43,7 @@ export default function FlagsPage() {
       <ConfigCard configKey="permanent-kill-switch" defaultValue={false} />
       <ConfigCard configKey="integer-config" defaultValue={10} />
       <ConfigCard configKey="day-of-the-week-config" defaultValue="Friday" />
+      <ConfigCard configKey="json-value-config" defaultValue={{}} />
     </div>
   );
 }

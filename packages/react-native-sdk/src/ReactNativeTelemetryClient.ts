@@ -3,7 +3,7 @@ import {
   type EvaluatedConfigEvent,
   type TelemetryClient,
 } from "@js-client-core/telemetry";
-import { sanitizeValue } from "@shared/telemetry/utils";
+import { sanitizeValue, type TelemetryValue } from "@shared/telemetry/utils";
 import type {
   ConfigDirectorContext,
   ConfigDirectorLogger,
@@ -46,7 +46,7 @@ export class ReactNativeTelemetryClient implements TelemetryClient {
 
   private sanitizeEvaluatedConfigEvent<T extends ConfigValueType>(
     event: EvaluatedConfigEvent<T>,
-  ): EvaluatedConfigEvent<string> {
+  ): EvaluatedConfigEvent<TelemetryValue> {
     return {
       ...event,
       defaultValue: sanitizeValue(event.defaultValue, event.type),

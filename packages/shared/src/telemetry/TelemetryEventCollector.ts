@@ -1,6 +1,7 @@
 import type { ConfigDirectorContext, ConfigDirectorLogger, ConfigType, ConfigValueType } from "../types";
 import { EventAggregator } from "./EventAggregator";
 import { EventQueue } from "./EventQueue";
+import type { TelemetryValue } from "./utils";
 import { sanitizeValue } from "./utils";
 import type { EventReporter, ReportableEvent, ReporterResponse } from "./types";
 import type { UrlFactory, UrlLike } from "../url";
@@ -33,7 +34,7 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
     this.flushTimeout = setTimeout(() => this.flushAndScheduleNext(), initialDelay);
   }
 
-  protected sanitizeValue<TV extends ConfigValueType>(value: TV, type?: ConfigType): string {
+  protected sanitizeValue<TV extends ConfigValueType>(value: TV, type?: ConfigType): TelemetryValue {
     return sanitizeValue(value, type);
   }
 

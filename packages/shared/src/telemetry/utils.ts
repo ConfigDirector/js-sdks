@@ -3,17 +3,26 @@ import { type DroppedEvents } from "./types";
 
 const CONFIG_VALUE_MAX_LENGTH = 500;
 
-export const sanitizeValue = <TV extends ConfigValueType>(value: TV, type?: ConfigType): string => {
+export type TelemetryValue = {
+  value?: string;
+  digest?: string;
+};
+
+export const sanitizeValue = <TV extends ConfigValueType>(value: TV, type?: ConfigType): TelemetryValue => {
   if (type === "json" || (type == null && typeof value === "object")) {
     try {
       const json = JSON.stringify(value);
-      return djb2Hash(json);
+      return { digest: djb2Hash(json) };
     } catch {
-      return value.toString().slice(0, CONFIG_VALUE_MAX_LENGTH);
+      return { digest: value.toString() };
     }
   }
 
-  return value.toString().slice(0, CONFIG_VALUE_MAX_LENGTH);
+  if (value.toString().length > CONFIG_VALUE_MAX_LENGTH) {
+    return { digest: djb2Hash(value.toString()) };
+  } else {
+    return { value: value.toString() };
+  }
 };
 
 export const djb2Hash = (data: string): string => {

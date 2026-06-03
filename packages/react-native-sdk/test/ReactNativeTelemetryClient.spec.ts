@@ -7,6 +7,7 @@ jest.mock("@js-client-core/telemetry", () => ({
 import { ClientTelemetryEventCollector } from "@js-client-core/telemetry";
 import { ReactNativeTelemetryClient } from "../src/ReactNativeTelemetryClient";
 import { createStubbedLogger } from "./helpers";
+import type { TelemetryValue } from "@shared/telemetry/utils";
 
 const MockCollector = jest.mocked(ClientTelemetryEventCollector);
 
@@ -47,7 +48,7 @@ describe("ReactNativeTelemetryClient", () => {
       });
 
       expect(collectorMock.evaluatedConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ defaultValue: "off", evaluatedValue: "on" }),
+        expect.objectContaining({ defaultValue: { value: "off" }, evaluatedValue: { value: "on" } }),
       );
     });
 
@@ -63,7 +64,7 @@ describe("ReactNativeTelemetryClient", () => {
       });
 
       expect(collectorMock.evaluatedConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ defaultValue: "30", evaluatedValue: "60" }),
+        expect.objectContaining({ defaultValue: { value: "30" }, evaluatedValue: { value: "60" } }),
       );
     });
 
@@ -79,11 +80,11 @@ describe("ReactNativeTelemetryClient", () => {
       });
 
       const call = collectorMock.evaluatedConfig.mock.calls[0]?.[0] as {
-        evaluatedValue: string;
-        defaultValue: string;
+        evaluatedValue: TelemetryValue;
+        defaultValue: TelemetryValue;
       };
-      expect(call.evaluatedValue).toMatch(/^[0-9a-f]{8}$/);
-      expect(call.defaultValue).toMatch(/^[0-9a-f]{8}$/);
+      expect(call.evaluatedValue.digest).toMatch(/^[0-9a-f]{8}$/);
+      expect(call.defaultValue.digest).toMatch(/^[0-9a-f]{8}$/);
     });
 
     it("computes a digest instead of [object Object] for object values when type is not provided", () => {
@@ -97,11 +98,11 @@ describe("ReactNativeTelemetryClient", () => {
       });
 
       const call = collectorMock.evaluatedConfig.mock.calls[0]?.[0] as {
-        evaluatedValue: string;
-        defaultValue: string;
+        evaluatedValue: TelemetryValue;
+        defaultValue: TelemetryValue;
       };
-      expect(call.defaultValue).toMatch(/^[0-9a-f]{8}$/);
-      expect(call.evaluatedValue).toMatch(/^[0-9a-f]{8}$/);
+      expect(call.defaultValue.digest).toMatch(/^[0-9a-f]{8}$/);
+      expect(call.evaluatedValue.digest).toMatch(/^[0-9a-f]{8}$/);
     });
 
     it("preserves all non-value fields in the sanitized event", () => {

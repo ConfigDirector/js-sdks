@@ -9,6 +9,7 @@ import type {
   TelemetryUpdateContextEvent,
   TelemetryWorkerResponseEvent,
 } from "./types";
+import type { TelemetryValue } from "@shared/telemetry/utils";
 import { sanitizeValue } from "@shared/telemetry/utils";
 
 export class WebWorkerTelemetryClient implements TelemetryClient {
@@ -69,7 +70,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
 
   private sanitizeEvaluatedConfigEvent<T extends ConfigValueType>(
     event: EvaluatedConfigEvent<T>,
-  ): EvaluatedConfigEvent<string> {
+  ): EvaluatedConfigEvent<TelemetryValue> {
     return {
       ...event,
       defaultValue: sanitizeValue(event.defaultValue, event.type),

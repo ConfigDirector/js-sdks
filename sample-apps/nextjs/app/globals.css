@@ -150,6 +150,26 @@ body {
 .badge-off { background: var(--gray); }
 .badge-val { background: var(--tint); }
 
+.config-card-json {
+  flex-direction: column;
+}
+
+.config-json {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+  min-width: 0;
+  align-self: stretch;
+}
+
 /* Context form */
 .description {
   font-size: 14px;

@@ -1,5 +1,6 @@
 import type { ConfigDirectorContext, ConfigDirectorLoggingLevel } from "@js-client-core/types";
 import type { EvaluatedConfigEvent } from "@js-client-core/telemetry";
+import type { TelemetryValue } from "@shared/telemetry/utils";
 export * from "@shared/telemetry/types";
 
 export type TelemetryFlushEvent = {
@@ -30,7 +31,7 @@ export type TelemetryInitializeEvent = {
 
 export type TelemetryEvaluatedConfigEvent = {
   type: "EvaluatedConfigEvent";
-  payload: EvaluatedConfigEvent<string>;
+  payload: EvaluatedConfigEvent<TelemetryValue>;
 };
 
 export type TelemetryWorkerEvent =

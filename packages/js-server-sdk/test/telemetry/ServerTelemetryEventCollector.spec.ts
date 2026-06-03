@@ -73,7 +73,7 @@ describe("ServerTelemetryEventCollector", () => {
           contextId: "user-id",
           key: "my-config",
           type: "string",
-          evaluatedValue: "hello",
+          evaluatedValue: { value: "hello" },
           evaluationReason: "found-match",
         }),
       });
@@ -130,9 +130,9 @@ describe("ServerTelemetryEventCollector", () => {
       await vi.advanceTimersByTimeAsync(5_000);
 
       const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
-      expect(event.evaluatedValue).toMatch(/^[0-9a-f]{8}$/);
-      expect(event.defaultValue).toMatch(/^[0-9a-f]{8}$/);
-      expect(event.evaluatedValue).not.toBe(event.defaultValue);
+      expect(event.evaluatedValue.digest).toMatch(/^[0-9a-f]{8}$/);
+      expect(event.defaultValue.digest).toMatch(/^[0-9a-f]{8}$/);
+      expect(event.evaluatedValue.digest).not.toBe(event.defaultValue.digest);
     });
 
     test("computes a digest instead of [object Object] for object values when type is not provided", async () => {
@@ -151,11 +151,11 @@ describe("ServerTelemetryEventCollector", () => {
       await vi.advanceTimersByTimeAsync(5_000);
 
       const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
-      expect(event.defaultValue).toMatch(/^[0-9a-f]{8}$/);
-      expect(event.evaluatedValue).toMatch(/^[0-9a-f]{8}$/);
+      expect(event.defaultValue.digest).toMatch(/^[0-9a-f]{8}$/);
+      expect(event.evaluatedValue.digest).toMatch(/^[0-9a-f]{8}$/);
     });
 
-    test("truncates string values longer than 500 characters", async () => {
+    test("truncates string values longer than 500 characters into a digest", async () => {
       const longValue = "x".repeat(600);
       const collector = createCollector();
       collector.evaluatedConfig({ evaluation: { ...baseEvaluation, evaluatedValue: longValue } });
@@ -163,7 +163,7 @@ describe("ServerTelemetryEventCollector", () => {
       await vi.advanceTimersByTimeAsync(5_000);
 
       const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
-      expect(event.evaluatedValue).toHaveLength(500);
+      expect(event.evaluatedValue.digest).toMatch(/^[0-9a-f]{8}$/);
     });
   });
 

@@ -85,8 +85,8 @@ describe("TelemetryClient", () => {
       await waitForPayloadCount(1);
       const payloads = await commands.mswGetPayloads();
       const event = (payloads[0] as EventReport).aggregatedEvents["evaluatedConfig"][0].event;
-      expect(event["evaluatedValue"]).toMatch(/^[0-9a-f]{8}$/);
-      expect(event["defaultValue"]).toMatch(/^[0-9a-f]{8}$/);
+      expect(event["evaluatedValue"]["digest"]).toMatch(/^[0-9a-f]{8}$/);
+      expect(event["defaultValue"]["digest"]).toMatch(/^[0-9a-f]{8}$/);
     });
 
     test("computes a digest instead of [object Object] for object values when type is not provided", async () => {
@@ -103,8 +103,8 @@ describe("TelemetryClient", () => {
       await waitForPayloadCount(1);
       const payloads = await commands.mswGetPayloads();
       const event = (payloads[0] as EventReport).aggregatedEvents["evaluatedConfig"][0].event;
-      expect(event["defaultValue"]).toMatch(/^[0-9a-f]{8}$/);
-      expect(event["evaluatedValue"]).toMatch(/^[0-9a-f]{8}$/);
+      expect(event["defaultValue"]["digest"]).toMatch(/^[0-9a-f]{8}$/);
+      expect(event["evaluatedValue"]["digest"]).toMatch(/^[0-9a-f]{8}$/);
     });
 
     test.each`
@@ -141,8 +141,8 @@ describe("TelemetryClient", () => {
             contextId: "user-id",
             key: "my-config",
             type,
-            evaluatedValue: evaluatedValue.toString(),
-            defaultValue: defaultValue.toString(),
+            evaluatedValue: { value: evaluatedValue.toString() },
+            defaultValue: { value: defaultValue.toString() },
             evaluationReason: "found-match",
           }),
         });
@@ -208,7 +208,7 @@ describe("TelemetryClient", () => {
         event: expect.objectContaining({
           contextId: baseEvent.contextId,
           key: baseEvent.key,
-          evaluatedValue: baseEvent.evaluatedValue,
+          evaluatedValue: { value: baseEvent.evaluatedValue },
         }),
       });
     });
@@ -236,7 +236,7 @@ describe("TelemetryClient", () => {
         event: expect.objectContaining({
           contextId: baseEvent.contextId,
           key: baseEvent.key,
-          evaluatedValue: baseEvent.evaluatedValue,
+          evaluatedValue: { value: baseEvent.evaluatedValue },
         }),
       });
     });
