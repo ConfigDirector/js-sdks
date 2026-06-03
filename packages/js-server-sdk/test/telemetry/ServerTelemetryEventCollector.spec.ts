@@ -132,6 +132,27 @@ describe("ServerTelemetryEventCollector", () => {
       const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
       expect(event.evaluatedValue).toMatch(/^[0-9a-f]{8}$/);
       expect(event.defaultValue).toMatch(/^[0-9a-f]{8}$/);
+      expect(event.evaluatedValue).not.toBe(event.defaultValue);
+    });
+
+    test("computes a digest instead of [object Object] for object values when type is not provided", async () => {
+      const collector = createCollector();
+      collector.evaluatedConfig({
+        evaluation: {
+          key: "json-config",
+          defaultValue: { threshold: 0.5 },
+          requestedType: "object",
+          evaluatedValue: { enabled: true, threshold: 0.8 },
+          usedDefault: false,
+          evaluationReason: "config-state-missing",
+        },
+      });
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
+      expect(event.defaultValue).toMatch(/^[0-9a-f]{8}$/);
+      expect(event.evaluatedValue).toMatch(/^[0-9a-f]{8}$/);
     });
 
     test("truncates string values longer than 500 characters", async () => {

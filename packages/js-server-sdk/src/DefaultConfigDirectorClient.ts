@@ -237,6 +237,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         context,
         evaluation: {
           key: configKey,
+          type: configState.type,
           defaultValue: defaultValue,
           requestedType: parseResult.requestedType,
           evaluatedValue: parseResult.parsedValue,

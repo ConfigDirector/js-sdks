@@ -70,6 +70,43 @@ describe("TelemetryClient", () => {
   });
 
   describe("evaluatedConfig", () => {
+    test("sanitizes JSON config values by replacing them with a hash", async () => {
+      client = createClient();
+      client.evaluatedConfig({
+        key: "json-config",
+        type: "json",
+        defaultValue: { foo: "bar" },
+        requestedType: "json",
+        evaluatedValue: { baz: 42 },
+        usedDefault: false,
+        evaluationReason: "found-match",
+      });
+
+      await waitForPayloadCount(1);
+      const payloads = await commands.mswGetPayloads();
+      const event = (payloads[0] as EventReport).aggregatedEvents["evaluatedConfig"][0].event;
+      expect(event["evaluatedValue"]).toMatch(/^[0-9a-f]{8}$/);
+      expect(event["defaultValue"]).toMatch(/^[0-9a-f]{8}$/);
+    });
+
+    test("computes a digest instead of [object Object] for object values when type is not provided", async () => {
+      client = createClient();
+      client.evaluatedConfig({
+        key: "json-config",
+        defaultValue: { threshold: 0.5 },
+        requestedType: "object",
+        evaluatedValue: { enabled: true, threshold: 0.8 },
+        usedDefault: false,
+        evaluationReason: "config-state-missing",
+      });
+
+      await waitForPayloadCount(1);
+      const payloads = await commands.mswGetPayloads();
+      const event = (payloads[0] as EventReport).aggregatedEvents["evaluatedConfig"][0].event;
+      expect(event["defaultValue"]).toMatch(/^[0-9a-f]{8}$/);
+      expect(event["evaluatedValue"]).toMatch(/^[0-9a-f]{8}$/);
+    });
+
     test.each`
       type        | defaultValue                   | evaluatedValue
       ${"string"} | ${"default"}                   | ${"hello"}

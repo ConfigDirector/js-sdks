@@ -1081,6 +1081,94 @@ describe("ConfigDirectorClient", () => {
   });
 
   describe("telemetry", () => {
+    test("includes the config type in the telemetry event for a JSON config", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {
+                    "json-config": {
+                      id: "00000000-0000-0000-0000-000000000001",
+                      key: "json-config",
+                      type: "json",
+                      variations: [],
+                      target: {
+                        environmentId: "10000000-0000-0000-0000-000000000000",
+                        rules: [],
+                        defaultValue: JSON.stringify({ greeting: "hello" }),
+                      },
+                    },
+                  },
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const spy = vi.spyOn(ServerTelemetryEventCollector.prototype, "evaluatedConfig");
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      client.getValue("json-config", { greeting: "default" });
+
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evaluation: expect.objectContaining({ type: "json" }),
+        }),
+      );
+    });
+
+    test("includes the config type in the telemetry event for a string config", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {
+                    "string-config": {
+                      id: "00000000-0000-0000-0000-000000000001",
+                      key: "string-config",
+                      type: "string",
+                      variations: [],
+                      target: {
+                        environmentId: "10000000-0000-0000-0000-000000000000",
+                        rules: [],
+                        defaultValue: "hello",
+                      },
+                    },
+                  },
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const spy = vi.spyOn(ServerTelemetryEventCollector.prototype, "evaluatedConfig");
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      client.getValue("string-config", "default");
+
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evaluation: expect.objectContaining({ type: "string" }),
+        }),
+      );
+    });
+
     test("reports an evaluation event when getValue is called", async () => {
       server.use(
         http.post(SSE_URL, async () => {

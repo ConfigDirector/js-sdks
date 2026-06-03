@@ -17,8 +17,7 @@ type CollectorMock = {
 };
 
 const BASE_URL = new URL("https://example.com");
-const stubUrlFactory = (input: string, base?: { toString(): string }) =>
-  new URL(input, base?.toString());
+const stubUrlFactory = (input: string, base?: { toString(): string }) => new URL(input, base?.toString());
 const logger = createStubbedLogger();
 
 let collectorMock: CollectorMock;
@@ -32,8 +31,7 @@ beforeEach(() => {
   MockCollector.mockImplementation(() => collectorMock as any);
 });
 
-const makeClient = () =>
-  new ReactNativeTelemetryClient("sdk-key", BASE_URL, logger, stubUrlFactory as any);
+const makeClient = () => new ReactNativeTelemetryClient("sdk-key", BASE_URL, logger, stubUrlFactory as any);
 
 describe("ReactNativeTelemetryClient", () => {
   describe("evaluatedConfig", () => {
@@ -86,6 +84,24 @@ describe("ReactNativeTelemetryClient", () => {
       };
       expect(call.evaluatedValue).toMatch(/^[0-9a-f]{8}$/);
       expect(call.defaultValue).toMatch(/^[0-9a-f]{8}$/);
+    });
+
+    it("computes a digest instead of [object Object] for object values when type is not provided", () => {
+      makeClient().evaluatedConfig({
+        key: "config",
+        defaultValue: { threshold: 0.5 },
+        evaluatedValue: { enabled: true, threshold: 0.8 },
+        requestedType: "object",
+        usedDefault: false,
+        evaluationReason: "config-state-missing",
+      });
+
+      const call = collectorMock.evaluatedConfig.mock.calls[0]?.[0] as {
+        evaluatedValue: string;
+        defaultValue: string;
+      };
+      expect(call.defaultValue).toMatch(/^[0-9a-f]{8}$/);
+      expect(call.evaluatedValue).toMatch(/^[0-9a-f]{8}$/);
     });
 
     it("preserves all non-value fields in the sanitized event", () => {

@@ -4,7 +4,7 @@ import { type DroppedEvents } from "./types";
 const CONFIG_VALUE_MAX_LENGTH = 500;
 
 export const sanitizeValue = <TV extends ConfigValueType>(value: TV, type?: ConfigType): string => {
-  if (type === "json") {
+  if (type === "json" || (type == null && typeof value === "object")) {
     try {
       const json = JSON.stringify(value);
       return djb2Hash(json);

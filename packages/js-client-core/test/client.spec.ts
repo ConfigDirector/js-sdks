@@ -204,6 +204,60 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("telemetry", () => {
+    beforeEach(() => {
+      vi.mocked(telemetryClient.evaluatedConfig).mockClear();
+    });
+
+    test("includes the config type in the telemetry event for a JSON config", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "json-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "json-config",
+                type: "json",
+                value: JSON.stringify({ greeting: "hello" }),
+              },
+            }),
+          },
+        ],
+      ]);
+
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      client.getValue("json-config", { greeting: "default" });
+
+      expect(telemetryClient.evaluatedConfig).toHaveBeenCalledWith(expect.objectContaining({ type: "json" }));
+    });
+
+    test("includes the config type in the telemetry event for a string config", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "string-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "string-config",
+                type: "string",
+                value: "hello",
+              },
+            }),
+          },
+        ],
+      ]);
+
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      client.getValue("string-config", "default");
+
+      expect(telemetryClient.evaluatedConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "string" }),
+      );
+    });
+  });
+
   describe("json configs", () => {
     test("returns the parsed object when the server sends a json config and the default is an object", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
@@ -224,7 +278,10 @@ describe("ConfigDirectorClient", () => {
       client = createClient("sdk-key", { logger });
       await client.initialize();
 
-      expect(client.getValue("json-config", { greeting: "default", count: 0 })).toEqual({ greeting: "hello", count: 3 });
+      expect(client.getValue("json-config", { greeting: "default", count: 0 })).toEqual({
+        greeting: "hello",
+        count: 3,
+      });
     });
 
     test("returns the default object when the json config key is not present in the server response", async () => {
@@ -812,7 +869,9 @@ describe("ConfigDirectorClient", () => {
       });
 
       await vi.advanceTimersByTimeAsync(10_000);
-      await vi.waitFor(() => expect(client.getValue("my-config", "default")).toBe("polled-value"), { timeout: 1_000 });
+      await vi.waitFor(() => expect(client.getValue("my-config", "default")).toBe("polled-value"), {
+        timeout: 1_000,
+      });
     });
 
     test("sends the lastUpdateTimestamp from the previous response on subsequent poll requests", async () => {
@@ -824,10 +883,13 @@ describe("ConfigDirectorClient", () => {
 
       // Advance time to trigger one poll, then wait for the fetch to complete
       await vi.advanceTimersByTimeAsync(10_000);
-      await vi.waitFor(async () => {
-        const payloads = await commands.mswGetPayloads();
-        expect(payloads.length).toBeGreaterThanOrEqual(2);
-      }, { timeout: 1_000 });
+      await vi.waitFor(
+        async () => {
+          const payloads = await commands.mswGetPayloads();
+          expect(payloads.length).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 1_000 },
+      );
 
       const payloads = await commands.mswGetPayloads();
       expect((payloads[0] as any).lastUpdateTimestamp).toBeUndefined(); // first request has no prior timestamp
@@ -860,9 +922,15 @@ describe("ConfigDirectorClient", () => {
       // Server reports no changes — switch to 204 and trigger two polls
       await commands.mswUseHandlers({ url: POLL_URL, status: 204 });
       await vi.advanceTimersByTimeAsync(10_000);
-      await vi.waitFor(async () => expect((await commands.mswGetPayloads()).length).toBeGreaterThanOrEqual(1), { timeout: 1_000 });
+      await vi.waitFor(
+        async () => expect((await commands.mswGetPayloads()).length).toBeGreaterThanOrEqual(1),
+        { timeout: 1_000 },
+      );
       await vi.advanceTimersByTimeAsync(10_000);
-      await vi.waitFor(async () => expect((await commands.mswGetPayloads()).length).toBeGreaterThanOrEqual(2), { timeout: 1_000 });
+      await vi.waitFor(
+        async () => expect((await commands.mswGetPayloads()).length).toBeGreaterThanOrEqual(2),
+        { timeout: 1_000 },
+      );
 
       expect(updateCount).toBe(1); // no new events emitted for 204 responses
       expect(client.getValue("my-config", "default")).toBe("initial"); // value preserved from initial load
@@ -918,10 +986,13 @@ describe("ConfigDirectorClient", () => {
 
       // Trigger a poll and confirm the polling loop is active before stopping it
       await vi.advanceTimersByTimeAsync(10_000);
-      await vi.waitFor(async () => {
-        const payloads = await commands.mswGetPayloads();
-        expect(payloads.length).toBeGreaterThanOrEqual(2);
-      }, { timeout: 1_000 });
+      await vi.waitFor(
+        async () => {
+          const payloads = await commands.mswGetPayloads();
+          expect(payloads.length).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 1_000 },
+      );
 
       client.dispose();
 

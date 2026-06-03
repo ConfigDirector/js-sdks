@@ -242,6 +242,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     const parseResult = parseConfigValue<T>(configState, defaultValue);
     this.telemetryClient.evaluatedConfig({
       contextId: this.currentContext?.id,
+      type: configState.type,
       key: configKey,
       defaultValue: defaultValue,
       requestedType: parseResult.requestedType,
