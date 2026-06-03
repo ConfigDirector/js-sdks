@@ -1,6 +1,6 @@
 {
   "name": "@configdirector/react-web-sdk",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "React web client SDK for ConfigDirector. ConfigDirector is a remote configuration and feature flag service.",
   "license": "MIT",
   "author": "ConfigDirector",
