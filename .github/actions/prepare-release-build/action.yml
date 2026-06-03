@@ -18,6 +18,13 @@ runs:
       shell: bash
 
     - if: inputs.needs_playwright == 'true'
+      name: Cache Playwright browsers
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+    - if: inputs.needs_playwright == 'true'
       run: yarn playwright install --with-deps
       shell: bash
       working-directory: ./packages/js-client-core

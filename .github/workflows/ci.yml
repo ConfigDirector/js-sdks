@@ -21,8 +21,15 @@ jobs:
       - name: yarn install
         run: yarn install
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
       - name: yarn playwright install
         run: yarn playwright install --with-deps
+        timeout-minutes: 10
         working-directory: ./packages/js-client-core
 
       - name: yarn build
@@ -94,8 +101,15 @@ jobs:
       - name: Generate Nuxt types
         run: yarn workspace @configdirector/nuxt-sdk exec nuxt prepare
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
       - name: yarn playwright install
         run: yarn playwright install --with-deps
+        timeout-minutes: 10
         working-directory: ./packages/nuxt-sdk
 
       - name: Run nuxt-sdk tests against Nuxt 3
