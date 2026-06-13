@@ -229,6 +229,7 @@ export type TransportOptions = {
   baseUrl: UrlLike;
   resolveUrl: UrlFactory;
   metaContext: ConfigDirectorClientOptions["metadata"] & SdkMetaContext;
+  instanceId: string;
   logger: ConfigDirectorLogger;
   fetch?: (url: string, init: RequestInit) => Promise<Response>;
   connectionRetryDelay: ConnectionRetryDelayCalculator;

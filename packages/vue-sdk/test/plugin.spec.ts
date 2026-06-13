@@ -33,7 +33,12 @@ describe("Vue plugin composables", () => {
         [
           {
             data: full({
-              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
             }),
           },
         ],
@@ -43,7 +48,7 @@ describe("Vue plugin composables", () => {
         setup() {
           return useConfigValue("example-config", "Default");
         },
-        template: "<div data-testid=\"target\">{{ value }}</div>",
+        template: '<div data-testid="target">{{ value }}</div>',
       });
 
       render(TestComponent, {
@@ -60,7 +65,12 @@ describe("Vue plugin composables", () => {
           {
             delay: 100,
             data: full({
-              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
             }),
           },
         ],
@@ -70,7 +80,7 @@ describe("Vue plugin composables", () => {
         setup() {
           return useConfigValue("example-config", "Default");
         },
-        template: "<div data-testid=\"target\">{{ value }}</div>",
+        template: '<div data-testid="target">{{ value }}</div>',
       });
 
       render(TestComponent, {
@@ -88,7 +98,12 @@ describe("Vue plugin composables", () => {
           {
             delay: 100,
             data: full({
-              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
             }),
           },
         ],
@@ -154,9 +169,7 @@ describe("Vue plugin composables", () => {
 
       render(TestComponent, {
         global: {
-          plugins: [
-            [ConfigDirectorPlugin, { sdkKey: "dummy-key", context: { id: "user-1" }, logger }],
-          ],
+          plugins: [[ConfigDirectorPlugin, { sdkKey: "dummy-key", context: { id: "user-1" }, logger }]],
         },
       });
 
@@ -172,6 +185,103 @@ describe("Vue plugin composables", () => {
     });
   });
 
+  describe("instanceId", () => {
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    it("sends a generated instanceId on the SSE connection", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
+            }),
+          },
+        ],
+      ]);
+
+      const TestComponent = defineComponent({
+        setup() {
+          return useConfigValue("example-config", "Default");
+        },
+        template: '<div data-testid="target">{{ value }}</div>',
+      });
+
+      render(TestComponent, {
+        global: { plugins: [[ConfigDirectorPlugin, { sdkKey: "dummy-key", logger }]] },
+      });
+
+      await screen.findByText("Hello", undefined, { timeout: 1_000 });
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
+    });
+
+    it("keeps the same instanceId across reconnects when context changes", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "before-context-update",
+              },
+            }),
+          },
+        ],
+        [
+          {
+            data: full({
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "after-context-update",
+              },
+            }),
+          },
+        ],
+      ]);
+
+      const TestComponent = defineComponent({
+        setup() {
+          const { value } = useConfigValue("example-config", "Default");
+          const { updateContext } = useContext();
+          return { value, updateContext };
+        },
+        template: `
+          <div>
+            <div data-testid="target">{{ value }}</div>
+            <button data-testid="update-btn" @click="updateContext({ id: 'user-2' })">Update</button>
+          </div>
+        `,
+      });
+
+      render(TestComponent, {
+        global: {
+          plugins: [[ConfigDirectorPlugin, { sdkKey: "dummy-key", context: { id: "user-1" }, logger }]],
+        },
+      });
+
+      await screen.findByText("before-context-update", undefined, { timeout: 1_000 });
+
+      await fireEvent.click(screen.getByTestId("update-btn"));
+
+      await screen.findByText("after-context-update", undefined, { timeout: 1_000 });
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads).toHaveLength(2);
+      expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
+      expect((payloads[1] as any)?.instanceId).toBe((payloads[0] as any)?.instanceId);
+    });
+  });
+
   describe("useClientStatus", () => {
     it("is 'loading' before configs are received and 'ready' after", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
@@ -179,7 +289,12 @@ describe("Vue plugin composables", () => {
           {
             delay: 100,
             data: full({
-              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
             }),
           },
         ],
@@ -189,7 +304,7 @@ describe("Vue plugin composables", () => {
         setup() {
           return useClientStatus();
         },
-        template: "<div data-testid=\"status\">{{ readyStatus }}</div>",
+        template: '<div data-testid="status">{{ readyStatus }}</div>',
       });
 
       render(TestComponent, {
@@ -217,7 +332,12 @@ describe("pre-initialized client flow", () => {
         [
           {
             data: full({
-              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
             }),
           },
         ],
@@ -236,7 +356,12 @@ describe("pre-initialized client flow", () => {
         [
           {
             data: full({
-              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
             }),
           },
         ],
@@ -246,7 +371,7 @@ describe("pre-initialized client flow", () => {
 
       const TestComponent = defineComponent({
         setup: () => useClientStatus(),
-        template: "<div data-testid=\"status\">{{ readyStatus }}</div>",
+        template: '<div data-testid="status">{{ readyStatus }}</div>',
       });
 
       render(TestComponent, { global: { plugins: [[ConfigDirectorPlugin, client]] } });
@@ -259,7 +384,12 @@ describe("pre-initialized client flow", () => {
         [
           {
             data: full({
-              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
             }),
           },
         ],

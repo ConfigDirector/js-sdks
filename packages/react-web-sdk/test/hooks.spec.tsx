@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, it, expect } from "vitest";
+import { afterAll, beforeAll, describe, it, expect, vi } from "vitest";
 import { commands } from "vitest/browser";
 import { render, screen } from "@testing-library/react";
 import { ConfigDirectorProvider } from "../src/provider";
@@ -214,6 +214,55 @@ describe("useConfigValue", () => {
     );
 
     await screen.findByText(JSON.stringify({ greeting: "hello" }), undefined, { timeout: 1_000 });
+  });
+
+  describe("instanceId", () => {
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    it("sends a generated instanceId on the SSE connection", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+
+      render(
+        <ConfigDirectorProvider sdkKey="dummy-key" logger={logger}>
+          <div />
+        </ConfigDirectorProvider>,
+      );
+
+      await vi.waitFor(async () => {
+        const payloads = await commands.mswGetPayloads();
+        expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
+      });
+    });
+
+    it("keeps the same instanceId across reconnects triggered by a context change", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+
+      const { rerender } = render(
+        <ConfigDirectorProvider sdkKey="dummy-key" context={{ id: "user-1" }} logger={logger}>
+          <div />
+        </ConfigDirectorProvider>,
+      );
+
+      await vi.waitFor(async () => {
+        const payloads = await commands.mswGetPayloads();
+        expect(payloads).toHaveLength(1);
+      });
+
+      rerender(
+        <ConfigDirectorProvider sdkKey="dummy-key" context={{ id: "user-2" }} logger={logger}>
+          <div />
+        </ConfigDirectorProvider>,
+      );
+
+      await vi.waitFor(async () => {
+        const payloads = await commands.mswGetPayloads();
+        expect(payloads).toHaveLength(2);
+      });
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
+      expect((payloads[1] as any)?.instanceId).toBe((payloads[0] as any)?.instanceId);
+    });
   });
 
   it("is 'loading' until configs are loaded", async () => {

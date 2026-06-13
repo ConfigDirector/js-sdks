@@ -57,6 +57,7 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
             givenContext: context,
             metaContext: this.options.metaContext,
             clientSdkKey: this.options.clientSdkKey,
+            instanceId: this.options.instanceId,
             lastUpdateTimestamp: this.lastUpdateTimestamp,
           }),
         },

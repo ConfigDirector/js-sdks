@@ -72,3 +72,11 @@ yarn clean       # rimraf dist/**
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`): `yarn install` → `yarn build` → `yarn test`
+
+## Workflow Rules
+
+- Prefer running a single targeted test over the full test suite during changes
+- Run the entire test suite after completing all changes
+- When fixing a bug: write a failing test that exposes it first, confirm it fails on the right assertion, then implement the fix.
+- Do NOT stage, commit, or stash changes. Do NOT run any destructive git commands. Do NOT run git push, fetch, pull, branch, checkout, stash, etc.
+- IMPORTANT: The only git commands you are allowed to use are `git diff`, `git log`, `git show`.

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { createClient } from "../src";
-import { SSE_URL, createStubbedLogger } from "./helpers";
+import { SSE_URL, POLL_URL, createStubbedLogger } from "./helpers";
 import { commands } from "vitest/browser";
 
 const full = (configs: object = {}) => ({
@@ -60,7 +60,14 @@ describe("ConfigDirectorClient", () => {
       [
         {
           delay: 200,
-          data: full({ "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" } }),
+          data: full({
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Bye",
+            },
+          }),
         },
       ],
     ]);
@@ -83,13 +90,23 @@ describe("ConfigDirectorClient", () => {
       [
         {
           data: full({
-            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Hello" },
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Hello",
+            },
           }),
         },
         {
           delay: 10,
           data: delta({
-            "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" },
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Bye",
+            },
           }),
         },
       ],
@@ -109,7 +126,14 @@ describe("ConfigDirectorClient", () => {
       [{ data: full() }],
       [
         {
-          data: full({ "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" } }),
+          data: full({
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Bye",
+            },
+          }),
         },
       ],
     ]);
@@ -152,7 +176,10 @@ describe("ConfigDirectorClient", () => {
       const client = createClient("sdk-key", { logger });
       await client.initialize();
 
-      expect(client.getValue("json-config", { greeting: "default", count: 0 })).toEqual({ greeting: "hello", count: 3 });
+      expect(client.getValue("json-config", { greeting: "default", count: 0 })).toEqual({
+        greeting: "hello",
+        count: 3,
+      });
     });
 
     test("returns the default object when the json config key is not present in the server response", async () => {
@@ -195,7 +222,12 @@ describe("ConfigDirectorClient", () => {
           {
             delay: 100,
             data: delta({
-              "example-config": { id: "00000000-0000-0000-0000-0000000003e8", key: "example-config", type: "string", value: "Bye" },
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Bye",
+              },
             }),
           },
         ],
@@ -211,5 +243,66 @@ describe("ConfigDirectorClient", () => {
     expect(client.isReady).toBe(false);
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("Timed out"));
     await vi.waitFor(() => expect(client.isReady).toBe(true), { timeout: 2_000 });
+  });
+
+  describe("instanceId", () => {
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    test("sends a generated instanceId on the streaming (SSE) connection", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
+    });
+
+    test("the instanceId stays the same across reconnects for the same client", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads).toHaveLength(2);
+      expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
+      expect((payloads[1] as any)?.instanceId).toBe((payloads[0] as any)?.instanceId);
+    });
+
+    test("different client instances receive different instanceIds", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      const clientA = createClient("sdk-key", { logger });
+      await clientA.initialize();
+      const clientB = createClient("sdk-key", { logger });
+      await clientB.initialize();
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads).toHaveLength(2);
+      expect((payloads[0] as any)?.instanceId).not.toBe((payloads[1] as any)?.instanceId);
+    });
+
+    test("sends a generated instanceId in 'one-time' connection mode", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
+      const client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
+      await client.initialize();
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
+    });
+
+    test("sends a generated instanceId in 'polling' connection mode and reuses it across polls", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
+      const client = createClient("sdk-key", {
+        logger,
+        connection: { mode: "polling", pollingInterval: 10 },
+      });
+      await client.initialize();
+      await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads).toHaveLength(2);
+      expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
+      expect((payloads[1] as any)?.instanceId).toBe((payloads[0] as any)?.instanceId);
+    });
   });
 });

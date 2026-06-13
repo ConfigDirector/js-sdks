@@ -39,6 +39,7 @@ export class StreamingTransport implements Transport {
           givenContext: context,
           metaContext: this.options.metaContext,
           clientSdkKey: this.options.clientSdkKey,
+          instanceId: this.options.instanceId,
         }),
 
         onMessage: ({ data }) => {

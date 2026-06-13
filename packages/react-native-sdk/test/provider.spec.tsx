@@ -1,13 +1,4 @@
-import {
-  afterEach,
-  beforeEach,
-  beforeAll,
-  afterAll,
-  describe,
-  expect,
-  it,
-  jest,
-} from "@jest/globals";
+import { afterEach, beforeEach, beforeAll, afterAll, describe, expect, it, jest } from "@jest/globals";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { AppState } from "react-native";
@@ -55,12 +46,9 @@ describe("ConfigDirectorProvider", () => {
   it("renders without error", async () => {
     mockFetchWith(async () => buildResponse(new ReadableStream()));
 
-    const { result, unmount } = renderHook(
-      () => useConfigValue("key", "default"),
-      {
-        wrapper: wrapper({ sdkKey: "dummy-key" }),
-      },
-    );
+    const { result, unmount } = renderHook(() => useConfigValue("key", "default"), {
+      wrapper: wrapper({ sdkKey: "dummy-key" }),
+    });
 
     await waitFor(() => expect(result.current.readyStatus).toBe("loading"));
     unmount();
@@ -69,12 +57,9 @@ describe("ConfigDirectorProvider", () => {
   it("sets status to 'default' when initialization times out", async () => {
     mockFetchWith(async () => buildResponse(new ReadableStream()));
 
-    const { result, unmount } = renderHook(
-      () => useConfigValue("key", "default-value"),
-      {
-        wrapper: wrapper({ sdkKey: "dummy-key", timeout: 10 }),
-      },
-    );
+    const { result, unmount } = renderHook(() => useConfigValue("key", "default-value"), {
+      wrapper: wrapper({ sdkKey: "dummy-key", timeout: 10 }),
+    });
 
     await waitFor(() => expect(result.current.readyStatus).toBe("default"));
     expect(result.current.value).toBe("default-value");
@@ -136,8 +121,12 @@ describe("ConfigDirectorProvider", () => {
       await waitFor(() => expect(connectivityHandler).not.toBeNull());
 
       const callsBefore = fetchSpy.mock.calls.length;
-      await act(async () => { connectivityHandler?.({ isConnected: false }); });
-      await act(async () => { connectivityHandler?.({ isConnected: true }); });
+      await act(async () => {
+        connectivityHandler?.({ isConnected: false });
+      });
+      await act(async () => {
+        connectivityHandler?.({ isConnected: true });
+      });
 
       await waitFor(() => expect(fetchSpy.mock.calls.length).toBeGreaterThan(callsBefore));
       unmount();
@@ -159,7 +148,9 @@ describe("ConfigDirectorProvider", () => {
       await waitFor(() => expect(connectivityHandler).not.toBeNull());
       const callsBefore = fetchSpy.mock.calls.length;
 
-      await act(async () => { connectivityHandler?.({ isConnected: true }); });
+      await act(async () => {
+        connectivityHandler?.({ isConnected: true });
+      });
 
       expect(fetchSpy.mock.calls.length).toBe(callsBefore);
       unmount();
@@ -183,8 +174,12 @@ describe("ConfigDirectorProvider", () => {
       await waitFor(() => expect(connectivityHandler).not.toBeNull());
       const callsBefore = fetchSpy.mock.calls.length;
 
-      await act(async () => { connectivityHandler?.({ isConnected: false }); });
-      await act(async () => { connectivityHandler?.({ isConnected: true }); });
+      await act(async () => {
+        connectivityHandler?.({ isConnected: false });
+      });
+      await act(async () => {
+        connectivityHandler?.({ isConnected: true });
+      });
 
       expect(fetchSpy.mock.calls.length).toBe(callsBefore);
       (AppState as any).currentState = originalCurrentState;
@@ -202,7 +197,9 @@ describe("ConfigDirectorProvider", () => {
       });
 
       await waitFor(() => expect(netInfoSubscribe).toHaveBeenCalled());
-      act(() => { unmount(); });
+      act(() => {
+        unmount();
+      });
 
       expect(netInfoUnsubscribe).toHaveBeenCalled();
     });
@@ -231,7 +228,9 @@ describe("ConfigDirectorProvider", () => {
       await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
       const callsBefore = fetchSpy.mock.calls.length;
 
-      await act(async () => { setContext({ id: "user-1" }); });
+      await act(async () => {
+        setContext({ id: "user-1" });
+      });
 
       await waitFor(() => expect(fetchSpy.mock.calls.length).toBeGreaterThan(callsBefore));
       const sseCalls = (fetchSpy.mock.calls as Array<[unknown, RequestInit]>).filter(([url]) =>
@@ -265,10 +264,85 @@ describe("ConfigDirectorProvider", () => {
       await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
       const callsBefore = fetchSpy.mock.calls.length;
 
-      await act(async () => { setAppName("v2"); });
+      await act(async () => {
+        setAppName("v2");
+      });
 
       // No new fetch — only context changes trigger updateContext
       expect(fetchSpy.mock.calls.length).toBe(callsBefore);
+      unmount();
+    });
+  });
+
+  describe("instanceId", () => {
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    it("sends a generated instanceId on the SSE connection", async () => {
+      mockFetchWith(async () =>
+        buildResponse(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(message(full()));
+            },
+          }),
+        ),
+      );
+
+      const { unmount } = renderHook(() => useConfigValue("key", "default"), {
+        wrapper: wrapper({ sdkKey: "test-key" }),
+      });
+
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+      const [, init] = fetchSpy.mock.calls[0] as [unknown, RequestInit];
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body.instanceId).toMatch(UUID_PATTERN);
+      unmount();
+    });
+
+    it("keeps the same instanceId across reconnects triggered by a context change", async () => {
+      mockFetchWith(async () => buildResponse(new ReadableStream()));
+
+      let setContext: (ctx: { id: string }) => void = () => {};
+
+      const StatefulWrapper = ({ children }: { children: React.ReactNode }) => {
+        const [context, setCtx] = React.useState<{ id: string } | undefined>(undefined);
+        setContext = setCtx;
+        return (
+          <ConfigDirectorProvider sdkKey="dummy-key" context={context} logger={logger}>
+            {children}
+          </ConfigDirectorProvider>
+        );
+      };
+
+      const { unmount } = renderHook(() => useConfigValue("key", "default"), {
+        wrapper: StatefulWrapper,
+      });
+
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+      const sseCallsBefore = (fetchSpy.mock.calls as Array<[unknown, RequestInit]>).filter(([url]) =>
+        String(url).includes("/sse/"),
+      );
+      const firstBody = JSON.parse(sseCallsBefore[0]?.[1].body as string) as Record<string, unknown>;
+
+      await act(async () => {
+        setContext({ id: "user-1" });
+      });
+
+      await waitFor(() => {
+        const sseCalls = (fetchSpy.mock.calls as Array<[unknown, RequestInit]>).filter(([url]) =>
+          String(url).includes("/sse/"),
+        );
+        expect(sseCalls.length).toBeGreaterThan(sseCallsBefore.length);
+      });
+
+      const sseCallsAfter = (fetchSpy.mock.calls as Array<[unknown, RequestInit]>).filter(([url]) =>
+        String(url).includes("/sse/"),
+      );
+      const lastBody = JSON.parse(sseCallsAfter.at(-1)?.[1].body as string) as Record<string, unknown>;
+
+      expect(firstBody.instanceId).toMatch(UUID_PATTERN);
+      expect(lastBody.instanceId).toBe(firstBody.instanceId);
+
       unmount();
     });
   });
@@ -312,7 +386,9 @@ describe("ConfigDirectorProvider", () => {
       await waitFor(() => expect(result.current.readyStatus).toBe("default"));
 
       const callsBefore = fetchSpy.mock.calls.length;
-      await act(async () => { appStateHandler?.("active"); });
+      await act(async () => {
+        appStateHandler?.("active");
+      });
 
       await waitFor(() => expect(fetchSpy.mock.calls.length).toBeGreaterThan(callsBefore));
       unmount();
@@ -326,8 +402,12 @@ describe("ConfigDirectorProvider", () => {
       });
 
       await waitFor(() => expect(result.current.readyStatus).toBe("default"));
-      await act(async () => { appStateHandler?.("background"); });
-      await act(async () => { appStateHandler?.("active"); });
+      await act(async () => {
+        appStateHandler?.("background");
+      });
+      await act(async () => {
+        appStateHandler?.("active");
+      });
 
       // Status must stay "default" — not flicker to "loading" — during background reconnect
       expect(result.current.readyStatus).toBe("default");
@@ -339,7 +419,11 @@ describe("ConfigDirectorProvider", () => {
       fetchSpy.mockImplementation(async (url) => {
         if ((url as string).includes("telemetry")) return Response.json({}, { status: 204 });
         return buildResponse(
-          new ReadableStream({ start: (ctrl) => { streamControllers.push(ctrl); } }),
+          new ReadableStream({
+            start: (ctrl) => {
+              streamControllers.push(ctrl);
+            },
+          }),
         );
       });
 
@@ -350,8 +434,12 @@ describe("ConfigDirectorProvider", () => {
       await waitFor(() => expect(result.current.readyStatus).toBe("default"));
       await waitFor(() => expect(appStateHandler).not.toBeNull());
 
-      await act(async () => { appStateHandler?.("background"); });
-      await act(async () => { appStateHandler?.("active"); });
+      await act(async () => {
+        appStateHandler?.("background");
+      });
+      await act(async () => {
+        appStateHandler?.("active");
+      });
 
       // Wait for the new SSE connection established on resume
       await waitFor(() => expect(streamControllers.length).toBeGreaterThanOrEqual(2));
@@ -374,7 +462,9 @@ describe("ConfigDirectorProvider", () => {
       });
 
       await waitFor(() => expect(appStateHandler).not.toBeNull());
-      act(() => { unmount(); });
+      act(() => {
+        unmount();
+      });
 
       expect(mockRemove).toHaveBeenCalled();
     });

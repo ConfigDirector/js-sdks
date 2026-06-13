@@ -250,10 +250,18 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
     await expect.poll(() => requestCount, { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
 
     // The second request body should carry the new context
+    const firstPayload = capturedPayloads[0] as { instanceId?: string };
     const secondPayload = capturedPayloads[1] as {
       givenContext?: { id: string };
+      instanceId?: string;
     };
     expect(secondPayload?.givenContext).toMatchObject({ id: "test-user-1" });
+
+    // Both requests are sent with the same generated instanceId for this client instance
+    expect(firstPayload?.instanceId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(secondPayload?.instanceId).toBe(firstPayload?.instanceId);
 
     // The context-id display should update
     await textOf(page, '[data-testid="context-id"]').toBe("test-user-1");

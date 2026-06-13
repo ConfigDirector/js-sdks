@@ -49,6 +49,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private readyResolve: (() => void) | undefined;
   private currentContext?: ConfigDirectorContext;
   private connectionMode: ConnectionMode;
+  private instanceId: string;
 
   constructor(
     telemetryClient: TelemetryClient,
@@ -57,6 +58,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     clientOptions?: ConfigDirectorClientOptions,
     internalClientOptions?: InternalClientOptions,
   ) {
+    this.instanceId = crypto.randomUUID();
     this.logger = clientOptions?.logger ?? createDefaultLogger();
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
     const urlFactory: UrlFactory = internalClientOptions?.urlFactory ?? defaultUrlFactory;
@@ -65,6 +67,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     const transportConstructor = this.getTransportConstructor(this.connectionMode);
     this.telemetryClient = telemetryClient;
     this.transport = new transportConstructor({
+      instanceId: this.instanceId,
       clientSdkKey,
       baseUrl,
       resolveUrl: urlFactory,
