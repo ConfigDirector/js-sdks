@@ -165,6 +165,16 @@ describe("ServerTelemetryEventCollector", () => {
       const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
       expect(event.evaluatedValue.digest).toMatch(/^[0-9a-f]{8}$/);
     });
+
+    test("does not associate a contextId with the event when context is anonymous", async () => {
+      const collector = createCollector();
+      collector.evaluatedConfig({ ...basePayload, context: { id: "user-id", anonymous: true } });
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
+      expect(event.contextId).toBeUndefined();
+    });
   });
 
   describe("capturedContexts", () => {
@@ -228,6 +238,15 @@ describe("ServerTelemetryEventCollector", () => {
       await vi.advanceTimersByTimeAsync(5_000);
 
       expect(capturedPayloads[0].droppedEvents.capturedContexts).toBe(0);
+    });
+
+    test("does not capture the context when context is anonymous", async () => {
+      const collector = createCollector();
+      collector.evaluatedConfig({ ...basePayload, context: { id: "user-id", anonymous: true } });
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      expect(capturedPayloads[0].discreteEvents.capturedContexts).toEqual([]);
     });
 
     test("reports accurate dropped context count when the limit is exceeded", async () => {

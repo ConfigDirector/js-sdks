@@ -30,12 +30,12 @@ export class ServerTelemetryEventCollector extends TelemetryEventCollector<
     if (!this.collectEvents) {
       return;
     }
-    if (payload.context?.id) {
+    if (payload.context?.id && !payload.context.anonymous) {
       this.contexts.set(payload.context.id, payload.context);
     }
     const event = {
       ...payload.evaluation,
-      contextId: payload.context?.id,
+      contextId: payload.context?.anonymous ? undefined : payload.context?.id,
     };
 
     this.evaluationEventQueue.push(this.sanitizeEvaluatedConfigEvent(event));

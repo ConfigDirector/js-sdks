@@ -78,6 +78,15 @@ export type ConfigDirectorContext = {
    * dashboard and may be used for targeting rules.
    */
   traits?: { [key: string]: unknown };
+
+  /**
+   * Whether or not to treat the context as anonymous during evaluation. When `true`, the
+   * context values will be used for targeting rules evaluation but the context will not be
+   * persisted and will not appear in the dashboard.
+   *
+   * @default false
+   */
+  anonymous?: boolean;
 };
 
 /**
