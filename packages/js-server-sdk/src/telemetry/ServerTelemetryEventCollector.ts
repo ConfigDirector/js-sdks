@@ -1,21 +1,26 @@
 import type { ConfigDirectorContext, ConfigValueType } from "../types";
 import { ServerEventReporter } from "./ServerEventReporter";
-import type { EvaluatedConfigEvent } from "./telemetry-events";
+import type { EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
 import type {
   EvaluatedConfig,
   EventReporter,
+  EventSnapshotPreprocessor,
   ReporterResponse,
   ServerTelemetryEventCollectorOptions,
 } from "./types";
 import { TelemetryEventCollector } from "@shared/telemetry/TelemetryEventCollector";
 import { LimitedMap } from "@shared/LimitedMap";
-import type { TelemetryValue } from "@shared/telemetry/utils";
+import { mapToTelemetryValue, type TelemetryValue } from "@shared/telemetry/utils";
+import { EvaluatedConfigEventPreprocessor } from "@shared/telemetry/EvaluatedConfigEventPreprocessor";
 
 const DEFAULT_CONTEXTS_LIMIT = 1_000;
 
 export class ServerTelemetryEventCollector extends TelemetryEventCollector<
   EvaluatedConfigEvent<TelemetryValue>
 > {
+  protected override evaluationEventSnapshotPreprocessor: EventSnapshotPreprocessor<
+    EvaluatedConfigEvent<TelemetryValue>
+  >;
   protected readonly reporter: EventReporter;
   protected _context?: ConfigDirectorContext;
   private readonly contexts: LimitedMap<string, ConfigDirectorContext>;
@@ -24,6 +29,7 @@ export class ServerTelemetryEventCollector extends TelemetryEventCollector<
     super(options);
     this.reporter = new ServerEventReporter(options);
     this.contexts = new LimitedMap(options.contextLimit ?? DEFAULT_CONTEXTS_LIMIT);
+    this.evaluationEventSnapshotPreprocessor = new EvaluatedConfigEventPreprocessor(options.valueIdGenerator);
   }
 
   public evaluatedConfig<T extends ConfigValueType>(payload: EvaluatedConfig<T>): void {
@@ -46,8 +52,12 @@ export class ServerTelemetryEventCollector extends TelemetryEventCollector<
   ): EvaluatedConfigEvent<TelemetryValue> {
     return {
       ...event,
-      defaultValue: this.sanitizeValue(event.defaultValue, event.type),
-      evaluatedValue: this.sanitizeValue(event.evaluatedValue, event.type),
+      defaultValue: mapToTelemetryValue({ value: event.defaultValue, type: event.type }),
+      evaluatedValue: mapToTelemetryValue({
+        value: event.evaluatedValue,
+        valueId: event.evaluatedValueId,
+        type: event.type,
+      }),
     };
   }
 
@@ -62,7 +72,9 @@ export class ServerTelemetryEventCollector extends TelemetryEventCollector<
     if (!this.reporter) {
       return { success: false, fatalError: false };
     }
-    const evaluationSnapshot = this.evaluationEventQueue.takeSnapshot();
+    const evaluationSnapshot = await this.evaluationEventSnapshotPreprocessor.process(
+      this.evaluationEventQueue.takeSnapshot(),
+    );
     const contextsSnapshot = this.snapshotContexts();
     const response = await this.reporter?.report({
       context: this._context,

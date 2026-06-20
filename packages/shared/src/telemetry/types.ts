@@ -35,3 +35,9 @@ export type EventReporterPayload = {
 export interface EventReporter {
   report(payload: EventReporterPayload): Promise<ReporterResponse>;
 }
+
+export interface EventSnapshotPreprocessor<T extends ReportableEvent> {
+  process(snapshot: EventQueueSnapshot<T>): Promise<EventQueueSnapshot<T>>;
+}
+
+export type ValueIdGenerator = (v: string | number | boolean | null | undefined) => Promise<string>;

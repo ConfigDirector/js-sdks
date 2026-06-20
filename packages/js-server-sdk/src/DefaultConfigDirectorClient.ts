@@ -24,6 +24,7 @@ import EventEmitter from "node:events";
 import type { ConfigDirectorMetaContext } from "@shared/types";
 import { defaultUrlFactory } from "@shared/url";
 import { ServerTelemetryEventCollector } from "./telemetry";
+import { generateValueId } from "@shared/value-id-generator";
 
 const defaultBaseUrl = new URL("https://server-sdk-api.configdirector.com");
 const DEFAULT_FLUSH_INTERVAL = 30_000;
@@ -72,6 +73,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       evaluationQueueLimit: Math.ceil(queueLimit * 0.7),
       contextLimit: Math.floor(queueLimit * 0.3),
       urlFactory: defaultUrlFactory,
+      valueIdGenerator: generateValueId,
     });
     this.transport = new transportConstructor({
       serverSdkKey,
@@ -241,6 +243,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           defaultValue: defaultValue,
           requestedType: parseResult.requestedType,
           evaluatedValue: parseResult.parsedValue,
+          evaluatedValueId: parseResult.parsedValueId,
           usedDefault: parseResult.usedDefault,
           evaluationReason: parseResult.reason,
         },

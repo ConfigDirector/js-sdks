@@ -1549,6 +1549,7 @@ __metadata:
   dependencies:
     "@babel/core": "npm:^7.29.0"
     "@eslint/js": "npm:^10.0.1"
+    "@noble/hashes": "npm:^2.2.0"
     "@react-native/babel-preset": "npm:^0.85.0"
     "@rollup/plugin-replace": "npm:^6.0.3"
     "@testing-library/react-native": "npm:^13.3.3"
@@ -3675,6 +3676,13 @@ __metadata:
   version: 15.5.18
   resolution: "@next/swc-win32-x64-msvc@npm:15.5.18"
   conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:^2.2.0":
+  version: 2.2.0
+  resolution: "@noble/hashes@npm:2.2.0"
+  checksum: 10c0/cad8630c504d6b9271984f685cd0af9101b40988fc2dfbe17ccdf068a9941f95cc5c9957d89e9ca4b7ca94c15cb35f93510c5d53a09fbcc83ee503b93d0a1034
   languageName: node
   linkType: hard
 

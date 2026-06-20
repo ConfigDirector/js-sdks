@@ -10,7 +10,7 @@ import type {
   TelemetryWorkerResponseEvent,
 } from "./types";
 import type { TelemetryValue } from "@shared/telemetry/utils";
-import { sanitizeValue } from "@shared/telemetry/utils";
+import { mapToTelemetryValue } from "@shared/telemetry/utils";
 
 export class WebWorkerTelemetryClient implements TelemetryClient {
   private readonly logger: ConfigDirectorLogger;
@@ -73,8 +73,12 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
   ): EvaluatedConfigEvent<TelemetryValue> {
     return {
       ...event,
-      defaultValue: sanitizeValue(event.defaultValue, event.type),
-      evaluatedValue: sanitizeValue(event.evaluatedValue, event.type),
+      defaultValue: mapToTelemetryValue({ value: event.defaultValue, type: event.type }),
+      evaluatedValue: mapToTelemetryValue({
+        value: event.evaluatedValue,
+        valueId: event.evaluatedValueId,
+        type: event.type,
+      }),
     };
   }
 

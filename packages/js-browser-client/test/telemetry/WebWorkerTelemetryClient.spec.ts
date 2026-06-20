@@ -5,6 +5,7 @@ import type { EventReport } from "@js-client-core/telemetry/types";
 import { BASE_URL, TELEMETRY_URL, createStubbedLogger, sleep } from "../helpers";
 import type { ConfigType, ConfigValueType } from "@shared/types";
 import { defaultUrlFactory } from "@shared/url";
+import { generateValueId } from "@shared/value-id-generator";
 
 const logger = createStubbedLogger();
 
@@ -21,6 +22,7 @@ const createClient = (options: Record<string, unknown> = {}) =>
     initialFlushIntervalDelay: INITIAL_FLUSH_DELAY,
     flushIntervalDelay: FLUSH_DELAY,
     urlFactory: defaultUrlFactory,
+    valueIdGenerator: generateValueId,
     ...options,
   });
 
@@ -31,6 +33,7 @@ const baseEvent = {
   defaultValue: "default",
   requestedType: "string",
   evaluatedValue: "hello",
+  evaluatedValueId: "1MoOW7eqAPjhZeoELVwO9G",
   usedDefault: false,
   evaluationReason: "found-match" as const,
 };
@@ -85,11 +88,11 @@ describe("TelemetryClient", () => {
       await waitForPayloadCount(1);
       const payloads = await commands.mswGetPayloads();
       const event = (payloads[0] as EventReport).aggregatedEvents["evaluatedConfig"][0].event;
-      expect(event["evaluatedValue"]["digest"]).toMatch(/^[0-9a-f]{8}$/);
-      expect(event["defaultValue"]["digest"]).toMatch(/^[0-9a-f]{8}$/);
+      expect(event["evaluatedValue"]["valueId"]).toMatch(/^[0-9a-zA-Z]{22}$/);
+      expect(event["defaultValue"]["valueId"]).toMatch(/^[0-9a-zA-Z]{22}$/);
     });
 
-    test("computes a digest instead of [object Object] for object values when type is not provided", async () => {
+    test("computes a valueId instead of [object Object] for object values when type is not provided", async () => {
       client = createClient();
       client.evaluatedConfig({
         key: "json-config",
@@ -103,8 +106,8 @@ describe("TelemetryClient", () => {
       await waitForPayloadCount(1);
       const payloads = await commands.mswGetPayloads();
       const event = (payloads[0] as EventReport).aggregatedEvents["evaluatedConfig"][0].event;
-      expect(event["defaultValue"]["digest"]).toMatch(/^[0-9a-f]{8}$/);
-      expect(event["evaluatedValue"]["digest"]).toMatch(/^[0-9a-f]{8}$/);
+      expect(event["defaultValue"]["valueId"]).toMatch(/^[0-9a-zA-Z]{22}$/);
+      expect(event["evaluatedValue"]["valueId"]).toMatch(/^[0-9a-zA-Z]{22}$/);
     });
 
     test.each`

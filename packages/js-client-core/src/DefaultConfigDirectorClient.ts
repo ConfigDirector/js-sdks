@@ -250,6 +250,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       defaultValue: defaultValue,
       requestedType: parseResult.requestedType,
       evaluatedValue: parseResult.parsedValue,
+      evaluatedValueId: parseResult.parsedValueId,
       usedDefault: parseResult.usedDefault,
       evaluationReason: parseResult.reason,
     });

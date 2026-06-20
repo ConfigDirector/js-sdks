@@ -19,6 +19,7 @@ export type ConfigState = {
   key: string;
   type: ConfigType;
   value: string | undefined | null;
+  valueId?: string | undefined | null;
 };
 
 export type IdentifyingSdkOptions = {

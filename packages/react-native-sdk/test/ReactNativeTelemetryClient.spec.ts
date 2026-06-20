@@ -8,6 +8,7 @@ import { ClientTelemetryEventCollector } from "@js-client-core/telemetry";
 import { ReactNativeTelemetryClient } from "../src/ReactNativeTelemetryClient";
 import { createStubbedLogger } from "./helpers";
 import type { TelemetryValue } from "@shared/telemetry/utils";
+import { generateValueId } from "../src/value-id-generator";
 
 const MockCollector = jest.mocked(ClientTelemetryEventCollector);
 
@@ -74,6 +75,7 @@ describe("ReactNativeTelemetryClient", () => {
         type: "json",
         defaultValue: {},
         evaluatedValue: { enabled: true, threshold: 0.5 },
+        evaluatedValueId: generateValueId(JSON.stringify({ enabled: true, threshold: 0.5 })),
         requestedType: "json",
         usedDefault: false,
         evaluationReason: "config-state-missing",
@@ -83,15 +85,16 @@ describe("ReactNativeTelemetryClient", () => {
         evaluatedValue: TelemetryValue;
         defaultValue: TelemetryValue;
       };
-      expect(call.evaluatedValue.digest).toMatch(/^[0-9a-f]{8}$/);
-      expect(call.defaultValue.digest).toMatch(/^[0-9a-f]{8}$/);
+      expect(call.evaluatedValue.valueId).toMatch(/^[0-9a-zA-Z]{22}$/);
+      expect(call.defaultValue.valueId).toBeUndefined();
     });
 
-    it("computes a digest instead of [object Object] for object values when type is not provided", () => {
+    it("uses the value ID for object values when type is not provided", () => {
       makeClient().evaluatedConfig({
         key: "config",
         defaultValue: { threshold: 0.5 },
         evaluatedValue: { enabled: true, threshold: 0.8 },
+        evaluatedValueId: generateValueId(JSON.stringify({ enabled: true, threshold: 0.5 })),
         requestedType: "object",
         usedDefault: false,
         evaluationReason: "config-state-missing",
@@ -101,8 +104,8 @@ describe("ReactNativeTelemetryClient", () => {
         evaluatedValue: TelemetryValue;
         defaultValue: TelemetryValue;
       };
-      expect(call.defaultValue.digest).toMatch(/^[0-9a-f]{8}$/);
-      expect(call.evaluatedValue.digest).toMatch(/^[0-9a-f]{8}$/);
+      expect(call.defaultValue.valueId).toBeUndefined();
+      expect(call.evaluatedValue.valueId).toMatch(/^[0-9a-zA-Z]{22}$/);
     });
 
     it("preserves all non-value fields in the sanitized event", () => {

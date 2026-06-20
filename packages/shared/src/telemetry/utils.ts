@@ -1,28 +1,59 @@
 import type { ConfigType, ConfigValueType } from "../types";
-import { type DroppedEvents } from "./types";
+import type { ValueIdGenerator, DroppedEvents } from "./types";
 
 const CONFIG_VALUE_MAX_LENGTH = 500;
 
 export type TelemetryValue = {
   value?: string;
-  digest?: string;
+  valueId?: string;
+  type?: ConfigType;
 };
 
-export const sanitizeValue = <TV extends ConfigValueType>(value: TV, type?: ConfigType): TelemetryValue => {
-  if (type === "json" || (type == null && typeof value === "object")) {
+export type TelemetryEvaluationValue<TV extends ConfigValueType> = {
+  value: TV;
+  valueId?: string | null | undefined;
+  type?: ConfigType;
+};
+
+export const compactTelemetryValue = async (
+  tv: TelemetryValue,
+  valueIdGenerator: ValueIdGenerator,
+): Promise<TelemetryValue> => {
+  if (tv.valueId) {
+    return { valueId: tv.valueId };
+  }
+  if (tv.value) {
+    if (tv.value.length <= CONFIG_VALUE_MAX_LENGTH && tv.type != "json") {
+      return { value: tv.value };
+    }
+
+    return { valueId: await valueIdGenerator(tv.value) };
+  }
+
+  return tv;
+};
+
+export const mapToTelemetryValue = <TV extends ConfigValueType>(
+  ev: TelemetryEvaluationValue<TV>,
+): TelemetryValue => {
+  if (ev.type === "json" || (ev.type == null && typeof ev.value === "object")) {
+    if (ev.valueId) {
+      return { valueId: ev.valueId, type: "json" };
+    }
     try {
-      const json = JSON.stringify(value);
-      return { digest: djb2Hash(json) };
+      const json = JSON.stringify(ev.value);
+      return { value: json, type: "json" };
     } catch {
-      return { digest: value.toString() };
+      return { value: ev.value.toString(), type: "json" };
     }
   }
 
-  if (value.toString().length > CONFIG_VALUE_MAX_LENGTH) {
-    return { digest: djb2Hash(value.toString()) };
-  } else {
-    return { value: value.toString() };
+  const stringValue = ev.value?.toString();
+  if (stringValue && stringValue.length <= CONFIG_VALUE_MAX_LENGTH) {
+    return { value: stringValue };
   }
+
+  return ev.valueId ? { valueId: ev.valueId } : { value: stringValue };
 };
 
 export const djb2Hash = (data: string): string => {

@@ -1,9 +1,7 @@
-import type { ConfigDirectorContext, ConfigDirectorLogger, ConfigType, ConfigValueType } from "../types";
+import type { ConfigDirectorContext, ConfigDirectorLogger } from "../types";
 import { EventAggregator } from "./EventAggregator";
 import { EventQueue } from "./EventQueue";
-import type { TelemetryValue } from "./utils";
-import { sanitizeValue } from "./utils";
-import type { EventReporter, ReportableEvent, ReporterResponse } from "./types";
+import type { EventReporter, EventSnapshotPreprocessor, ReportableEvent, ReporterResponse, ValueIdGenerator } from "./types";
 import type { UrlFactory, UrlLike } from "../url";
 
 export type TelemetryEventCollectorOptions = {
@@ -11,6 +9,7 @@ export type TelemetryEventCollectorOptions = {
   logger: ConfigDirectorLogger;
   baseUrl: UrlLike;
   urlFactory: UrlFactory;
+  valueIdGenerator: ValueIdGenerator;
   flushIntervalDelay?: number;
   initialFlushIntervalDelay?: number;
   evaluationQueueLimit?: number;
@@ -25,6 +24,7 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
   protected flushTimeout: ReturnType<typeof setTimeout>;
   protected collectEvents = true;
   protected abstract _context?: ConfigDirectorContext;
+  protected abstract evaluationEventSnapshotPreprocessor: EventSnapshotPreprocessor<T>;
 
   constructor(options: TelemetryEventCollectorOptions) {
     this.logger = options.logger;
@@ -34,9 +34,7 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
     this.flushTimeout = setTimeout(() => this.flushAndScheduleNext(), initialDelay);
   }
 
-  protected sanitizeValue<TV extends ConfigValueType>(value: TV, type?: ConfigType): TelemetryValue {
-    return sanitizeValue(value, type);
-  }
+  protected abstract flush(): Promise<ReporterResponse>;
 
   protected async flushAndScheduleNext() {
     const response = await this.flush();
@@ -49,24 +47,6 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
     } else {
       this.flushTimeout = setTimeout(() => this.flushAndScheduleNext(), this.flushIntervalDelay);
     }
-  }
-
-  protected async flush(): Promise<ReporterResponse> {
-    if (!this.reporter) {
-      return { success: false, fatalError: false };
-    }
-    const evaluationSnapshot = this.evaluationEventQueue.takeSnapshot();
-    const response = await this.reporter?.report({
-      context: this._context,
-      discreteEvents: {},
-      aggregatedEvents: {
-        evaluatedConfig: this.aggregator.aggregate(evaluationSnapshot),
-      },
-      droppedEvents: {
-        evaluatedConfig: evaluationSnapshot.droppedCount,
-      },
-    });
-    return response;
   }
 
   protected cancelScheduledFlush() {

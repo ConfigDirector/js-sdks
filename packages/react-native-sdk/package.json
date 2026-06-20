@@ -52,6 +52,9 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
+  "dependencies": {
+    "@noble/hashes": "^2.2.0"
+  },
   "devDependencies": {
     "@babel/core": "^7.29.0",
     "@eslint/js": "^10.0.1",
@@ -112,7 +115,7 @@
       "^@eventsource/(.*)$": "<rootDir>/../eventsource/src/$1"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)/)"
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|@noble)/)"
     ]
   }
 }

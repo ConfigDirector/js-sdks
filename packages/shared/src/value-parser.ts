@@ -4,6 +4,7 @@ type NativeType = "string" | "number" | "bigint" | "boolean" | "symbol" | "undef
 
 type ParseResult<T extends ConfigValueType> = {
   parsedValue: T;
+  parsedValueId: string | null | undefined;
   requestedType: NativeType | string;
   usedDefault: boolean;
   reason: EvaluationReason;
@@ -42,6 +43,7 @@ export const parseConfigValue = <T extends ConfigValueType>(
   if (!value) {
     return {
       parsedValue: defaultValue as T,
+      parsedValueId: undefined,
       requestedType,
       usedDefault: true,
       reason: "value-missing",
@@ -49,12 +51,13 @@ export const parseConfigValue = <T extends ConfigValueType>(
   }
 
   if (configState.type === "json") {
-    return parseJson(value, defaultValue, requestedType);
+    return parseJson(value, defaultValue, requestedType, configState.valueId);
   }
 
   if (typeof defaultValue === "string") {
     return {
       parsedValue: value as T,
+      parsedValueId: configState.valueId,
       requestedType,
       usedDefault: false,
       reason: "found-match",
@@ -66,6 +69,7 @@ export const parseConfigValue = <T extends ConfigValueType>(
     const hasBoolean = typeof boolValue === "boolean";
     return {
       parsedValue: (hasBoolean ? boolValue : defaultValue) as T,
+      parsedValueId: hasBoolean ? configState.valueId : undefined,
       requestedType,
       usedDefault: !hasBoolean,
       reason: hasBoolean ? "found-match" : "invalid-boolean",
@@ -77,6 +81,7 @@ export const parseConfigValue = <T extends ConfigValueType>(
     const hasNumber = typeof numValue === "number";
     return {
       parsedValue: (hasNumber ? numValue : defaultValue) as T,
+      parsedValueId: hasNumber ? configState.valueId : undefined,
       requestedType,
       usedDefault: !hasNumber,
       reason: hasNumber ? "found-match" : "invalid-number",
@@ -90,6 +95,7 @@ export const parseConfigValue = <T extends ConfigValueType>(
     const hasNumber = typeof numValue === "number";
     return {
       parsedValue: (hasNumber ? numValue : defaultValue) as T,
+      parsedValueId: hasNumber ? configState.valueId : undefined,
       requestedType,
       usedDefault: !hasNumber,
       reason: hasNumber ? "found-match" : "invalid-number",
@@ -98,6 +104,7 @@ export const parseConfigValue = <T extends ConfigValueType>(
 
   return {
     parsedValue: value as T,
+    parsedValueId: configState.valueId,
     requestedType,
     usedDefault: false,
     reason: "found-match",
@@ -141,10 +148,12 @@ const parseJson = <T extends ConfigValueType>(
   jsonString: string,
   defaultValue: T,
   requestedType: string,
+  valueId: string | null | undefined,
 ): ParseResult<T> => {
   if (typeof defaultValue === "string") {
     return {
       parsedValue: jsonString as T,
+      parsedValueId: valueId,
       requestedType,
       usedDefault: false,
       reason: "found-match",
@@ -154,6 +163,7 @@ const parseJson = <T extends ConfigValueType>(
   try {
     return {
       parsedValue: JSON.parse(jsonString),
+      parsedValueId: valueId,
       requestedType,
       usedDefault: false,
       reason: "found-match",
@@ -161,6 +171,7 @@ const parseJson = <T extends ConfigValueType>(
   } catch {
     return {
       parsedValue: defaultValue,
+      parsedValueId: undefined,
       requestedType,
       usedDefault: true,
       reason: "invalid-json",
