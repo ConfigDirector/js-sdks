@@ -1,6 +1,6 @@
 import type { ConfigDirectorContext, ConfigValueType } from "../types";
 import type { DiscreteEventList, AggregatedEventList, DroppedEvents } from "@shared/telemetry/types";
-import type { EvaluatedConfigEvent } from "./telemetry-events";
+import type { EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
 export * from "@shared/telemetry/types";
 
 export type EventReport = {
