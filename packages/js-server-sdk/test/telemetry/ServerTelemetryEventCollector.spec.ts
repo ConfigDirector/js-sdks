@@ -38,18 +38,6 @@ const basePayload = {
 
 let capturedPayloads: any[];
 
-// crypto.subtle.digest runs in the libuv thread pool; its callback lands in the poll phase,
-// which is after the setImmediate that fake-timers uses to settle Promises. Each extra
-// vi.advanceTimersByTimeAsync(0) call schedules one more real setImmediate, giving one more
-// event-loop iteration (poll + check). Three sequential digest calls and the subsequent fetch
-// each need their own poll phase, so three extra cycles are required.
-const advanceTimers = async (ms: number) => {
-  await vi.advanceTimersByTimeAsync(ms);
-  await vi.advanceTimersByTimeAsync(0);
-  await vi.advanceTimersByTimeAsync(0);
-  await vi.advanceTimersByTimeAsync(0);
-};
-
 const server = setupServer(
   http.post(TELEMETRY_URL, async ({ request }) => {
     capturedPayloads.push(await request.json());
@@ -76,7 +64,7 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector();
       collector.evaluatedConfig(basePayload);
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       expect(capturedPayloads).toHaveLength(1);
       const payload = capturedPayloads[0];
@@ -96,7 +84,7 @@ describe("ServerTelemetryEventCollector", () => {
 
     test("does not send a request when there are no events", async () => {
       createCollector();
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
       expect(capturedPayloads).toHaveLength(0);
     });
 
@@ -106,7 +94,7 @@ describe("ServerTelemetryEventCollector", () => {
       collector.evaluatedConfig(basePayload);
       collector.evaluatedConfig(basePayload);
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       const payload = capturedPayloads[0];
       expect(payload.aggregatedEvents.evaluatedConfig).toHaveLength(1);
@@ -122,13 +110,13 @@ describe("ServerTelemetryEventCollector", () => {
         evaluation: { ...baseEvaluation, key: "config-b", evaluatedValue: "bar" },
       });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       const payload = capturedPayloads[0];
       expect(payload.aggregatedEvents.evaluatedConfig).toHaveLength(2);
     });
 
-    test("sanitizes JSON config values by replacing them with a hash", async () => {
+    test("computes value IDs for JSON config values", async () => {
       const collector = createCollector();
       collector.evaluatedConfig({
         evaluation: {
@@ -142,7 +130,10 @@ describe("ServerTelemetryEventCollector", () => {
         },
       });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
+      while (capturedPayloads.length == 0) {
+        await vi.advanceTimersByTimeAsync(0);
+      }
 
       const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
       expect(event.evaluatedValue.valueId).toMatch(/^[0-9a-zA-Z]{22}$/);
@@ -163,7 +154,10 @@ describe("ServerTelemetryEventCollector", () => {
         },
       });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
+      while (capturedPayloads.length == 0) {
+        await vi.advanceTimersByTimeAsync(0);
+      }
 
       const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
       expect(event.defaultValue.valueId).toMatch(/^[0-9a-zA-Z]{22}$/);
@@ -175,7 +169,7 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector();
       collector.evaluatedConfig({ evaluation: { ...baseEvaluation, evaluatedValue: longValue } });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
       expect(event.evaluatedValue.valueId).toMatch(/^[0-9a-zA-Z]{22}$/);
@@ -185,7 +179,7 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector();
       collector.evaluatedConfig({ ...basePayload, context: { id: "user-id", anonymous: true } });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
       expect(event.contextId).toBeUndefined();
@@ -197,7 +191,7 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector();
       collector.evaluatedConfig(basePayload);
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       expect(capturedPayloads[0].discreteEvents.capturedContexts).toEqual([{ id: "user-id" }]);
     });
@@ -206,7 +200,7 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector();
       collector.evaluatedConfig({ evaluation: baseEvaluation });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       expect(capturedPayloads[0].discreteEvents.capturedContexts).toEqual([]);
     });
@@ -217,7 +211,7 @@ describe("ServerTelemetryEventCollector", () => {
       collector.evaluatedConfig(basePayload);
       collector.evaluatedConfig({ ...basePayload, context: { id: "user-id", name: "Admin" } });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       expect(capturedPayloads[0].discreteEvents.capturedContexts).toHaveLength(1);
     });
@@ -227,7 +221,7 @@ describe("ServerTelemetryEventCollector", () => {
       collector.evaluatedConfig({ ...basePayload, context: { id: "user-a" } });
       collector.evaluatedConfig({ ...basePayload, context: { id: "user-b" } });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       const contexts = capturedPayloads[0].discreteEvents.capturedContexts;
       expect(contexts).toHaveLength(2);
@@ -238,11 +232,11 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector({ flushIntervalDelay: 10_000, initialFlushIntervalDelay: 5_000 });
       collector.evaluatedConfig(basePayload);
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
       expect(capturedPayloads[0].discreteEvents.capturedContexts).toHaveLength(1);
 
       collector.evaluatedConfig(basePayload);
-      await advanceTimers(10_000);
+      await vi.advanceTimersByTimeAsync(10_000);
       expect(capturedPayloads[1].discreteEvents.capturedContexts).toHaveLength(1);
     });
 
@@ -250,7 +244,7 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector();
       collector.evaluatedConfig(basePayload);
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       expect(capturedPayloads[0].droppedEvents.capturedContexts).toBe(0);
     });
@@ -259,7 +253,7 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector();
       collector.evaluatedConfig({ ...basePayload, context: { id: "user-id", anonymous: true } });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       expect(capturedPayloads[0].discreteEvents.capturedContexts).toEqual([]);
     });
@@ -271,7 +265,7 @@ describe("ServerTelemetryEventCollector", () => {
       collector.evaluatedConfig({ ...basePayload, context: { id: "user-c" } });
       collector.evaluatedConfig({ ...basePayload, context: { id: "user-d" } });
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       expect(capturedPayloads[0].droppedEvents.capturedContexts).toBe(2);
       expect(capturedPayloads[0].discreteEvents.capturedContexts).toHaveLength(2);
@@ -283,11 +277,11 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector({ flushIntervalDelay: 10_000, initialFlushIntervalDelay: 5_000 });
 
       collector.evaluatedConfig(basePayload);
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
       expect(capturedPayloads).toHaveLength(1);
 
       collector.evaluatedConfig(basePayload);
-      await advanceTimers(10_000);
+      await vi.advanceTimersByTimeAsync(10_000);
       expect(capturedPayloads).toHaveLength(2);
     });
   });
@@ -299,12 +293,12 @@ describe("ServerTelemetryEventCollector", () => {
       const collector = createCollector();
       collector.evaluatedConfig(basePayload);
 
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
       expect(capturedPayloads).toHaveLength(0);
 
       // Further events should be silently dropped
       collector.evaluatedConfig({ evaluation: { ...baseEvaluation, key: "config-after-fatal" } });
-      await advanceTimers(35_000);
+      await vi.advanceTimersByTimeAsync(35_000);
       expect(capturedPayloads).toHaveLength(0);
     });
   });
@@ -315,7 +309,7 @@ describe("ServerTelemetryEventCollector", () => {
       collector.evaluatedConfig(basePayload);
 
       collector.close();
-      await advanceTimers(0);
+      await vi.advanceTimersByTimeAsync(0);
 
       expect(capturedPayloads).toHaveLength(1);
     });
@@ -325,7 +319,7 @@ describe("ServerTelemetryEventCollector", () => {
       collector.close();
 
       collector.evaluatedConfig(basePayload);
-      await advanceTimers(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
 
       expect(capturedPayloads).toHaveLength(0);
     });
