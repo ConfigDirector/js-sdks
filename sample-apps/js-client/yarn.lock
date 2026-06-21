@@ -5,10 +5,10 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@configdirector/client-sdk@npm:^0.6.0":
-  version: 0.6.0
-  resolution: "@configdirector/client-sdk@npm:0.6.0"
-  checksum: 10c0/6dd13b26c566bc9d4a4a82e2cd1cda6285013604ca2e3f90d2a3540f6af7781ae0d04bdd5f6c77fe0a46ff7a2e08470092c25e4f1cfb9d6702bc717146f3eca4
+"@configdirector/client-sdk@npm:^0.8.0":
+  version: 0.8.0
+  resolution: "@configdirector/client-sdk@npm:0.8.0"
+  checksum: 10c0/7ba2c2cbebf3ef81250f61cd1a9c40d232d1d5d0ca2538f9275e7629bb4b6feb66ad78b943d7fa511582b3956db4f09e264e6f1985dc39e38036ed893dcf0793
   languageName: node
   linkType: hard
 
@@ -16,7 +16,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/js-client-sample-app@workspace:."
   dependencies:
-    "@configdirector/client-sdk": "npm:^0.6.0"
+    "@configdirector/client-sdk": "npm:^0.8.0"
     typescript: "npm:~5.9.2"
     vite: "npm:^8.0.16"
   languageName: unknown
