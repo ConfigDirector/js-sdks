@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@configdirector/nextjs-sdk": "^0.6.0",
+    "@configdirector/nextjs-sdk": "^0.8.0",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
