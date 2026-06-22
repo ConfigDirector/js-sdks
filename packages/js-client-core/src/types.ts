@@ -8,7 +8,7 @@ import type {
   ConfigValueType,
   ConfigState,
   ConnectionMode,
-  EvaluationReason,
+  ConfigEvaluatedEvent,
 } from "../../shared/src/types";
 export * from "../../shared/src/types";
 
@@ -97,14 +97,6 @@ export type ConfigDirectorClientOptions = {
 };
 
 export type ClientConnectAction = "initialization" | "context update" | "network resume";
-
-export type ConfigEvaluatedEvent = {
-  key: string;
-  value: ConfigValueType;
-  valueId?: string;
-  isDefaultValue: boolean;
-  reason: EvaluationReason;
-};
 
 export type ClientEvents = {
   configsUpdated: { keys: string[] };

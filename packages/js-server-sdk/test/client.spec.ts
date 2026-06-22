@@ -1080,6 +1080,181 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("configEvaluated", () => {
+    const makeFullSseHandler = (configs: Record<string, unknown>) =>
+      http.post(SSE_URL, async () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              message({
+                environmentId: "10000000-0000-0000-0000-000000000000",
+                projectId: "20000000-0000-0000-0000-000000000000",
+                kind: "full",
+                configs,
+              }),
+            );
+          },
+        });
+        return buildResponse(stream);
+      });
+
+    const serverConfig = (key: string, type: string, value: string) => ({
+      id: "00000000-0000-0000-0000-000000000001",
+      key,
+      type,
+      variations: [],
+      target: {
+        environmentId: "10000000-0000-0000-0000-000000000000",
+        rules: [],
+        defaultValue: value,
+      },
+    });
+
+    test("emits with reason 'client-not-ready' before initialization", async () => {
+      const client = createClient("sdk-key", { logger });
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+
+      client.getValue("missing-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "missing-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "client-not-ready",
+      });
+    });
+
+    test("emits with reason 'config-state-missing' when the key is absent after initialization", async () => {
+      server.use(makeFullSseHandler({}));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+
+      client.getValue("missing-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "missing-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "config-state-missing",
+      });
+    });
+
+    test("emits with reason 'found-match' for a matching string config", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string", "server-value") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+
+      client.getValue("my-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: "server-value",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+    });
+
+    test("emits with reason 'value-missing' when the config has an empty value", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string", "") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+
+      client.getValue("my-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "value-missing",
+      });
+    });
+
+    test("emits with reason 'invalid-json' when a json config has malformed JSON", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "json", "not-valid-json{") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+
+      client.getValue("my-config", { greeting: "default" });
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: { greeting: "default" },
+        isDefaultValue: true,
+        reason: "invalid-json",
+      });
+    });
+
+    test("emits with reason 'invalid-number' when a string config is requested as a number", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string", "not-a-number") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+
+      client.getValue("my-config", 42);
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: 42,
+        isDefaultValue: true,
+        reason: "invalid-number",
+      });
+    });
+
+    test("emits with reason 'invalid-boolean' when a string config is requested as a boolean", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string", "not-a-boolean") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+
+      client.getValue("my-config", false);
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: false,
+        isDefaultValue: true,
+        reason: "invalid-boolean",
+      });
+    });
+
+    test("includes context in the event when context is passed to getValue", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string", "server-value") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+
+      const context = { id: "user-123", name: "Alice", traits: {} };
+      client.getValue("my-config", "default", context);
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: "server-value",
+        isDefaultValue: false,
+        reason: "found-match",
+        context,
+      });
+    });
+  });
+
   describe("telemetry", () => {
     test("includes the config type in the telemetry event for a JSON config", async () => {
       server.use(

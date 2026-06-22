@@ -53,6 +53,14 @@ export type EvaluationReason =
   | "invalid-json"
   | "invalid-boolean";
 
+export type ConfigEvaluatedEvent = {
+  key: string;
+  value: ConfigValueType;
+  valueId?: string;
+  isDefaultValue: boolean;
+  reason: EvaluationReason;
+  context?: ConfigDirectorContext;
+};
 /**
  * The user's context to be sent to ConfigDirector. This context will be used for targeting
  * rules evaluation.

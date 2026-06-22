@@ -17,11 +17,12 @@ import type {
   ConfigDefinition,
   ConfigState,
   ConnectionMode,
+  ConfigEvaluatedEvent,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "@shared/errors";
 import EventEmitter from "node:events";
-import type { ConfigDirectorMetaContext } from "@shared/types";
+import type { ConfigDirectorMetaContext, EvaluationReason } from "@shared/types";
 import { defaultUrlFactory } from "@shared/url";
 import { ServerTelemetryEventCollector } from "./telemetry";
 import { generateValueId } from "@shared/value-id-generator";
@@ -248,12 +249,21 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           evaluationReason: parseResult.reason,
         },
       });
+      this.dispatchEvaluationEvent({
+        key: configKey,
+        value: parseResult.parsedValue,
+        valueId: parseResult.parsedValueId ?? undefined,
+        isDefaultValue: parseResult.usedDefault,
+        reason: parseResult.reason,
+        context: context,
+      });
       this.logger.debug(`[ConfigDirectorClient] Evaluated '${configKey}' to '${parseResult.parsedValue}'`);
       return parseResult.parsedValue;
     } else {
       this.logger.debug(
         `[ConfigDirectorClient] No config state found for '${configKey}', returning default value '${defaultValue}'`,
       );
+      const reason: EvaluationReason = this.isReady ? "config-state-missing" : "client-not-ready";
       this.usageEventCollector.evaluatedConfig({
         context,
         evaluation: {
@@ -262,11 +272,22 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           requestedType: getRequestedType(defaultValue),
           evaluatedValue: defaultValue,
           usedDefault: true,
-          evaluationReason: "config-state-missing",
+          evaluationReason: reason,
         },
+      });
+      this.dispatchEvaluationEvent({
+        key: configKey,
+        value: defaultValue,
+        isDefaultValue: true,
+        reason,
+        context: context,
       });
       return defaultValue;
     }
+  }
+
+  private dispatchEvaluationEvent(event: ConfigEvaluatedEvent) {
+    setTimeout(() => this.eventEmitter.emit("configEvaluated", event), 0);
   }
 
   private parseUrl(url: string | undefined): URL | undefined {

@@ -246,6 +246,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         value: defaultValue,
         isDefaultValue: true,
         reason,
+        context: this.context,
       });
       return defaultValue;
     }
@@ -268,6 +269,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       valueId: parseResult.parsedValueId ?? undefined,
       isDefaultValue: parseResult.usedDefault,
       reason: parseResult.reason,
+      context: this.context,
     });
     this.logger.debug(`[ConfigDirectorClient] Evaluated '${configKey}' to '${parseResult.parsedValue}'`);
     return parseResult.parsedValue;

@@ -758,6 +758,38 @@ describe("ConfigDirectorClient", () => {
         reason: "invalid-boolean",
       });
     });
+
+    test("includes context in the event when context is passed to getValue", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "server-value",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      const context = { id: "user-123", name: "Alice", traits: {} };
+      await client.initialize(context);
+      const events = collectEvents();
+
+      client.getValue("my-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: "server-value",
+        isDefaultValue: false,
+        reason: "found-match",
+        context,
+      });
+    });
   });
 
   describe("events", () => {

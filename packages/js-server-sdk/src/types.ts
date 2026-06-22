@@ -6,6 +6,7 @@ import type {
   ConfigState,
   IdentifyingSdkOptions,
   ConnectionMode,
+  ConfigEvaluatedEvent,
 } from "@shared/types";
 import type { Config } from "@config-evaluator/types";
 export type {
@@ -17,6 +18,7 @@ export type {
   ConfigType,
   ConnectionMode,
   EvaluationReason,
+  ConfigEvaluatedEvent,
   IdentifyingSdkOptions,
 } from "@shared/types";
 
@@ -116,6 +118,7 @@ export type ConfigDirectorClientOptions = {
 export type ClientEvents = {
   configsUpdated: { keys: string[] };
   clientReady: undefined;
+  configEvaluated: ConfigEvaluatedEvent;
 };
 
 export type WatchHandler<T extends ConfigValueType> = (message: T) => void;
