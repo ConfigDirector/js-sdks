@@ -380,4 +380,46 @@ describe("value parser", () => {
       });
     });
   });
+
+  describe("type mismatches", () => {
+    test("returns the default value when a 'string' config is requested as a number but cannot be parsed", () => {
+      expect(parseConfigValue(configState("string", "not-a-number"), 10)).toMatchObject({
+        parsedValue: 10,
+        parsedValueId: undefined,
+        reason: "invalid-number",
+        requestedType: "number",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the config value when a 'string' config is requested as a parseable number", () => {
+      expect(parseConfigValue(configState("string", "500"), 10)).toMatchObject({
+        parsedValue: 500,
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "number",
+        usedDefault: false,
+      });
+    });
+
+    test("returns the default value when a 'string' config is requested as a boolean but cannot be parsed", () => {
+      expect(parseConfigValue(configState("string", "not-a-boolean"), false)).toMatchObject({
+        parsedValue: false,
+        parsedValueId: undefined,
+        reason: "invalid-boolean",
+        requestedType: "boolean",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the config value when a 'string' config is requested as a parseable boolean", () => {
+      expect(parseConfigValue(configState("string", "true"), false)).toMatchObject({
+        parsedValue: true,
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "boolean",
+        usedDefault: false,
+      });
+    });
+  });
 });

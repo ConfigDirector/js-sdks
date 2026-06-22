@@ -17,6 +17,7 @@ import type {
   IdentifyingSdkOptions,
   InternalClientOptions,
   ConnectionMode,
+  ConfigEvaluatedEvent,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "./errors";
@@ -93,14 +94,14 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       const configKeys = Object.keys(configSet.configs);
       if (!this.configSet || configSet.kind == "full") {
         this.configSet = configSet;
-        this.eventEmitter.emit("configsUpdated", { keys: configKeys });
+        this.emit("configsUpdated", { keys: configKeys });
         this.updateWatchers(configSet.configs);
       } else {
         this.configSet.configs = {
           ...this.configSet.configs,
           ...configSet.configs,
         };
-        this.eventEmitter.emit("configsUpdated", { keys: configKeys });
+        this.emit("configsUpdated", { keys: configKeys });
         this.updateWatchers(configSet.configs);
       }
       this.logger.debug("[ConfigDirectorClient] ConfigSet updated from server:", { keys: configKeys });
@@ -115,7 +116,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         return PollingTransport;
       default:
         return StreamingTransport;
-    };
+    }
   }
 
   public async initialize(context?: ConfigDirectorContext) {
@@ -139,14 +140,14 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       }).then(() => {
         this.ready = true;
         this.initializing = false;
-        this.eventEmitter.emit("clientReady", { action: caller });
+        this.emit("clientReady", { action: caller });
         this.logger.debug("[ConfigDirectorClient] Received initial payload from the server, client is ready");
       });
       const startTime = new Date().getTime();
       await this.transport.connect(context ?? {}, this.timeout);
       this.currentContext = context;
       this.telemetryClient.updateContext(context);
-      this.eventEmitter.emit("contextUpdated", { context });
+      this.emit("contextUpdated", { context });
 
       const elapsedTime = new Date().getTime() - startTime;
       const remainingTimeout = this.timeout - elapsedTime;
@@ -230,6 +231,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       this.logger.debug(
         `[ConfigDirectorClient] No config state found for '${configKey}', returning default value '${defaultValue}'`,
       );
+      const reason = this.isReady ? "config-state-missing" : "client-not-ready";
       this.telemetryClient.evaluatedConfig({
         contextId: this.currentContext?.id,
         key: configKey,
@@ -237,7 +239,13 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         requestedType: getRequestedType(defaultValue),
         evaluatedValue: defaultValue,
         usedDefault: true,
-        evaluationReason: "config-state-missing",
+        evaluationReason: reason,
+      });
+      this.dispatchEvaluationEvent({
+        key: configKey,
+        value: defaultValue,
+        isDefaultValue: true,
+        reason,
       });
       return defaultValue;
     }
@@ -254,8 +262,27 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       usedDefault: parseResult.usedDefault,
       evaluationReason: parseResult.reason,
     });
+    this.dispatchEvaluationEvent({
+      key: configKey,
+      value: parseResult.parsedValue,
+      valueId: parseResult.parsedValueId ?? undefined,
+      isDefaultValue: parseResult.usedDefault,
+      reason: parseResult.reason,
+    });
     this.logger.debug(`[ConfigDirectorClient] Evaluated '${configKey}' to '${parseResult.parsedValue}'`);
     return parseResult.parsedValue;
+  }
+
+  private dispatchEvaluationEvent(event: ConfigEvaluatedEvent) {
+    setTimeout(() => this.emit("configEvaluated", event), 0);
+  }
+
+  private emit<TName extends keyof ClientEvents>(name: TName, payload: ClientEvents[TName]) {
+    try {
+      this.eventEmitter.emit(name, payload);
+    } catch (error) {
+      this.logger.error(`[ConfigDirectorClient] Error executing event handlers for '${name}'`, error);
+    }
   }
 
   private parseUrl(url: string | undefined, urlFactory: UrlFactory): UrlLike | undefined {

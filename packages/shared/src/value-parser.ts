@@ -64,7 +64,10 @@ export const parseConfigValue = <T extends ConfigValueType>(
     };
   }
 
-  if (typeof defaultValue === "boolean" && configState.type === "boolean") {
+  if (
+    typeof defaultValue === "boolean" &&
+    (configState.type === "boolean" || configState.type === "string")
+  ) {
     const boolValue = parseConfigBoolean(value);
     const hasBoolean = typeof boolValue === "boolean";
     return {
@@ -89,7 +92,7 @@ export const parseConfigValue = <T extends ConfigValueType>(
   }
   if (
     isNumericNativeType(typeof defaultValue) &&
-    (configState.type === "float" || configState.type === "enum")
+    (configState.type === "float" || configState.type === "enum" || configState.type === "string")
   ) {
     const numValue = parseConfigFloat(value);
     const hasNumber = typeof numValue === "number";

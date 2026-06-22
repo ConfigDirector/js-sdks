@@ -538,6 +538,228 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("configEvaluated", () => {
+    const collectEvents = () => {
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+      return events;
+    };
+
+    test("emits with reason 'client-not-ready' before initialization", async () => {
+      client = createClient("sdk-key", { logger });
+      const events = collectEvents();
+
+      client.getValue("missing-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "missing-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "client-not-ready",
+      });
+    });
+
+    test("emits with reason 'config-state-missing' when the key is absent after initialization", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events = collectEvents();
+
+      client.getValue("missing-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "missing-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "config-state-missing",
+      });
+    });
+
+    test("emits with reason 'found-match' for a matching string config", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "server-value",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events = collectEvents();
+
+      client.getValue("my-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: "server-value",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+    });
+
+    test("includes valueId in the event when the config state has a valueId", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "server-value",
+                valueId: "val-abc-123",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events = collectEvents();
+
+      client.getValue("my-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: "server-value",
+        valueId: "val-abc-123",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+    });
+
+    test("emits with reason 'value-missing' when the config state has no value", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events = collectEvents();
+
+      client.getValue("my-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "value-missing",
+      });
+    });
+
+    test("emits with reason 'invalid-json' when a json config has malformed JSON", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "json",
+                value: "not-valid-json{",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events = collectEvents();
+
+      client.getValue("my-config", { greeting: "default" });
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: { greeting: "default" },
+        isDefaultValue: true,
+        reason: "invalid-json",
+      });
+    });
+
+    test("emits with reason 'invalid-number' when a string config is requested as a number", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "not-a-number",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events = collectEvents();
+
+      client.getValue("my-config", 42);
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: 42,
+        isDefaultValue: true,
+        reason: "invalid-number",
+      });
+    });
+
+    test("emits with reason 'invalid-boolean' when a string config is requested as a boolean", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "not-a-boolean",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events = collectEvents();
+
+      client.getValue("my-config", false);
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toEqual({
+        key: "my-config",
+        value: false,
+        isDefaultValue: true,
+        reason: "invalid-boolean",
+      });
+    });
+  });
+
   describe("events", () => {
     test("isReady is true after a successful initialization", async () => {
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
