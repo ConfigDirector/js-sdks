@@ -5,7 +5,7 @@ import type { EventReport } from "@js-client-core/telemetry/types";
 import { BASE_URL, TELEMETRY_URL, createStubbedLogger, sleep } from "../helpers";
 import type { ConfigType, ConfigValueType } from "@shared/types";
 import { defaultUrlFactory } from "@shared/url";
-import { generateValueId } from "@shared/value-id-generator";
+import { generateValueId } from "../../src/telemetry/value-id-generator";
 
 const logger = createStubbedLogger();
 

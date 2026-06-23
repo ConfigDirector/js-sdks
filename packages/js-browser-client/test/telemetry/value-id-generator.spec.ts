@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { generateValueId } from "../src/value-id-generator";
+import { generateValueId } from "../../src/telemetry/value-id-generator";
 
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -18,9 +18,7 @@ describe("ValueIdGenerator", () => {
   });
 
   test("different values produce different ids", async () => {
-    expect(await generateValueId("value-a")).not.toEqual(
-      await generateValueId("value-b"),
-    );
+    expect(await generateValueId("value-a")).not.toEqual(await generateValueId("value-b"));
   });
 
   test.each([

@@ -25,7 +25,7 @@ import EventEmitter from "node:events";
 import type { ConfigDirectorMetaContext, EvaluationReason } from "@shared/types";
 import { defaultUrlFactory } from "@shared/url";
 import { ServerTelemetryEventCollector } from "./telemetry";
-import { generateValueId } from "@shared/value-id-generator";
+import { generateValueId } from "./telemetry/value-id-generator";
 
 const defaultBaseUrl = new URL("https://server-sdk-api.configdirector.com");
 const DEFAULT_FLUSH_INTERVAL = 30_000;

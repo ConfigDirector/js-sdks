@@ -8,6 +8,7 @@ import { WebWorkerTelemetryClient } from "./telemetry/WebWorkerTelemetryClient";
 import { DefaultConfigDirectorClient } from "@js-client-core/DefaultConfigDirectorClient";
 import { defaultUrlFactory, parseUrl } from "@shared/url";
 import { CLIENT_BASE_URL } from "@shared/constants";
+import { generateValueId } from "./telemetry/value-id-generator";
 
 export const createBrowserClient = (
   clientSdkKey: string,
@@ -21,6 +22,7 @@ export const createBrowserClient = (
     logger: logger,
     baseUrl,
     urlFactory: defaultUrlFactory,
+    valueIdGenerator: generateValueId
   });
 
   return new DefaultConfigDirectorClient(telemetryClient, clientSdkKey, sdkOptions, {

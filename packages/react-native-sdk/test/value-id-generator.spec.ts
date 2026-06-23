@@ -1,5 +1,4 @@
 import { describe, expect, test } from "@jest/globals";
-import { generateValueId as generateValueIdShared } from "@shared/value-id-generator";
 import { generateValueId } from "../src/value-id-generator";
 
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -37,14 +36,4 @@ describe("generateValueId (React Native)", () => {
   ])("produces known output for %j", (input, expected) => {
     expect(generateValueId(input)).toBe(expected);
   });
-});
-
-describe("generateValueId cross-implementation parity", () => {
-  const inputs = ["hello", "value", "my-value", "", "42", "true"];
-
-  for (const input of inputs) {
-    test(`shared and RN produce the same id for "${input}"`, async () => {
-      expect(generateValueId(input)).toBe(await generateValueIdShared(input));
-    });
-  }
 });

@@ -1,7 +1,7 @@
 import type { TelemetryWorkerClosedEvent, TelemetryWorkerEvent, TelemetryWorkerLoggingEvent } from "./types";
 import { ClientTelemetryEventCollector } from "@js-client-core/telemetry";
 import { defaultUrlFactory } from "@shared/url";
-import { generateValueId } from "@shared/value-id-generator";
+import { generateValueId } from "./value-id-generator";
 import type { ConfigDirectorLogger, ConfigDirectorLoggingLevel } from "@shared/types";
 
 let collector: ClientTelemetryEventCollector | undefined = undefined;

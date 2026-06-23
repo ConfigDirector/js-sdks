@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 import { ServerTelemetryEventCollector } from "../../src/telemetry/ServerTelemetryEventCollector";
 import { BASE_URL, createStubbedLogger, TELEMETRY_URL } from "../helpers";
 import { defaultUrlFactory } from "@shared/url";
-import { generateValueId } from "@shared/value-id-generator";
+import { generateValueId } from "../../src/telemetry/value-id-generator";
 
 const logger = createStubbedLogger();
 

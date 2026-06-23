@@ -24,6 +24,23 @@ const alias: Record<string, string> = {
 const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.alias = { ...config.resolve.alias, ...alias };
+
+    // When SDK source files are aliased directly into the webpack graph (instead of being
+    // consumed as built npm packages), webpack can't resolve the node: URL scheme on its own.
+    // Treat every node: import as a CommonJS external so webpack emits require('node:xxx')
+    // at the call site rather than trying to bundle it.
+    const existing = Array.isArray(config.externals) ? config.externals : config.externals ? [config.externals] : [];
+    config.externals = [
+      ...existing,
+      ({ request }: { request?: string }, callback: (err?: Error | null, result?: string) => void) => {
+        if (request?.startsWith("node:")) {
+          callback(null, `commonjs ${request}`);
+        } else {
+          callback();
+        }
+      },
+    ];
+
     return config;
   },
 };
