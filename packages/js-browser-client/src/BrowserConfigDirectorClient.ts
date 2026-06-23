@@ -22,7 +22,7 @@ export const createBrowserClient = (
     logger: logger,
     baseUrl,
     urlFactory: defaultUrlFactory,
-    valueIdGenerator: generateValueId
+    valueIdGenerator: generateValueId,
   });
 
   return new DefaultConfigDirectorClient(telemetryClient, clientSdkKey, sdkOptions, {

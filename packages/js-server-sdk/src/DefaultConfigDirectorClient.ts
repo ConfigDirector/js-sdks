@@ -17,7 +17,7 @@ import type {
   ConfigDefinition,
   ConfigState,
   ConnectionMode,
-  ConfigEvaluatedEvent,
+  ConfigEvaluation,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "@shared/errors";
@@ -286,8 +286,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     }
   }
 
-  private dispatchEvaluationEvent(event: ConfigEvaluatedEvent) {
-    setTimeout(() => this.eventEmitter.emit("configEvaluated", event), 0);
+  private dispatchEvaluationEvent(event: ConfigEvaluation) {
+    setTimeout(() => this.eventEmitter.emit("configEvaluated", { evaluation: event }), 0);
   }
 
   private parseUrl(url: string | undefined): URL | undefined {

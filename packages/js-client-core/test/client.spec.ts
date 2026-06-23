@@ -552,7 +552,7 @@ describe("ConfigDirectorClient", () => {
       client.getValue("missing-config", "default");
 
       await vi.waitFor(() => expect(events).toHaveLength(1));
-      expect(events[0]).toEqual({
+      expect(events[0].evaluation).toEqual({
         key: "missing-config",
         value: "default",
         isDefaultValue: true,
@@ -569,7 +569,7 @@ describe("ConfigDirectorClient", () => {
       client.getValue("missing-config", "default");
 
       await vi.waitFor(() => expect(events).toHaveLength(1));
-      expect(events[0]).toEqual({
+      expect(events[0].evaluation).toEqual({
         key: "missing-config",
         value: "default",
         isDefaultValue: true,
@@ -599,7 +599,7 @@ describe("ConfigDirectorClient", () => {
       client.getValue("my-config", "default");
 
       await vi.waitFor(() => expect(events).toHaveLength(1));
-      expect(events[0]).toEqual({
+      expect(events[0].evaluation).toEqual({
         key: "my-config",
         value: "server-value",
         isDefaultValue: false,
@@ -630,7 +630,7 @@ describe("ConfigDirectorClient", () => {
       client.getValue("my-config", "default");
 
       await vi.waitFor(() => expect(events).toHaveLength(1));
-      expect(events[0]).toEqual({
+      expect(events[0].evaluation).toEqual({
         key: "my-config",
         value: "server-value",
         valueId: "val-abc-123",
@@ -661,7 +661,7 @@ describe("ConfigDirectorClient", () => {
       client.getValue("my-config", "default");
 
       await vi.waitFor(() => expect(events).toHaveLength(1));
-      expect(events[0]).toEqual({
+      expect(events[0].evaluation).toEqual({
         key: "my-config",
         value: "default",
         isDefaultValue: true,
@@ -691,7 +691,7 @@ describe("ConfigDirectorClient", () => {
       client.getValue("my-config", { greeting: "default" });
 
       await vi.waitFor(() => expect(events).toHaveLength(1));
-      expect(events[0]).toEqual({
+      expect(events[0].evaluation).toEqual({
         key: "my-config",
         value: { greeting: "default" },
         isDefaultValue: true,
@@ -721,7 +721,7 @@ describe("ConfigDirectorClient", () => {
       client.getValue("my-config", 42);
 
       await vi.waitFor(() => expect(events).toHaveLength(1));
-      expect(events[0]).toEqual({
+      expect(events[0].evaluation).toEqual({
         key: "my-config",
         value: 42,
         isDefaultValue: true,
@@ -751,7 +751,7 @@ describe("ConfigDirectorClient", () => {
       client.getValue("my-config", false);
 
       await vi.waitFor(() => expect(events).toHaveLength(1));
-      expect(events[0]).toEqual({
+      expect(events[0].evaluation).toEqual({
         key: "my-config",
         value: false,
         isDefaultValue: true,
@@ -782,7 +782,7 @@ describe("ConfigDirectorClient", () => {
       client.getValue("my-config", "default");
 
       await vi.waitFor(() => expect(events).toHaveLength(1));
-      expect(events[0]).toEqual({
+      expect(events[0].evaluation).toEqual({
         key: "my-config",
         value: "server-value",
         isDefaultValue: false,

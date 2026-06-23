@@ -17,7 +17,7 @@ import type {
   IdentifyingSdkOptions,
   InternalClientOptions,
   ConnectionMode,
-  ConfigEvaluatedEvent,
+  ConfigEvaluation,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "./errors";
@@ -275,8 +275,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     return parseResult.parsedValue;
   }
 
-  private dispatchEvaluationEvent(event: ConfigEvaluatedEvent) {
-    setTimeout(() => this.emit("configEvaluated", event), 0);
+  private dispatchEvaluationEvent(event: ConfigEvaluation) {
+    setTimeout(() => this.emit("configEvaluated", { evaluation: event }), 0);
   }
 
   private emit<TName extends keyof ClientEvents>(name: TName, payload: ClientEvents[TName]) {

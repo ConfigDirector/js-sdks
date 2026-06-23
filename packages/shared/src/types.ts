@@ -53,7 +53,7 @@ export type EvaluationReason =
   | "invalid-json"
   | "invalid-boolean";
 
-export type ConfigEvaluatedEvent = {
+export type ConfigEvaluation = {
   key: string;
   value: ConfigValueType;
   valueId?: string;
