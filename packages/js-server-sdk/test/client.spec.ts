@@ -1080,6 +1080,93 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("hooks option", () => {
+    const makeSseHandler = () =>
+      http.post(SSE_URL, () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              message({
+                environmentId: "10000000-0000-0000-0000-000000000000",
+                projectId: "20000000-0000-0000-0000-000000000000",
+                kind: "full",
+                configs: {},
+              }),
+            );
+          },
+        });
+        return buildResponse(stream);
+      });
+
+    test("registers a single clientReady handler", async () => {
+      server.use(makeSseHandler());
+      const handler = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { clientReady: handler } });
+
+      await client.initialize();
+
+      expect(handler).toHaveBeenCalledOnce();
+    });
+
+    test("registers multiple clientReady handlers", async () => {
+      server.use(makeSseHandler());
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { clientReady: [handler1, handler2] } });
+
+      await client.initialize();
+
+      expect(handler1).toHaveBeenCalledOnce();
+      expect(handler2).toHaveBeenCalledOnce();
+    });
+
+    test("registers a single configsUpdated handler", async () => {
+      server.use(makeSseHandler());
+      const handler = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { configsUpdated: handler } });
+
+      await client.initialize();
+
+      expect(handler).toHaveBeenCalledOnce();
+    });
+
+    test("registers multiple configsUpdated handlers", async () => {
+      server.use(makeSseHandler());
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { configsUpdated: [handler1, handler2] } });
+
+      await client.initialize();
+
+      expect(handler1).toHaveBeenCalledOnce();
+      expect(handler2).toHaveBeenCalledOnce();
+    });
+
+    test("registers a single configEvaluated handler", async () => {
+      server.use(makeSseHandler());
+      const handler = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { configEvaluated: handler } });
+      await client.initialize();
+      client.getValue("any-config", "default");
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
+    });
+
+    test("registers multiple configEvaluated handlers", async () => {
+      server.use(makeSseHandler());
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { configEvaluated: [handler1, handler2] } });
+
+      await client.initialize();
+      client.getValue("any-config", "default");
+
+      await vi.waitFor(() => {
+        expect(handler1).toHaveBeenCalledOnce();
+        expect(handler2).toHaveBeenCalledOnce();
+      });
+    });
+  });
+
   describe("configEvaluated", () => {
     const makeFullSseHandler = (configs: Record<string, unknown>) =>
       http.post(SSE_URL, async () => {

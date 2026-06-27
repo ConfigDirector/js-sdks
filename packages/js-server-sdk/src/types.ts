@@ -112,6 +112,27 @@ export type ConfigDirectorClientOptions = {
      * Defaults to 30,000 milliseconds (30 seconds)
      */
     flushInterval?: number;
+  },
+
+/**
+   * Handlers for hooks/events emitted by the client. Each hook accepts either a single event handler or
+   * an array of event handlers.
+   *
+   * @example
+   * import { createClient, createConsoleLogger } from "@configdirector/server-sdk";
+   * const client = createClient(
+   *   "YOUR-SERVER-SDK-KEY",
+   *   {
+   *     hooks: {
+   *       configEvaluated: (event) => { console.log(event.evaluation); }
+   *     },
+   *   },
+   * );
+   */
+  hooks?: {
+    clientReady?: HookHandler<"clientReady"> | HookHandler<"clientReady">[];
+    configsUpdated?: HookHandler<"configsUpdated"> | HookHandler<"configsUpdated">[];
+    configEvaluated?: HookHandler<"configEvaluated"> | HookHandler<"configEvaluated">[];
   }
 };
 
@@ -120,6 +141,8 @@ export type ClientEvents = {
   clientReady: undefined;
   configEvaluated: { evaluation: ConfigEvaluation };
 };
+
+export type HookHandler<TEvent extends keyof ClientEvents> = (payload: ClientEvents[TEvent]) => void;
 
 export type WatchHandler<T extends ConfigValueType> = (message: T) => void;
 

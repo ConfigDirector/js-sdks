@@ -245,6 +245,100 @@ describe("ConfigDirectorClient", () => {
     await vi.waitFor(() => expect(client.isReady).toBe(true), { timeout: 2_000 });
   });
 
+  describe("hooks option", () => {
+    test("registers a single clientReady handler", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const handler = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { clientReady: handler } });
+
+      await client.initialize();
+
+      expect(handler).toHaveBeenCalledOnce();
+    });
+
+    test("registers multiple clientReady handlers", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { clientReady: [handler1, handler2] } });
+
+      await client.initialize();
+
+      expect(handler1).toHaveBeenCalledOnce();
+      expect(handler2).toHaveBeenCalledOnce();
+    });
+
+    test("registers a single configsUpdated handler", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const handler = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { configsUpdated: handler } });
+
+      await client.initialize();
+
+      expect(handler).toHaveBeenCalledOnce();
+    });
+
+    test("registers multiple configsUpdated handlers", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { configsUpdated: [handler1, handler2] } });
+
+      await client.initialize();
+
+      expect(handler1).toHaveBeenCalledOnce();
+      expect(handler2).toHaveBeenCalledOnce();
+    });
+
+    test("registers a single contextUpdated handler", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const handler = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { contextUpdated: handler } });
+
+      await client.initialize();
+
+      expect(handler).toHaveBeenCalledOnce();
+    });
+
+    test("registers multiple contextUpdated handlers", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { contextUpdated: [handler1, handler2] } });
+
+      await client.initialize();
+
+      expect(handler1).toHaveBeenCalledOnce();
+      expect(handler2).toHaveBeenCalledOnce();
+    });
+
+    test("registers a single configEvaluated handler", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const handler = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { configEvaluated: handler } });
+
+      await client.initialize();
+      client.getValue("any-config", "default");
+
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
+    });
+
+    test("registers multiple configEvaluated handlers", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      const client = createClient("sdk-key", { logger, hooks: { configEvaluated: [handler1, handler2] } });
+
+      await client.initialize();
+      client.getValue("any-config", "default");
+
+      await vi.waitFor(() => {
+        expect(handler1).toHaveBeenCalledOnce();
+        expect(handler2).toHaveBeenCalledOnce();
+      });
+    });
+  });
+
   describe("instanceId", () => {
     const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

@@ -94,9 +94,33 @@ export type ConfigDirectorClientOptions = {
    * );
    */
   logger?: ConfigDirectorLogger;
+
+  /**
+   * Handlers for hooks/events emitted by the client. Each hook accepts either a single event handler or
+   * an array of event handlers.
+   *
+   * @example
+   * import { createClient, createConsoleLogger } from "@configdirector/client-sdk";
+   * const client = createClient(
+   *   "YOUR-SDK-KEY",
+   *   {
+   *     hooks: {
+   *       configEvaluated: (event) => { console.log(event.evaluation); }
+   *     },
+   *   },
+   * );
+   */
+  hooks?: {
+    clientReady?: HookHandler<"clientReady"> | HookHandler<"clientReady">[];
+    configsUpdated?: HookHandler<"configsUpdated"> | HookHandler<"configsUpdated">[];
+    contextUpdated?: HookHandler<"contextUpdated"> | HookHandler<"contextUpdated">[];
+    configEvaluated?: HookHandler<"configEvaluated"> | HookHandler<"configEvaluated">[];
+  }
 };
 
 export type ClientConnectAction = "initialization" | "context update" | "network resume";
+
+export type HookHandler<TEvent extends keyof ClientEvents> = (payload: ClientEvents[TEvent]) => void;
 
 export type ClientEvents = {
   configsUpdated: { keys: string[] };

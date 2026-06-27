@@ -18,6 +18,7 @@ import type {
   InternalClientOptions,
   ConnectionMode,
   ConfigEvaluation,
+  HookHandler,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "./errors";
@@ -106,6 +107,27 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       }
       this.logger.debug("[ConfigDirectorClient] ConfigSet updated from server:", { keys: configKeys });
     });
+
+    this.registerHandler("clientReady", clientOptions?.hooks?.clientReady);
+    this.registerHandler("configEvaluated", clientOptions?.hooks?.configEvaluated);
+    this.registerHandler("configsUpdated", clientOptions?.hooks?.configsUpdated);
+    this.registerHandler("contextUpdated", clientOptions?.hooks?.contextUpdated);
+  }
+
+  private registerHandler<T extends keyof ClientEvents>(
+    event: T,
+    handler: HookHandler<T> | HookHandler<T>[] | undefined,
+  ) {
+    if (!handler) {
+      return;
+    }
+
+    const handlers = Array.isArray(handler) ? handler : [handler];
+    for (const h of handlers) {
+      if (typeof h === "function") {
+        this.on(event, h);
+      }
+    }
   }
 
   private getTransportConstructor(connectionMode?: ConnectionMode) {
