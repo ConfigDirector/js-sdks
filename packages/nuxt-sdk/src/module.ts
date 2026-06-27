@@ -133,6 +133,11 @@ export default defineNuxtModule<ModuleOptions>({
         as: "useConfigDirectorClient",
         from: resolver.resolve("./runtime/server/composables/useConfigDirectorClient"),
       },
+      {
+        name: "useConfigDirectorServerHooks",
+        as: "useConfigDirectorServerHooks",
+        from: resolver.resolve("./runtime/server/composables/useConfigDirectorServerHooks"),
+      },
     ]);
 
     addPlugin(resolver.resolve("./runtime/plugin.server"));
@@ -157,6 +162,11 @@ export default defineNuxtModule<ModuleOptions>({
         name: "useConfigDirectorValue",
         as: "useConfigDirectorValue",
         from: resolver.resolve("./runtime/app/composables/useConfigDirectorValue"),
+      },
+      {
+        name: "useConfigDirectorClientHooks",
+        as: "useConfigDirectorClientHooks",
+        from: resolver.resolve("./runtime/app/composables/useConfigDirectorClientHooks"),
       },
     ]);
   },

@@ -337,4 +337,106 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
       await page.close();
     },
   );
+
+  describe("useConfigDirectorClientHooks composable", () => {
+    const routeSse = async (page: Page) => {
+      await page.route("**/client/sse/v1", async (route) => {
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+          return;
+        }
+        await route.fulfill({ status: 200, headers: SSE_HEADERS, body: sseBody(CLIENT_BUNDLE) });
+      });
+      await page.route("**/client/telemetry/v1", async (route) => {
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+          return;
+        }
+        await route.fulfill({ status: 202, headers: { "access-control-allow-origin": "*" } });
+      });
+    };
+
+    it(
+      "calls clientReady and configsUpdated hooks when the client connects",
+      { timeout: 30_000 },
+      async () => {
+        const page = await createPage();
+        await routeSse(page);
+
+        await page.goto(url("/hooks-test"));
+        await textOf(page, '[data-testid="status"]').toBe("ready");
+
+        const clientReadyCount = await page.evaluate(() => (window as any).__hookCounts?.clientReady ?? 0);
+        expect(clientReadyCount).toBe(1);
+
+        const configsUpdatedCount = await page.evaluate(
+          () => (window as any).__hookCounts?.configsUpdated ?? 0,
+        );
+        expect(configsUpdatedCount).toBe(1);
+
+        await page.close();
+      },
+    );
+
+    it(
+      "calls the contextUpdated hook (registered in a component) when updateContext is called",
+      { timeout: 30_000 },
+      async () => {
+        const page = await createPage();
+        await routeSse(page);
+
+        await page.goto(url("/hooks-test"));
+        await textOf(page, '[data-testid="status"]').toBe("ready");
+
+        await page.locator('[data-testid="update-context-btn"]').click();
+
+        await expect
+          .poll(async () => page.evaluate(() => (window as any).__contextUpdatedCount ?? 0), {
+            timeout: 5_000,
+          })
+          .toBe(1);
+
+        await page.close();
+      },
+    );
+
+    it(
+      "cleans up handlers on component unmount so they do not accumulate after remount",
+      { timeout: 30_000 },
+      async () => {
+        const page = await createPage();
+        await routeSse(page);
+
+        await page.goto(url("/hooks-test"));
+        await textOf(page, '[data-testid="status"]').toBe("ready");
+
+        // First contextUpdated — 1 handler active, count reaches 1
+        await page.locator('[data-testid="update-context-btn"]').click();
+        await expect
+          .poll(async () => page.evaluate(() => (window as any).__contextUpdatedCount ?? 0), {
+            timeout: 5_000,
+          })
+          .toBe(1);
+
+        // SPA navigate to home — component unmounts, onUnmounted cleanup removes the handler
+        await page.locator('[data-testid="go-home"]').click();
+        await page.waitForURL(url("/"));
+
+        // SPA navigate back — new component mount, exactly 1 new handler registered
+        await page.locator('[data-testid="go-hooks"]').click();
+        await page.waitForURL(url("/hooks-test"));
+        await textOf(page, '[data-testid="status"]').toBe("ready");
+
+        // Second contextUpdated — only 1 handler active (not 2), so count reaches 2 (not 3)
+        await page.locator('[data-testid="update-context-btn"]').click();
+        await expect
+          .poll(async () => page.evaluate(() => (window as any).__contextUpdatedCount ?? 0), {
+            timeout: 5_000,
+          })
+          .toBe(2);
+
+        await page.close();
+      },
+    );
+  });
 });

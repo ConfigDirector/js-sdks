@@ -21,6 +21,7 @@
     <div data-testid="loading">
       {{ loading ? "loading" : "done" }}
     </div>
+    <NuxtLink data-testid="go-hooks" to="/hooks-test">Hooks Test</NuxtLink>
   </div>
 </template>
 

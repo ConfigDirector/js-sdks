@@ -85,4 +85,16 @@ describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
       expect(data.jsonDataFallback).toEqual({ label: "default" });
     });
   });
+
+  describe("Server composable (useConfigDirectorServerHooks) in a Nitro plugin", () => {
+    it("calls the clientReady hook after the Nitro client connects to the backend", async () => {
+      const data = await $fetch<{ clientReady: number; configsUpdated: number }>("/api/hook-calls");
+      expect(data.clientReady).toBeGreaterThan(0);
+    });
+
+    it("calls the configsUpdated hook after the Nitro client receives the initial config bundle", async () => {
+      const data = await $fetch<{ clientReady: number; configsUpdated: number }>("/api/hook-calls");
+      expect(data.configsUpdated).toBeGreaterThan(0);
+    });
+  });
 });

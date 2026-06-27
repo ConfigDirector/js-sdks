@@ -112,9 +112,9 @@ export type ConfigDirectorClientOptions = {
      * Defaults to 30,000 milliseconds (30 seconds)
      */
     flushInterval?: number;
-  },
+  };
 
-/**
+  /**
    * Handlers for hooks/events emitted by the client. Each hook accepts either a single event handler or
    * an array of event handlers.
    *
@@ -129,17 +129,19 @@ export type ConfigDirectorClientOptions = {
    *   },
    * );
    */
-  hooks?: {
-    clientReady?: HookHandler<"clientReady"> | HookHandler<"clientReady">[];
-    configsUpdated?: HookHandler<"configsUpdated"> | HookHandler<"configsUpdated">[];
-    configEvaluated?: HookHandler<"configEvaluated"> | HookHandler<"configEvaluated">[];
-  }
+  hooks?: ClientHooks;
 };
 
 export type ClientEvents = {
   configsUpdated: { keys: string[] };
   clientReady: undefined;
   configEvaluated: { evaluation: ConfigEvaluation };
+};
+
+export type ClientHooks = {
+  clientReady?: HookHandler<"clientReady"> | HookHandler<"clientReady">[];
+  configsUpdated?: HookHandler<"configsUpdated"> | HookHandler<"configsUpdated">[];
+  configEvaluated?: HookHandler<"configEvaluated"> | HookHandler<"configEvaluated">[];
 };
 
 export type HookHandler<TEvent extends keyof ClientEvents> = (payload: ClientEvents[TEvent]) => void;
@@ -227,7 +229,10 @@ export interface ConfigDirectorClient {
    * Intended for SSR hydration — does NOT record telemetry events. Returns an empty object
    * when the client is not yet ready.
    */
-  getAllConfigs(options?: { context?: ConfigDirectorContext; configKeys?: string[] }): Record<string, ConfigState>;
+  getAllConfigs(options?: {
+    context?: ConfigDirectorContext;
+    configKeys?: string[];
+  }): Record<string, ConfigState>;
 
   on<T extends keyof ClientEvents>(eventName: T, handler: (args: ClientEvents[T]) => void): void;
 
