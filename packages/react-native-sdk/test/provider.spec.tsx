@@ -400,7 +400,7 @@ describe("ConfigDirectorProvider", () => {
       await waitFor(
         () => {
           expect(configsUpdatedHook).toHaveBeenCalledTimes(1);
-          expect(configsUpdatedHook.mock.calls[0]![0]).toMatchObject({ keys: ["example-config"] });
+          expect(configsUpdatedHook.mock.calls[0]?.[0]).toMatchObject({ keys: ["example-config"] });
         },
         { timeout: 1_000 },
       );

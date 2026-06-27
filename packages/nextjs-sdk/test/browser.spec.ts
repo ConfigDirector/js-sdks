@@ -243,13 +243,11 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     async () => {
       const page = await browser.newPage();
 
-      let requestCount = 0;
       await page.route("**/client/sse/v1", async (route) => {
         if (route.request().method() === "OPTIONS") {
           await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
           return;
         }
-        requestCount++;
         await route.fulfill({ status: 200, headers: SSE_HEADERS, body: sseBody(CLIENT_BUNDLE) });
       });
       await page.route("**/client/telemetry/v1", async (route) => {
