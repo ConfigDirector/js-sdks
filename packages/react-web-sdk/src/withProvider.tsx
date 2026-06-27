@@ -10,6 +10,7 @@ export const withProvider = async (options: ConfigDirectorProviderOptions) => {
     connection: { url: options.url, timeout: options.timeout },
     metadata: { appName: options.appName, appVersion: options.appVersion },
     logger: logger,
+    hooks: options.hooks,
   });
   await client.initialize(options.context);
 

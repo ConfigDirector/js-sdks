@@ -347,6 +347,178 @@ describe("ConfigDirectorProvider", () => {
     });
   });
 
+  describe("hooks", () => {
+    it("calls the clientReady hook when the client connects", async () => {
+      const clientReadyHook = jest.fn();
+
+      mockFetchWith(async () =>
+        buildResponse(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(message(full()));
+            },
+          }),
+        ),
+      );
+
+      const { unmount } = renderHook(() => useConfigValue("key", "default"), {
+        wrapper: wrapper({ sdkKey: "dummy-key", hooks: { clientReady: clientReadyHook } }),
+      });
+
+      await waitFor(() => expect(clientReadyHook).toHaveBeenCalledTimes(1), { timeout: 1_000 });
+      unmount();
+    });
+
+    it("calls the configsUpdated hook when configs are received", async () => {
+      const configsUpdatedHook = jest.fn();
+
+      mockFetchWith(async () =>
+        buildResponse(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message(
+                  full({
+                    "example-config": {
+                      id: "00000000-0000-0000-0000-0000000003e8",
+                      key: "example-config",
+                      type: "string",
+                      value: "Hello",
+                    },
+                  }),
+                ),
+              );
+            },
+          }),
+        ),
+      );
+
+      const { unmount } = renderHook(() => useConfigValue("key", "default"), {
+        wrapper: wrapper({ sdkKey: "dummy-key", hooks: { configsUpdated: configsUpdatedHook } }),
+      });
+
+      await waitFor(
+        () => {
+          expect(configsUpdatedHook).toHaveBeenCalledTimes(1);
+          expect(configsUpdatedHook.mock.calls[0]![0]).toMatchObject({ keys: ["example-config"] });
+        },
+        { timeout: 1_000 },
+      );
+      unmount();
+    });
+
+    it("calls the contextUpdated hook when context changes", async () => {
+      const contextUpdatedHook = jest.fn();
+
+      mockFetchWith(async () => buildResponse(new ReadableStream()));
+
+      let setContext: (ctx: { id: string }) => void = () => {};
+
+      const StatefulWrapper = ({ children }: { children: React.ReactNode }) => {
+        const [context, setCtx] = React.useState<{ id: string } | undefined>(undefined);
+        setContext = setCtx;
+        return (
+          <ConfigDirectorProvider
+            sdkKey="dummy-key"
+            context={context}
+            logger={logger}
+            hooks={{ contextUpdated: contextUpdatedHook }}>
+            {children}
+          </ConfigDirectorProvider>
+        );
+      };
+
+      const { unmount } = renderHook(() => useConfigValue("key", "default"), {
+        wrapper: StatefulWrapper,
+      });
+
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalled(), { timeout: 1_000 });
+
+      await act(async () => {
+        setContext({ id: "user-1" });
+      });
+
+      await waitFor(
+        () => {
+          expect(contextUpdatedHook).toHaveBeenCalledWith(
+            expect.objectContaining({ context: { id: "user-1" } }),
+          );
+        },
+        { timeout: 1_000 },
+      );
+      unmount();
+    });
+
+    it("calls the configEvaluated hook when a config value is read", async () => {
+      const configEvaluatedHook = jest.fn();
+
+      mockFetchWith(async () =>
+        buildResponse(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message(
+                  full({
+                    "example-config": {
+                      id: "00000000-0000-0000-0000-0000000003e8",
+                      key: "example-config",
+                      type: "string",
+                      value: "Hello",
+                    },
+                  }),
+                ),
+              );
+            },
+          }),
+        ),
+      );
+
+      const { result, unmount } = renderHook(() => useConfigValue("example-config", "Default"), {
+        wrapper: wrapper({ sdkKey: "dummy-key", hooks: { configEvaluated: configEvaluatedHook } }),
+      });
+
+      await waitFor(() => expect(result.current.value).toBe("Hello"), { timeout: 1_000 });
+
+      await waitFor(
+        () => {
+          expect(configEvaluatedHook).toHaveBeenCalledWith(
+            expect.objectContaining({ evaluation: expect.objectContaining({ key: "example-config" }) }),
+          );
+        },
+        { timeout: 1_000 },
+      );
+      unmount();
+    });
+
+    it("accepts an array of handlers for the same hook event", async () => {
+      const hook1 = jest.fn();
+      const hook2 = jest.fn();
+
+      mockFetchWith(async () =>
+        buildResponse(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(message(full()));
+            },
+          }),
+        ),
+      );
+
+      const { unmount } = renderHook(() => useConfigValue("key", "default"), {
+        wrapper: wrapper({ sdkKey: "dummy-key", hooks: { clientReady: [hook1, hook2] } }),
+      });
+
+      await waitFor(
+        () => {
+          expect(hook1).toHaveBeenCalledTimes(1);
+          expect(hook2).toHaveBeenCalledTimes(1);
+        },
+        { timeout: 1_000 },
+      );
+      unmount();
+    });
+  });
+
   describe("AppState handling", () => {
     let appStateHandler: ((state: string) => void) | null = null;
     let mockRemove: ReturnType<typeof jest.fn>;

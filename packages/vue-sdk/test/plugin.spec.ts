@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, it, expect } from "vitest";
+import { afterAll, beforeAll, describe, it, expect, vi } from "vitest";
 import { commands } from "vitest/browser";
 import { render, screen, fireEvent } from "@testing-library/vue";
 import { defineComponent } from "vue";
@@ -279,6 +279,142 @@ describe("Vue plugin composables", () => {
       expect(payloads).toHaveLength(2);
       expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
       expect((payloads[1] as any)?.instanceId).toBe((payloads[0] as any)?.instanceId);
+    });
+  });
+
+  describe("hooks", () => {
+    it("calls the clientReady hook when the client connects", async () => {
+      const clientReadyHook = vi.fn();
+
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+
+      const TestComponent = defineComponent({
+        setup: () => ({}),
+        template: "<div />",
+      });
+
+      render(TestComponent, {
+        global: {
+          plugins: [
+            [ConfigDirectorPlugin, { sdkKey: "dummy-key", logger, hooks: { clientReady: clientReadyHook } }],
+          ],
+        },
+      });
+
+      await vi.waitFor(() => {
+        expect(clientReadyHook).toHaveBeenCalledOnce();
+      });
+    });
+
+    it("calls the configsUpdated hook when configs are received", async () => {
+      const configsUpdatedHook = vi.fn();
+
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
+            }),
+          },
+        ],
+      ]);
+
+      const TestComponent = defineComponent({
+        setup: () => ({}),
+        template: "<div />",
+      });
+
+      render(TestComponent, {
+        global: {
+          plugins: [
+            [
+              ConfigDirectorPlugin,
+              { sdkKey: "dummy-key", logger, hooks: { configsUpdated: configsUpdatedHook } },
+            ],
+          ],
+        },
+      });
+
+      await vi.waitFor(() => {
+        expect(configsUpdatedHook).toHaveBeenCalledWith(
+          expect.objectContaining({ keys: ["example-config"] }),
+        );
+      });
+    });
+
+    it("calls the configEvaluated hook when a config value is read", async () => {
+      const configEvaluatedHook = vi.fn();
+
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "Hello",
+              },
+            }),
+          },
+        ],
+      ]);
+
+      const TestComponent = defineComponent({
+        setup() {
+          return useConfigValue("example-config", "Default");
+        },
+        template: '<div data-testid="target">{{ value }}</div>',
+      });
+
+      render(TestComponent, {
+        global: {
+          plugins: [
+            [
+              ConfigDirectorPlugin,
+              { sdkKey: "dummy-key", logger, hooks: { configEvaluated: configEvaluatedHook } },
+            ],
+          ],
+        },
+      });
+
+      await screen.findByText("Hello", undefined, { timeout: 1_000 });
+
+      await vi.waitFor(() => {
+        expect(configEvaluatedHook).toHaveBeenCalledWith(
+          expect.objectContaining({ evaluation: expect.objectContaining({ key: "example-config" }) }),
+        );
+      });
+    });
+
+    it("accepts an array of handlers for the same hook event", async () => {
+      const hook1 = vi.fn();
+      const hook2 = vi.fn();
+
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+
+      const TestComponent = defineComponent({
+        setup: () => ({}),
+        template: "<div />",
+      });
+
+      render(TestComponent, {
+        global: {
+          plugins: [
+            [ConfigDirectorPlugin, { sdkKey: "dummy-key", logger, hooks: { clientReady: [hook1, hook2] } }],
+          ],
+        },
+      });
+
+      await vi.waitFor(() => {
+        expect(hook1).toHaveBeenCalledOnce();
+        expect(hook2).toHaveBeenCalledOnce();
+      });
     });
   });
 

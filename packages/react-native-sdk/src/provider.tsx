@@ -20,6 +20,7 @@ export class ConfigDirectorProvider extends Component<
       connection: { url: props.url, timeout: props.timeout },
       metadata: { appName: props.appName, appVersion: props.appVersion },
       logger: props.logger ?? createConsoleLogger("warn"),
+      hooks: props.hooks,
     });
 
     this.state = { client, status: "loading" };

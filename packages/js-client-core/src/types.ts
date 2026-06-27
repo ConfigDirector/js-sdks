@@ -110,12 +110,14 @@ export type ConfigDirectorClientOptions = {
    *   },
    * );
    */
-  hooks?: {
-    clientReady?: HookHandler<"clientReady"> | HookHandler<"clientReady">[];
-    configsUpdated?: HookHandler<"configsUpdated"> | HookHandler<"configsUpdated">[];
-    contextUpdated?: HookHandler<"contextUpdated"> | HookHandler<"contextUpdated">[];
-    configEvaluated?: HookHandler<"configEvaluated"> | HookHandler<"configEvaluated">[];
-  }
+  hooks?: ClientHooks;
+};
+
+export type ClientHooks = {
+  clientReady?: HookHandler<"clientReady"> | HookHandler<"clientReady">[];
+  configsUpdated?: HookHandler<"configsUpdated"> | HookHandler<"configsUpdated">[];
+  contextUpdated?: HookHandler<"contextUpdated"> | HookHandler<"contextUpdated">[];
+  configEvaluated?: HookHandler<"configEvaluated"> | HookHandler<"configEvaluated">[];
 };
 
 export type ClientConnectAction = "initialization" | "context update" | "network resume";

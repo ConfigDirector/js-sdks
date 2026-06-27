@@ -203,6 +203,77 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     await page.close();
   });
 
+  it("calls client hooks configured on the provider", { timeout: 30_000 }, async () => {
+    const page = await browser.newPage();
+
+    await page.route("**/client/sse/v1", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+        return;
+      }
+      await route.fulfill({ status: 200, headers: SSE_HEADERS, body: sseBody(CLIENT_BUNDLE) });
+    });
+    await page.route("**/client/telemetry/v1", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+        return;
+      }
+      await route.fulfill({ status: 202, headers: { "access-control-allow-origin": "*" } });
+    });
+
+    await page.goto(url("/hooks-test"));
+
+    // Wait for the hooks-test layout's client to connect and become ready
+    await textOf(page, '[data-testid="status"]').toBe("ready");
+    await textOf(page, '[data-testid="welcome"]').toBe("Hello from ConfigDirector!");
+
+    // clientReady and configsUpdated hooks write to window.__hooksTest when they fire
+    const clientReadyFired = await page.evaluate(() => (window as any).__hooksTest?.clientReadyFired);
+    expect(clientReadyFired).toBe(true);
+
+    const configsUpdatedFired = await page.evaluate(() => (window as any).__hooksTest?.configsUpdatedFired);
+    expect(configsUpdatedFired).toBe(true);
+
+    await page.close();
+  });
+
+  it(
+    "calls the contextUpdated client hook when updateContext is triggered",
+    { timeout: 30_000 },
+    async () => {
+      const page = await browser.newPage();
+
+      let requestCount = 0;
+      await page.route("**/client/sse/v1", async (route) => {
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+          return;
+        }
+        requestCount++;
+        await route.fulfill({ status: 200, headers: SSE_HEADERS, body: sseBody(CLIENT_BUNDLE) });
+      });
+      await page.route("**/client/telemetry/v1", async (route) => {
+        await route.fulfill({ status: 202, headers: { "access-control-allow-origin": "*" } });
+      });
+
+      await page.goto(url("/hooks-test"));
+      await textOf(page, '[data-testid="status"]').toBe("ready");
+
+      await page.locator('[data-testid="update-context-btn"]').click();
+      await textOf(page, '[data-testid="context-updated"]').toBe("true");
+
+      const contextUpdatedFired = await page.evaluate(() => (window as any).__hooksTest?.contextUpdatedFired);
+      expect(contextUpdatedFired).toBe(true);
+
+      const contextUpdatedContext = await page.evaluate(
+        () => (window as any).__hooksTest?.contextUpdatedContext,
+      );
+      expect(contextUpdatedContext).toMatchObject({ id: "hooks-test-user" });
+
+      await page.close();
+    },
+  );
+
   it("reconnects and sends the new context when updateContext is called", { timeout: 30_000 }, async () => {
     const capturedPayloads: unknown[] = [];
     const page = await browser.newPage();

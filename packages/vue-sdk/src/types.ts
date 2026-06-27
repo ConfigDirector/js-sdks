@@ -1,4 +1,4 @@
-import type { ConfigDirectorContext, ConfigDirectorLogger } from "@js-browser-client/index";
+import type { ClientHooks, ConfigDirectorContext, ConfigDirectorLogger } from "@js-browser-client/index";
 
 export type ClientStatus = "loading" | "ready" | "default";
 
@@ -10,4 +10,5 @@ export type ConfigDirectorPluginOptions = {
   timeout?: number;
   context?: ConfigDirectorContext;
   logger?: ConfigDirectorLogger;
+  hooks?: ClientHooks;
 };

@@ -1,4 +1,5 @@
 import type {
+  ClientHooks,
   ConfigDirectorClient,
   ConfigDirectorContext,
   ConfigDirectorLogger,
@@ -22,4 +23,5 @@ export type ConfigDirectorProviderOptions = {
   timeout?: number;
   context?: ConfigDirectorContext;
   logger?: ConfigDirectorLogger;
+  hooks?: ClientHooks;
 };

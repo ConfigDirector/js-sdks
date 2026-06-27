@@ -46,6 +46,18 @@ describe("ConfigDirector Next.js SDK — SSR and initialConfigs", () => {
   });
 });
 
+describe("ConfigDirector Next.js SDK — Server SDK hooks (via register())", () => {
+  it("calls the clientReady hook after the server SDK connects to the backend", async () => {
+    const data = await $fetchJson<{ clientReady: number; configsUpdated: number }>("/api/hook-calls");
+    expect(data.clientReady).toBeGreaterThan(0);
+  });
+
+  it("calls the configsUpdated hook after receiving the initial config bundle", async () => {
+    const data = await $fetchJson<{ clientReady: number; configsUpdated: number }>("/api/hook-calls");
+    expect(data.configsUpdated).toBeGreaterThan(0);
+  });
+});
+
 describe("ConfigDirector Next.js SDK — Route Handler (server SDK client)", () => {
   it("returns config values from the server SDK client", async () => {
     const data = await $fetchJson<{
