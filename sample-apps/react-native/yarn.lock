@@ -1097,7 +1097,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/react-native-sample-app@workspace:."
   dependencies:
-    "@configdirector/react-native-sdk": "npm:^0.8.0"
+    "@configdirector/react-native-sdk": "npm:^0.9.0"
     "@expo/vector-icons": "npm:^15.0.3"
     "@react-navigation/bottom-tabs": "npm:^7.4.0"
     "@react-navigation/elements": "npm:^2.6.3"
@@ -1127,9 +1127,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@configdirector/react-native-sdk@npm:^0.8.0":
-  version: 0.8.0
-  resolution: "@configdirector/react-native-sdk@npm:0.8.0"
+"@configdirector/react-native-sdk@npm:^0.9.0":
+  version: 0.9.0
+  resolution: "@configdirector/react-native-sdk@npm:0.9.0"
   dependencies:
     "@noble/hashes": "npm:^2.2.0"
   peerDependencies:
@@ -1139,7 +1139,7 @@ __metadata:
   peerDependenciesMeta:
     expo:
       optional: true
-  checksum: 10c0/24ff26fa1f7d8a652a7b1657dc0cca7283dbd63c0ad25d56b2065f72d39e8c8fb7d7c25f6a27268187e9fcbb9146afff1a2db3970665ce954389ba15ce215cdd
+  checksum: 10c0/c16ce2d9dcba6ee8c4b0b4658ff5efd12976c82ae367c8de6a56f234b142a1546cddb3e2f0c92882381846882a9a94b017b2e65cfd57043cbcc86dc0c41f0a8b
   languageName: node
   linkType: hard
 
