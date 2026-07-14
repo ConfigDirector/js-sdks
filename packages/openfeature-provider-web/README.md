@@ -1,10 +1,10 @@
-# ConfigDirector JavaScript Client SDK
+# ConfigDirector OpenFeature Web Provider
 
-This is the JavaScript Client SDK for [ConfigDirector](https://www.configdirector.com) to be used on web browsers.
+This is the OpenFeature Web Provider for [ConfigDirector](https://www.configdirector.com) to be used on web browsers.
 
 ## Documentation
 
-Refer to the [official documentation for the JavaScript Client SDK](https://docs.configdirector.com/sdks/browser/javascript).
+Refer to the [official documentation for the OpenFeature Web Provider](https://docs.configdirector.com/sdks/browser/openfeature-web), and to the [official documentation for the OpenFeature Web SDK](https://openfeature.dev/docs/reference/sdks/client/web/).
 
 There is also [a quickstart guide for ConfigDirector and any of our SDKs](https://docs.configdirector.com/getting-started/quickstart).
 
