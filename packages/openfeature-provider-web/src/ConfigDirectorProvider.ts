@@ -1,15 +1,12 @@
 import type {
-  AnyProviderEvent,
-  ClientProviderStatus,
   EvaluationContext,
-  Hook,
   JsonValue,
   Paradigm,
   Provider,
-  ProviderEventEmitter,
   ProviderMetadata,
   ResolutionDetails,
 } from "@openfeature/web-sdk";
+import { OpenFeatureEventEmitter, ProviderEvents } from "@openfeature/web-sdk";
 import type {
   ConfigDirectorClient,
   ConfigDirectorClientOptions,
@@ -20,14 +17,13 @@ import { createBrowserClient } from "@js-browser-client/index";
 
 export class ConfigDirectorProvider implements Provider {
   private readonly client: ConfigDirectorClient;
+  private readonly readyHandler: () => void;
 
   readonly metadata: ProviderMetadata = {
     name: ConfigDirectorProvider.name,
   };
-  readonly runsOn?: Paradigm = "client";
-  hooks?: Hook<Record<string, unknown>>[] | undefined;
-  status?: ClientProviderStatus | undefined;
-  events?: ProviderEventEmitter<AnyProviderEvent, Record<string, unknown>> | undefined;
+  readonly runsOn: Paradigm = "client";
+  readonly events = new OpenFeatureEventEmitter();
 
   public constructor(clientSdkKey: string, clientOptions?: ConfigDirectorClientOptions) {
     this.client = createBrowserClient(
@@ -38,13 +34,22 @@ export class ConfigDirectorProvider implements Provider {
       },
       clientOptions,
     );
+    this.readyHandler = () => {
+      this.events.emit(ProviderEvents.Ready);
+    };
+    this.client.on("configsUpdated", ({ keys }) => {
+      this.events.emit(ProviderEvents.ConfigurationChanged, { flagsChanged: keys });
+    });
   }
 
   async initialize(context: EvaluationContext) {
     await this.client.initialize(this.mapContext(context));
+    this.client.off("clientReady", this.readyHandler);
+    this.client.on("clientReady", this.readyHandler);
   }
 
   async onContextChange?(_oldContext: EvaluationContext, newContext: EvaluationContext): Promise<void> {
+    this.events.emit(ProviderEvents.Stale, { message: "Context Changed" });
     await this.client.updateContext(this.mapContext(newContext));
   }
 
