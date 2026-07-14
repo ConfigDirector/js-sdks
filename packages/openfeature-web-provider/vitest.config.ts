@@ -8,7 +8,7 @@ import {
   mswUseSseHandler,
   mswWasRequestReceived,
 } from "../js-browser-client/test/msw-setup";
-import "../js-browser-client/test/vitest-browser-commands.d.ts";
+import "../js-browser-client/test/vitest-browser-commands";
 
 export default defineConfig({
   publicDir: "../../public",

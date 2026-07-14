@@ -1528,9 +1528,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@configdirector/openfeature-web-provider@workspace:packages/openfeature-provider-web":
+"@configdirector/openfeature-web-provider@workspace:packages/openfeature-web-provider":
   version: 0.0.0-use.local
-  resolution: "@configdirector/openfeature-web-provider@workspace:packages/openfeature-provider-web"
+  resolution: "@configdirector/openfeature-web-provider@workspace:packages/openfeature-web-provider"
   dependencies:
     "@eslint/js": "npm:^10.0.1"
     "@msw/playwright": "npm:^0.6.7"
