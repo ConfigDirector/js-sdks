@@ -5,12 +5,12 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@configdirector/openfeature-server-provider@file:../../packages/openfeature-server-provider::locator=%40configdirector%2Fopenfeature-server-sample-app%40workspace%3A.":
+"@configdirector/openfeature-server-provider@npm:^0.9.0":
   version: 0.9.0
-  resolution: "@configdirector/openfeature-server-provider@file:../../packages/openfeature-server-provider#../../packages/openfeature-server-provider::hash=516266&locator=%40configdirector%2Fopenfeature-server-sample-app%40workspace%3A."
+  resolution: "@configdirector/openfeature-server-provider@npm:0.9.0"
   peerDependencies:
     "@openfeature/server-sdk": ^1.17.1
-  checksum: 10c0/3d7b05dc09982ff314040be240e4c2d02b60416d35deeae5b14e127d89e3d12eaf56f04d3dd5db229a481f7ad69e32d7ce23d5cad786c3ceb69299df0308af16
+  checksum: 10c0/4de0a2b36c2a32405edca3625d6a271d9873b115fe490ff62c3979038cd0cc396d570b7c10f5f4fb5f45b145570e8cb27fcdc6b4fc906bc62339edfbd18a35de
   languageName: node
   linkType: hard
 
@@ -18,12 +18,20 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/openfeature-server-sample-app@workspace:."
   dependencies:
-    "@configdirector/openfeature-server-provider": "file:../../packages/openfeature-server-provider"
+    "@configdirector/openfeature-server-provider": "npm:^0.9.0"
+    "@openfeature/core": "npm:^1.11.0"
     "@openfeature/server-sdk": "npm:^1.22.0"
     "@types/node": "npm:^24.0.0"
     typescript: "npm:~5.9.2"
   languageName: unknown
   linkType: soft
+
+"@openfeature/core@npm:^1.11.0":
+  version: 1.11.0
+  resolution: "@openfeature/core@npm:1.11.0"
+  checksum: 10c0/3432b9570efbcb0ecd796586a7d88b8c606b3b992ec1596aaf1705d63d0ea4dc210749ba331c4a83e9f48782fc628f36320f57e25bcd1cf924d46bd831d5a302
+  languageName: node
+  linkType: hard
 
 "@openfeature/server-sdk@npm:^1.22.0":
   version: 1.22.0

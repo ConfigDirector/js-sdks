@@ -19,6 +19,7 @@ __metadata:
   resolution: "@configdirector/openfeature-web-sample-app@workspace:."
   dependencies:
     "@configdirector/openfeature-web-provider": "npm:^0.9.0"
+    "@openfeature/core": "npm:^1.11.0"
     "@openfeature/web-sdk": "npm:^1.9.0"
     typescript: "npm:~5.9.2"
     vite: "npm:^8.0.16"
@@ -71,6 +72,13 @@ __metadata:
     "@emnapi/core": ^1.7.1
     "@emnapi/runtime": ^1.7.1
   checksum: 10c0/344518bf3ef65051dda4c00969f293aa4a21ab7dc7822b3f48519b17cd5eaa3f0bc34898d115d50ba59b1817a0cb905d46f7a7223c8249239cd14c28db388e10
+  languageName: node
+  linkType: hard
+
+"@openfeature/core@npm:^1.11.0":
+  version: 1.11.0
+  resolution: "@openfeature/core@npm:1.11.0"
+  checksum: 10c0/3432b9570efbcb0ecd796586a7d88b8c606b3b992ec1596aaf1705d63d0ea4dc210749ba331c4a83e9f48782fc628f36320f57e25bcd1cf924d46bd831d5a302
   languageName: node
   linkType: hard
 
