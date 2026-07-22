@@ -68,7 +68,7 @@
     "@types/wtfnode": "^0",
     "babel-jest": "^30.3.0",
     "del-cli": "^7.0.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.7.0",
     "jest": "^30.3.0",
     "prettier": "^3.8.2",
     "react": "19.1.0",

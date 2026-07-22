@@ -14,7 +14,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.7.0",
     "globals": "^17.3.0",
     "msw": "^2.12.9",
     "prettier": "^3.8.1",
