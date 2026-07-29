@@ -13,6 +13,10 @@ import type { ConfigDirectorProviderOptions, ConfigDirectorProviderState } from 
  * `ConfigDirectorProvider` exported from `@configdirector/nextjs-sdk/server` — it is a React
  * Server Component that populates `initialConfigs` automatically, ensuring Client Components
  * render the correct values during SSR without any extra wiring.
+ *
+ * This component itself is a Client Component, so if you use it directly (rather than through
+ * the server provider) any `sdkKey` sourced from `process.env` must use the `NEXT_PUBLIC_`
+ * prefix — Next.js only exposes prefixed variables to code that runs in the browser.
  */
 export class ConfigDirectorProvider extends Component<
   PropsWithChildren<ConfigDirectorProviderOptions>,
