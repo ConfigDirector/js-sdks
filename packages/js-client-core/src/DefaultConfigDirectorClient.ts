@@ -63,6 +63,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.instanceId = crypto.randomUUID();
     this.logger = clientOptions?.logger ?? createDefaultLogger();
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
+    this.validateSdkKeyPresence(clientSdkKey);
     const urlFactory: UrlFactory = internalClientOptions?.urlFactory ?? defaultUrlFactory;
     const baseUrl = this.parseUrl(clientOptions?.connection?.url, urlFactory) ?? CLIENT_BASE_URL;
     this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
@@ -318,6 +319,14 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       return urlFactory(url);
     } catch (error) {
       throw new ConfigDirectorValidationError(`Invalid base URL '${url}'. Parsing failed: ${error}`);
+    }
+  }
+
+  private validateSdkKeyPresence(sdkKey: string | null | undefined) {
+    if (!sdkKey || sdkKey.trim().length == 0) {
+      throw new ConfigDirectorValidationError(
+        "No client SDK key was provided, the client cannot be instantiated without a valid client SDK key",
+      );
     }
   }
 

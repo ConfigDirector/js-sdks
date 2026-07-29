@@ -62,6 +62,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.logger = clientOptions?.logger ?? createDefaultLogger();
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
     this.metaContext = clientOptions?.metadata ?? {};
+    this.validateSdkKeyPresence(serverSdkKey);
     this.configEvaluator = new ConfigEvaluator(this.logger);
     const baseUrl = this.parseUrl(clientOptions?.connection?.url) ?? defaultBaseUrl;
     this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
@@ -320,6 +321,14 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       return new URL(url);
     } catch (error) {
       throw new ConfigDirectorValidationError(`Invalid base URL '${url}'. Parsing failed: ${error}`);
+    }
+  }
+
+  private validateSdkKeyPresence(sdkKey: string | null | undefined) {
+    if (!sdkKey || sdkKey.trim().length == 0) {
+      throw new ConfigDirectorValidationError(
+        "No server SDK key was provided, the client cannot be instantiated without a valid server SDK key",
+      );
     }
   }
 

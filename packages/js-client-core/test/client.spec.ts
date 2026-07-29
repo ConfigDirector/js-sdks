@@ -185,6 +185,20 @@ describe("ConfigDirectorClient", () => {
     test("throws on an invalid connection URL", () => {
       expect(() => createClient("sdk-key", { connection: { url: "not-a-url" } })).toThrow("Invalid base URL");
     });
+
+    test.each([null, undefined, "", "   "])(
+      "throws when the client SDK key is %p",
+      (invalidSdkKey) => {
+        expect(() => createClient(invalidSdkKey as any)).toThrow("No client SDK key was provided");
+      },
+    );
+
+    test.each(["sdk-key", "a", "  sdk-key  "])(
+      "does not throw when the client SDK key is %p",
+      (validSdkKey) => {
+        expect(() => createClient(validSdkKey)).not.toThrow();
+      },
+    );
   });
 
   describe("getValue", () => {

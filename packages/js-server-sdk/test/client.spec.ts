@@ -63,6 +63,22 @@ describe("ConfigDirectorClient", () => {
     );
   });
 
+  describe("constructor", () => {
+    test.each([null, undefined, "", "   "])(
+      "throws when the server SDK key is %p",
+      (invalidSdkKey) => {
+        expect(() => createClient(invalidSdkKey as any)).toThrow("No server SDK key was provided");
+      },
+    );
+
+    test.each(["sdk-key", "a", "  sdk-key  "])(
+      "does not throw when the server SDK key is %p",
+      (validSdkKey) => {
+        expect(() => createClient(validSdkKey)).not.toThrow();
+      },
+    );
+  });
+
   test("returns from initialize if the timeout is reached, but eventually connects", async () => {
     server.use(
       http.post(SSE_URL, async () => {
