@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, jest } from "@jest/globals";
+import { afterAll, afterEach, beforeAll, describe, expect, test, jest } from "@jest/globals";
 import { renderHook, act, waitFor } from "@testing-library/react-native";
 import { ConfigDirectorProvider } from "../src/provider";
 import { useConfigValue, useContext, useClient } from "../src/hooks";
@@ -48,7 +48,7 @@ describe("hooks", () => {
   };
 
   describe("useConfigValue", () => {
-    it("retrieves the value for the given config key", async () => {
+    test("retrieves the value for the given config key", async () => {
       mockFetchWith(async () =>
         buildResponse(
           new ReadableStream({
@@ -68,7 +68,7 @@ describe("hooks", () => {
       });
     });
 
-    it("returns the default value until the configs are loaded", async () => {
+    test("returns the default value until the configs are loaded", async () => {
       mockFetchWith(async () => {
         await sleep(100);
         return buildResponse(
@@ -90,7 +90,7 @@ describe("hooks", () => {
       });
     });
 
-    it("returns the parsed object when the server sends a json config and the default is an object", async () => {
+    test("returns the parsed object when the server sends a json config and the default is an object", async () => {
       mockFetchWith(async () =>
         buildResponse(
           new ReadableStream({
@@ -121,7 +121,7 @@ describe("hooks", () => {
       });
     });
 
-    it("returns the default object when the json config key is not present in the server response", async () => {
+    test("returns the default object when the json config key is not present in the server response", async () => {
       mockFetchWith(async () =>
         buildResponse(
           new ReadableStream({
@@ -140,7 +140,7 @@ describe("hooks", () => {
       expect(result.current.value).toEqual({ greeting: "default" });
     });
 
-    it("returns the raw json string when the default value type is string", async () => {
+    test("returns the raw json string when the default value type is string", async () => {
       mockFetchWith(async () =>
         buildResponse(
           new ReadableStream({
@@ -169,7 +169,7 @@ describe("hooks", () => {
       });
     });
 
-    it("is 'loading' until configs are loaded", async () => {
+    test("is 'loading' until configs are loaded", async () => {
       mockFetchWith(async () => {
         await sleep(100);
         return buildResponse(
@@ -194,11 +194,11 @@ describe("hooks", () => {
   });
 
   describe("useContext", () => {
-    it("throws when used outside of a ConfigDirectorProvider", () => {
+    test("throws when used outside of a ConfigDirectorProvider", () => {
       expect(() => renderHook(() => useContext())).toThrow(ConfigDirectorReactContextError);
     });
 
-    it("returns an updateContext function that reconnects with the new context", async () => {
+    test("returns an updateContext function that reconnects with the new context", async () => {
       mockFetchWith(async () =>
         buildResponse(
           new ReadableStream({
@@ -229,11 +229,11 @@ describe("hooks", () => {
   });
 
   describe("useClient", () => {
-    it("throws when used outside of a ConfigDirectorProvider", () => {
+    test("throws when used outside of a ConfigDirectorProvider", () => {
       expect(() => renderHook(() => useClient())).toThrow(ConfigDirectorReactContextError);
     });
 
-    it("returns the client instance", async () => {
+    test("returns the client instance", async () => {
       fetchSpy.mockImplementation(async (url) => {
         if ((url as string).toString().includes("telemetry")) {
           return Response.json({}, { status: 204 });

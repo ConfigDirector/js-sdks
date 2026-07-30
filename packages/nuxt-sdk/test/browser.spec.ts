@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { describe, it, expect } from "vitest";
+import { describe, test, expect } from "vitest";
 import { setup, createPage, url } from "@nuxt/test-utils/e2e";
 import type { Page } from "playwright";
 import { CLIENT_BUNDLE } from "./helpers/mock-sse-server";
@@ -28,7 +28,7 @@ const textOf = (page: Page, selector: string) =>
 describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
   await setup({ rootDir: FIXTURE_DIR, browser: true });
 
-  it("updates config values in the DOM after client-side hydration", { timeout: 30_000 }, async () => {
+  test("updates config values in the DOM after client-side hydration", { timeout: 30_000 }, async () => {
     const page = await createPage();
 
     await page.route("**/client/sse/v1", async (route) => {
@@ -64,7 +64,7 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
     await page.close();
   });
 
-  it(
+  test(
     "falls back to default status when the SSE connection cannot be established",
     { timeout: 30_000 },
     async () => {
@@ -99,7 +99,7 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
     },
   );
 
-  it(
+  test(
     "returns the parsed object when the server sends a json config and the default is an object",
     { timeout: 30_000 },
     async () => {
@@ -141,7 +141,7 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
     },
   );
 
-  it(
+  test(
     "falls back to the default object when the json config is not in the server response",
     { timeout: 30_000 },
     async () => {
@@ -170,7 +170,7 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
     },
   );
 
-  it("returns the raw json string when the default value type is string", { timeout: 30_000 }, async () => {
+  test("returns the raw json string when the default value type is string", { timeout: 30_000 }, async () => {
     const page = await createPage();
 
     const jsonBundle = {
@@ -208,7 +208,7 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
     await page.close();
   });
 
-  it("reconnects and sends the new context when updateContext is called", { timeout: 30_000 }, async () => {
+  test("reconnects and sends the new context when updateContext is called", { timeout: 30_000 }, async () => {
     const capturedPayloads: unknown[] = [];
     const page = await createPage();
 
@@ -269,7 +269,7 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
     await page.close();
   });
 
-  it(
+  test(
     "telemetry web worker sends evaluation events to the telemetry endpoint",
     { timeout: 30_000 },
     async () => {
@@ -356,7 +356,7 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
       });
     };
 
-    it(
+    test(
       "calls clientReady and configsUpdated hooks when the client connects",
       { timeout: 30_000 },
       async () => {
@@ -378,7 +378,7 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
       },
     );
 
-    it(
+    test(
       "calls the contextUpdated hook (registered in a component) when updateContext is called",
       { timeout: 30_000 },
       async () => {
@@ -400,7 +400,7 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
       },
     );
 
-    it(
+    test(
       "cleans up handlers on component unmount so they do not accumulate after remount",
       { timeout: 30_000 },
       async () => {

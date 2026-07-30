@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, it, expect, vi } from "vitest";
+import { afterAll, beforeAll, describe, test, expect, vi } from "vitest";
 import { commands } from "vitest/browser";
 import { render, screen } from "@testing-library/react";
 import { ConfigDirectorProvider } from "../src/provider";
@@ -23,7 +23,7 @@ describe("ConfigDirectorProvider hooks", () => {
     await commands.mswTeardown();
   });
 
-  it("calls the clientReady hook when the client connects", async () => {
+  test("calls the clientReady hook when the client connects", async () => {
     const clientReadyHook = vi.fn();
 
     await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
@@ -39,7 +39,7 @@ describe("ConfigDirectorProvider hooks", () => {
     });
   });
 
-  it("calls the configsUpdated hook when configs are received", async () => {
+  test("calls the configsUpdated hook when configs are received", async () => {
     const configsUpdatedHook = vi.fn();
 
     await commands.mswUseSseHandler(SSE_URL, [
@@ -72,7 +72,7 @@ describe("ConfigDirectorProvider hooks", () => {
     });
   });
 
-  it("calls the contextUpdated hook when context changes", async () => {
+  test("calls the contextUpdated hook when context changes", async () => {
     const contextUpdatedHook = vi.fn();
 
     await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
@@ -107,7 +107,7 @@ describe("ConfigDirectorProvider hooks", () => {
     });
   });
 
-  it("calls the configEvaluated hook when a config value is read", async () => {
+  test("calls the configEvaluated hook when a config value is read", async () => {
     const configEvaluatedHook = vi.fn();
 
     await commands.mswUseSseHandler(SSE_URL, [
@@ -148,7 +148,7 @@ describe("ConfigDirectorProvider hooks", () => {
     });
   });
 
-  it("accepts an array of handlers for the same hook event", async () => {
+  test("accepts an array of handlers for the same hook event", async () => {
     const hook1 = vi.fn();
     const hook2 = vi.fn();
 

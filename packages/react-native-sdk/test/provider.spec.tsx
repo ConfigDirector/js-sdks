@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, beforeAll, afterAll, describe, expect, it, jest } from "@jest/globals";
+import { afterEach, beforeEach, beforeAll, afterAll, describe, expect, test, jest } from "@jest/globals";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { AppState } from "react-native";
@@ -43,7 +43,7 @@ describe("ConfigDirectorProvider", () => {
     });
   };
 
-  it("renders without error", async () => {
+  test("renders without error", async () => {
     mockFetchWith(async () => buildResponse(new ReadableStream()));
 
     const { result, unmount } = renderHook(() => useConfigValue("key", "default"), {
@@ -54,7 +54,7 @@ describe("ConfigDirectorProvider", () => {
     unmount();
   });
 
-  it("sets status to 'default' when initialization times out", async () => {
+  test("sets status to 'default' when initialization times out", async () => {
     mockFetchWith(async () => buildResponse(new ReadableStream()));
 
     const { result, unmount } = renderHook(() => useConfigValue("key", "default-value"), {
@@ -66,7 +66,7 @@ describe("ConfigDirectorProvider", () => {
     unmount();
   });
 
-  it("connects to the server with the correct SDK key and metadata", async () => {
+  test("connects to the server with the correct SDK key and metadata", async () => {
     mockFetchWith(async () =>
       buildResponse(
         new ReadableStream({
@@ -89,7 +89,7 @@ describe("ConfigDirectorProvider", () => {
     unmount();
   });
 
-  it("sends the real package version, not the __VERSION__ sentinel", async () => {
+  test("sends the real package version, not the __VERSION__ sentinel", async () => {
     mockFetchWith(async () => buildResponse(new ReadableStream()));
 
     const { unmount } = renderHook(() => useConfigValue("key", "default"), {
@@ -104,7 +104,7 @@ describe("ConfigDirectorProvider", () => {
   });
 
   describe("NetInfo connectivity handling", () => {
-    it("reconnects immediately when network is restored after going offline", async () => {
+    test("reconnects immediately when network is restored after going offline", async () => {
       let connectivityHandler: ((state: { isConnected: boolean | null }) => void) | null = null;
       const netInfoSubscribe = jest.fn((handler: (state: { isConnected: boolean | null }) => void) => {
         connectivityHandler = handler;
@@ -132,7 +132,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("does not reconnect when a connected event fires without a prior offline event", async () => {
+    test("does not reconnect when a connected event fires without a prior offline event", async () => {
       let connectivityHandler: ((state: { isConnected: boolean | null }) => void) | null = null;
       const netInfoSubscribe = jest.fn((handler: (state: { isConnected: boolean | null }) => void) => {
         connectivityHandler = handler;
@@ -156,7 +156,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("does not reconnect when network is restored while the app is in the background", async () => {
+    test("does not reconnect when network is restored while the app is in the background", async () => {
       let connectivityHandler: ((state: { isConnected: boolean | null }) => void) | null = null;
       const netInfoSubscribe = jest.fn((handler: (state: { isConnected: boolean | null }) => void) => {
         connectivityHandler = handler;
@@ -186,7 +186,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("unsubscribes from NetInfo on unmount", async () => {
+    test("unsubscribes from NetInfo on unmount", async () => {
       const netInfoUnsubscribe = jest.fn();
       const netInfoSubscribe = jest.fn(() => netInfoUnsubscribe);
 
@@ -206,7 +206,7 @@ describe("ConfigDirectorProvider", () => {
   });
 
   describe("context prop updates", () => {
-    it("calls updateContext and reconnects when the context prop changes", async () => {
+    test("calls updateContext and reconnects when the context prop changes", async () => {
       mockFetchWith(async () => buildResponse(new ReadableStream()));
 
       let setContext: (ctx: { id: string }) => void = () => {};
@@ -242,7 +242,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("does not reconnect when an unrelated prop changes", async () => {
+    test("does not reconnect when an unrelated prop changes", async () => {
       mockFetchWith(async () => buildResponse(new ReadableStream()));
 
       let setAppName: (name: string) => void = () => {};
@@ -277,7 +277,7 @@ describe("ConfigDirectorProvider", () => {
   describe("instanceId", () => {
     const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    it("sends a generated instanceId on the SSE connection", async () => {
+    test("sends a generated instanceId on the SSE connection", async () => {
       mockFetchWith(async () =>
         buildResponse(
           new ReadableStream({
@@ -299,7 +299,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("keeps the same instanceId across reconnects triggered by a context change", async () => {
+    test("keeps the same instanceId across reconnects triggered by a context change", async () => {
       mockFetchWith(async () => buildResponse(new ReadableStream()));
 
       let setContext: (ctx: { id: string }) => void = () => {};
@@ -348,7 +348,7 @@ describe("ConfigDirectorProvider", () => {
   });
 
   describe("hooks", () => {
-    it("calls the clientReady hook when the client connects", async () => {
+    test("calls the clientReady hook when the client connects", async () => {
       const clientReadyHook = jest.fn();
 
       mockFetchWith(async () =>
@@ -369,7 +369,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("calls the configsUpdated hook when configs are received", async () => {
+    test("calls the configsUpdated hook when configs are received", async () => {
       const configsUpdatedHook = jest.fn();
 
       mockFetchWith(async () =>
@@ -407,7 +407,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("calls the contextUpdated hook when context changes", async () => {
+    test("calls the contextUpdated hook when context changes", async () => {
       const contextUpdatedHook = jest.fn();
 
       mockFetchWith(async () => buildResponse(new ReadableStream()));
@@ -449,7 +449,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("calls the configEvaluated hook when a config value is read", async () => {
+    test("calls the configEvaluated hook when a config value is read", async () => {
       const configEvaluatedHook = jest.fn();
 
       mockFetchWith(async () =>
@@ -490,7 +490,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("accepts an array of handlers for the same hook event", async () => {
+    test("accepts an array of handlers for the same hook event", async () => {
       const hook1 = jest.fn();
       const hook2 = jest.fn();
 
@@ -537,7 +537,7 @@ describe("ConfigDirectorProvider", () => {
       addEventListenerSpy.mockRestore();
     });
 
-    it("registers an AppState listener after initialization", async () => {
+    test("registers an AppState listener after initialization", async () => {
       mockFetchWith(async () => buildResponse(new ReadableStream()));
 
       const { unmount } = renderHook(() => useConfigValue("key", "default"), {
@@ -548,7 +548,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("reconnects when the app returns to the foreground", async () => {
+    test("reconnects when the app returns to the foreground", async () => {
       mockFetchWith(async () => buildResponse(new ReadableStream()));
 
       const { result, unmount } = renderHook(() => useConfigValue("key", "default"), {
@@ -566,7 +566,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("preserves the current status while reconnecting — no loading flash", async () => {
+    test("preserves the current status while reconnecting — no loading flash", async () => {
       mockFetchWith(async () => buildResponse(new ReadableStream()));
 
       const { result, unmount } = renderHook(() => useConfigValue("key", "default"), {
@@ -586,7 +586,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("provider updates to 'ready' after resuming from background, proving event handlers survived", async () => {
+    test("provider updates to 'ready' after resuming from background, proving event handlers survived", async () => {
       const streamControllers: ReadableStreamDefaultController<Uint8Array>[] = [];
       fetchSpy.mockImplementation(async (url) => {
         if ((url as string).includes("telemetry")) return Response.json({}, { status: 204 });
@@ -626,7 +626,7 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
-    it("removes the AppState subscription on unmount", async () => {
+    test("removes the AppState subscription on unmount", async () => {
       mockFetchWith(async () => buildResponse(new ReadableStream()));
 
       const { unmount } = renderHook(() => useConfigValue("key", "default"), {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { afterEach, beforeEach, describe, expect, test, jest } from "@jest/globals";
 
 // setup.ts mocks this module globally — unmock it so we test the real implementation.
 jest.unmock("../src/reactNativeStreamingFetch");
@@ -61,17 +61,17 @@ const triggerHeadersReceived = (status = 200) => {
 const decode = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
 
 describe("reactNativeStreamingFetch", () => {
-  it("opens the XHR with the correct method and URL", () => {
+  test("opens the XHR with the correct method and URL", () => {
     void reactNativeStreamingFetch("https://example.com/sse", { method: "POST" });
     expect(mockXhr.open).toHaveBeenCalledWith("POST", "https://example.com/sse");
   });
 
-  it("defaults method to GET when not provided", () => {
+  test("defaults method to GET when not provided", () => {
     void reactNativeStreamingFetch("https://example.com/sse", {});
     expect(mockXhr.open).toHaveBeenCalledWith("GET", "https://example.com/sse");
   });
 
-  it("sets request headers from init.headers", () => {
+  test("sets request headers from init.headers", () => {
     void reactNativeStreamingFetch("https://example.com/sse", {
       method: "GET",
       headers: { Authorization: "Bearer token", "X-Custom": "value" },
@@ -80,7 +80,7 @@ describe("reactNativeStreamingFetch", () => {
     expect(mockXhr.setRequestHeader).toHaveBeenCalledWith("X-Custom", "value");
   });
 
-  it("sends the request body", () => {
+  test("sends the request body", () => {
     void reactNativeStreamingFetch("https://example.com/sse", {
       method: "POST",
       body: '{"key":"value"}',
@@ -88,7 +88,7 @@ describe("reactNativeStreamingFetch", () => {
     expect(mockXhr.send).toHaveBeenCalledWith('{"key":"value"}');
   });
 
-  it("resolves with status and parsed response headers when headers are received", async () => {
+  test("resolves with status and parsed response headers when headers are received", async () => {
     const promise = reactNativeStreamingFetch("https://example.com/sse", { method: "GET" });
     mockXhr.status = 200;
     triggerHeadersReceived(200);
@@ -99,7 +99,7 @@ describe("reactNativeStreamingFetch", () => {
     expect(response.headers.get("cache-control")).toBe("no-cache");
   });
 
-  it("streams body chunks via onprogress", async () => {
+  test("streams body chunks via onprogress", async () => {
     const promise = reactNativeStreamingFetch("https://example.com/sse", { method: "GET" });
     triggerHeadersReceived();
 
@@ -119,7 +119,7 @@ describe("reactNativeStreamingFetch", () => {
     expect(decode(value2 as Uint8Array)).toBe("data: world\n\n");
   });
 
-  it("closes the stream and flushes remaining text on onload", async () => {
+  test("closes the stream and flushes remaining text on onload", async () => {
     const promise = reactNativeStreamingFetch("https://example.com/sse", { method: "GET" });
     triggerHeadersReceived();
 
@@ -136,7 +136,7 @@ describe("reactNativeStreamingFetch", () => {
     expect(streamDone).toBe(true);
   });
 
-  it("rejects immediately without creating an XHR when signal is already aborted", async () => {
+  test("rejects immediately without creating an XHR when signal is already aborted", async () => {
     const controller = new AbortController();
     controller.abort();
 
@@ -150,7 +150,7 @@ describe("reactNativeStreamingFetch", () => {
     expect(mockXhr.open).not.toHaveBeenCalled();
   });
 
-  it("aborts the XHR and rejects the promise when signal fires before headers received", async () => {
+  test("aborts the XHR and rejects the promise when signal fires before headers received", async () => {
     const controller = new AbortController();
     const promise = reactNativeStreamingFetch("https://example.com/sse", {
       method: "GET",
@@ -163,7 +163,7 @@ describe("reactNativeStreamingFetch", () => {
     expect(mockXhr.abort).toHaveBeenCalled();
   });
 
-  it("aborts the XHR and closes the stream when signal fires after headers received", async () => {
+  test("aborts the XHR and closes the stream when signal fires after headers received", async () => {
     const controller = new AbortController();
     const promise = reactNativeStreamingFetch("https://example.com/sse", {
       method: "GET",
@@ -181,7 +181,7 @@ describe("reactNativeStreamingFetch", () => {
     expect(done).toBe(true);
   });
 
-  it("rejects the promise on XHR error before headers received", async () => {
+  test("rejects the promise on XHR error before headers received", async () => {
     const promise = reactNativeStreamingFetch("https://example.com/sse", { method: "GET" });
 
     mockXhr.onerror?.();
@@ -189,7 +189,7 @@ describe("reactNativeStreamingFetch", () => {
     await expect(promise).rejects.toThrow("Network request failed");
   });
 
-  it("errors the stream on XHR error after headers received", async () => {
+  test("errors the stream on XHR error after headers received", async () => {
     const promise = reactNativeStreamingFetch("https://example.com/sse", { method: "GET" });
     triggerHeadersReceived();
 

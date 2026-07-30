@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { chromium, type Browser, type Page } from "playwright";
 import { CLIENT_BUNDLE } from "./helpers/mock-sse-server";
 
@@ -34,7 +34,7 @@ afterAll(async () => {
 });
 
 describe("ConfigDirector Next.js SDK — Browser client (hydration and live updates)", () => {
-  it("updates config values in the DOM after client-side hydration", { timeout: 30_000 }, async () => {
+  test("updates config values in the DOM after client-side hydration", { timeout: 30_000 }, async () => {
     const page = await browser.newPage();
 
     await page.route("**/client/sse/v1", async (route) => {
@@ -63,7 +63,7 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     await page.close();
   });
 
-  it(
+  test(
     "falls back to 'default' status when the SSE connection cannot be established",
     { timeout: 30_000 },
     async () => {
@@ -94,7 +94,7 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     },
   );
 
-  it(
+  test(
     "returns the parsed object when the server sends a json config and the default is an object",
     { timeout: 30_000 },
     async () => {
@@ -136,7 +136,7 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     },
   );
 
-  it(
+  test(
     "falls back to the default object when the json config is not in the server response",
     { timeout: 30_000 },
     async () => {
@@ -165,7 +165,7 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     },
   );
 
-  it("returns the raw json string when the default value type is string", { timeout: 30_000 }, async () => {
+  test("returns the raw json string when the default value type is string", { timeout: 30_000 }, async () => {
     const page = await browser.newPage();
 
     const jsonBundle = {
@@ -203,7 +203,7 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     await page.close();
   });
 
-  it("calls client hooks configured on the provider", { timeout: 30_000 }, async () => {
+  test("calls client hooks configured on the provider", { timeout: 30_000 }, async () => {
     const page = await browser.newPage();
 
     await page.route("**/client/sse/v1", async (route) => {
@@ -237,7 +237,7 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     await page.close();
   });
 
-  it(
+  test(
     "calls the contextUpdated client hook when updateContext is triggered",
     { timeout: 30_000 },
     async () => {
@@ -272,7 +272,7 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     },
   );
 
-  it("reconnects and sends the new context when updateContext is called", { timeout: 30_000 }, async () => {
+  test("reconnects and sends the new context when updateContext is called", { timeout: 30_000 }, async () => {
     const capturedPayloads: unknown[] = [];
     const page = await browser.newPage();
 
@@ -320,7 +320,7 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     await page.close();
   });
 
-  it(
+  test(
     "telemetry web worker sends evaluation events to the telemetry endpoint",
     { timeout: 30_000 },
     async () => {

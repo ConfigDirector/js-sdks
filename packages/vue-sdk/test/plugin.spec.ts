@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, it, expect, vi } from "vitest";
+import { afterAll, beforeAll, describe, test, expect, vi } from "vitest";
 import { commands } from "vitest/browser";
 import { render, screen, fireEvent } from "@testing-library/vue";
 import { defineComponent } from "vue";
@@ -28,7 +28,7 @@ describe("Vue plugin composables", () => {
   });
 
   describe("useConfigValue", () => {
-    it("retrieves the value for the given config key", async () => {
+    test("retrieves the value for the given config key", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -59,7 +59,7 @@ describe("Vue plugin composables", () => {
       expect(screen.getByTestId("target")).toHaveTextContent("Hello");
     });
 
-    it("returns the default value until the configs are loaded", async () => {
+    test("returns the default value until the configs are loaded", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -92,7 +92,7 @@ describe("Vue plugin composables", () => {
       expect(screen.getByTestId("target")).toHaveTextContent("Hello");
     });
 
-    it("loading flag is true until the configs are loaded", async () => {
+    test("loading flag is true until the configs are loaded", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -125,7 +125,7 @@ describe("Vue plugin composables", () => {
       expect(screen.getByTestId("target")).toHaveTextContent("Hello");
     });
 
-    it("calls updateContext and reconnects when context changes", async () => {
+    test("calls updateContext and reconnects when context changes", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -188,7 +188,7 @@ describe("Vue plugin composables", () => {
   describe("instanceId", () => {
     const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    it("sends a generated instanceId on the SSE connection", async () => {
+    test("sends a generated instanceId on the SSE connection", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -221,7 +221,7 @@ describe("Vue plugin composables", () => {
       expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
     });
 
-    it("keeps the same instanceId across reconnects when context changes", async () => {
+    test("keeps the same instanceId across reconnects when context changes", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -283,7 +283,7 @@ describe("Vue plugin composables", () => {
   });
 
   describe("hooks", () => {
-    it("calls the clientReady hook when the client connects", async () => {
+    test("calls the clientReady hook when the client connects", async () => {
       const clientReadyHook = vi.fn();
 
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
@@ -306,7 +306,7 @@ describe("Vue plugin composables", () => {
       });
     });
 
-    it("calls the configsUpdated hook when configs are received", async () => {
+    test("calls the configsUpdated hook when configs are received", async () => {
       const configsUpdatedHook = vi.fn();
 
       await commands.mswUseSseHandler(SSE_URL, [
@@ -347,7 +347,7 @@ describe("Vue plugin composables", () => {
       });
     });
 
-    it("calls the configEvaluated hook when a config value is read", async () => {
+    test("calls the configEvaluated hook when a config value is read", async () => {
       const configEvaluatedHook = vi.fn();
 
       await commands.mswUseSseHandler(SSE_URL, [
@@ -392,7 +392,7 @@ describe("Vue plugin composables", () => {
       });
     });
 
-    it("accepts an array of handlers for the same hook event", async () => {
+    test("accepts an array of handlers for the same hook event", async () => {
       const hook1 = vi.fn();
       const hook2 = vi.fn();
 
@@ -419,7 +419,7 @@ describe("Vue plugin composables", () => {
   });
 
   describe("useClientStatus", () => {
-    it("is 'loading' before configs are received and 'ready' after", async () => {
+    test("is 'loading' before configs are received and 'ready' after", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -463,7 +463,7 @@ describe("pre-initialized client flow", () => {
   });
 
   describe("initializeClient", () => {
-    it("resolves with a ready client that has already fetched config values", async () => {
+    test("resolves with a ready client that has already fetched config values", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -487,7 +487,7 @@ describe("pre-initialized client flow", () => {
   });
 
   describe("ConfigDirectorPlugin with pre-initialized client", () => {
-    it("status is immediately 'ready' with no loading phase", async () => {
+    test("status is immediately 'ready' with no loading phase", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -515,7 +515,7 @@ describe("pre-initialized client flow", () => {
       expect(screen.getByTestId("status")).toHaveTextContent("ready");
     });
 
-    it("config value is immediately available without flickering through the default", async () => {
+    test("config value is immediately available without flickering through the default", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {

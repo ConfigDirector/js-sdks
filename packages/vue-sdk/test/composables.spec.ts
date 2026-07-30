@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, test, expect } from "vitest";
 import { render } from "@testing-library/vue";
 import { defineComponent, onErrorCaptured } from "vue";
 import { ConfigDirectorPlugin } from "../src/plugin";
@@ -29,17 +29,17 @@ const captureSetupError = (component: ReturnType<typeof defineComponent>): unkno
 };
 
 describe("composable injection errors (plugin not installed)", () => {
-  it("useClient throws ConfigDirectorInitializationError", () => {
+  test("useClient throws ConfigDirectorInitializationError", () => {
     const TestComponent = defineComponent({ setup: () => useClient(), template: "<div />" });
     expect(captureSetupError(TestComponent)).toBeInstanceOf(ConfigDirectorInitializationError);
   });
 
-  it("useClientStatus throws ConfigDirectorInitializationError", () => {
+  test("useClientStatus throws ConfigDirectorInitializationError", () => {
     const TestComponent = defineComponent({ setup: () => useClientStatus(), template: "<div />" });
     expect(captureSetupError(TestComponent)).toBeInstanceOf(ConfigDirectorInitializationError);
   });
 
-  it("useConfigValue throws ConfigDirectorInitializationError", () => {
+  test("useConfigValue throws ConfigDirectorInitializationError", () => {
     const TestComponent = defineComponent({
       setup: () => useConfigValue("key", "default"),
       template: "<div />",
@@ -47,14 +47,14 @@ describe("composable injection errors (plugin not installed)", () => {
     expect(captureSetupError(TestComponent)).toBeInstanceOf(ConfigDirectorInitializationError);
   });
 
-  it("useContext throws ConfigDirectorInitializationError", () => {
+  test("useContext throws ConfigDirectorInitializationError", () => {
     const TestComponent = defineComponent({ setup: () => useContext(), template: "<div />" });
     expect(captureSetupError(TestComponent)).toBeInstanceOf(ConfigDirectorInitializationError);
   });
 });
 
 describe("useClient", () => {
-  it("returns the client instance when plugin is installed", () => {
+  test("returns the client instance when plugin is installed", () => {
     let capturedClient: unknown;
     const TestComponent = defineComponent({
       setup() {

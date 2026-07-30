@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { describe, it, expect } from "vitest";
+import { describe, test, expect } from "vitest";
 import { setup, $fetch } from "@nuxt/test-utils/e2e";
 
 const FIXTURE_DIR = fileURLToPath(new URL("./fixtures/configdirector", import.meta.url));
@@ -8,37 +8,37 @@ describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
   await setup({ rootDir: FIXTURE_DIR });
 
   describe("SSR composables (useConfigDirectorValue, useConfigDirectorStatus)", () => {
-    it("renders the string config value fetched from the backend during SSR", async () => {
+    test("renders the string config value fetched from the backend during SSR", async () => {
       const html = await $fetch("/");
       expect(html).toContain("Hello from ConfigDirector!");
     });
 
-    it("renders the boolean config value during SSR", async () => {
+    test("renders the boolean config value during SSR", async () => {
       const html = await $fetch("/");
       const match = html.match(/data-testid="feature-enabled"[^>]*>([^<]*)<\/div>/);
       expect(match?.[1]?.trim()).toBe("true");
     });
 
-    it("renders the integer config value during SSR", async () => {
+    test("renders the integer config value during SSR", async () => {
       const html = await $fetch("/");
       const match = html.match(/data-testid="item-count"[^>]*>([^<]*)<\/div>/);
       expect(match?.[1]?.trim()).toBe("7");
     });
 
-    it("reflects a non-loading ready status in the SSR output", async () => {
+    test("reflects a non-loading ready status in the SSR output", async () => {
       const html = await $fetch("/");
       const match = html.match(/data-testid="status"[^>]*>([^<]*)<\/div>/);
       const status = match?.[1]?.trim();
       expect(status).toBe("ready");
     });
 
-    it("renders the loading indicator as 'done' in SSR (SSR is synchronous — never loading)", async () => {
+    test("renders the loading indicator as 'done' in SSR (SSR is synchronous — never loading)", async () => {
       const html = await $fetch("/");
       const match = html.match(/data-testid="loading"[^>]*>([^<]*)<\/div>/);
       expect(match?.[1]?.trim()).toBe("done");
     });
 
-    it("renders the json config value as a parsed object in SSR HTML", async () => {
+    test("renders the json config value as a parsed object in SSR HTML", async () => {
       const html = await $fetch("/");
       const match = html.match(/data-testid="json-data"[^>]*>([^<]*)<\/div>/);
       const decoded = match?.[1]?.trim().replace(/&quot;/g, '"');
@@ -47,7 +47,7 @@ describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
   });
 
   describe("Server composable (useConfigDirectorClient) in a Nitro event handler", () => {
-    it("returns config values from the server SDK client", async () => {
+    test("returns config values from the server SDK client", async () => {
       const data = await $fetch<{
         welcomeMessage: string;
         featureEnabled: boolean;
@@ -60,39 +60,39 @@ describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
       expect(data.itemCount).toBe(7);
     });
 
-    it("reports the client as ready after it connected to the mock backend", async () => {
+    test("reports the client as ready after it connected to the mock backend", async () => {
       const data = await $fetch<{ isReady: boolean }>("/api/config");
       expect(data.isReady).toBe(true);
     });
 
-    it("returns the default value for an unknown config key", async () => {
+    test("returns the default value for an unknown config key", async () => {
       const data = await $fetch<{ nonExistentKey: string }>("/api/config");
       expect(data.nonExistentKey).toBe("default-value");
     });
 
-    it("returns the json config value as a parsed object", async () => {
+    test("returns the json config value as a parsed object", async () => {
       const data = await $fetch<{ jsonData: object }>("/api/config");
       expect(data.jsonData).toEqual({ greeting: "hello", count: 3 });
     });
 
-    it("returns the raw json string when the default value type is string", async () => {
+    test("returns the raw json string when the default value type is string", async () => {
       const data = await $fetch<{ jsonDataRaw: string }>("/api/config");
       expect(data.jsonDataRaw).toBe(JSON.stringify({ greeting: "hello" }));
     });
 
-    it("returns the default object when the json config key is not in the server bundle", async () => {
+    test("returns the default object when the json config key is not in the server bundle", async () => {
       const data = await $fetch<{ jsonDataFallback: object }>("/api/config");
       expect(data.jsonDataFallback).toEqual({ label: "default" });
     });
   });
 
   describe("Server composable (useConfigDirectorServerHooks) in a Nitro plugin", () => {
-    it("calls the clientReady hook after the Nitro client connects to the backend", async () => {
+    test("calls the clientReady hook after the Nitro client connects to the backend", async () => {
       const data = await $fetch<{ clientReady: number; configsUpdated: number }>("/api/hook-calls");
       expect(data.clientReady).toBeGreaterThan(0);
     });
 
-    it("calls the configsUpdated hook after the Nitro client receives the initial config bundle", async () => {
+    test("calls the configsUpdated hook after the Nitro client receives the initial config bundle", async () => {
       const data = await $fetch<{ clientReady: number; configsUpdated: number }>("/api/hook-calls");
       expect(data.configsUpdated).toBeGreaterThan(0);
     });

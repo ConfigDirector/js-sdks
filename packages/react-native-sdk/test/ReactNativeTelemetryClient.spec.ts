@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, test, jest } from "@jest/globals";
 
 jest.mock("@js-client-core/telemetry", () => ({
   ClientTelemetryEventCollector: jest.fn(),
@@ -37,7 +37,7 @@ const makeClient = () => new ReactNativeTelemetryClient("sdk-key", BASE_URL, log
 
 describe("ReactNativeTelemetryClient", () => {
   describe("evaluatedConfig", () => {
-    it("passes string values through unchanged", () => {
+    test("passes string values through unchanged", () => {
       makeClient().evaluatedConfig({
         key: "flag",
         type: "string",
@@ -53,7 +53,7 @@ describe("ReactNativeTelemetryClient", () => {
       );
     });
 
-    it("converts number values to strings", () => {
+    test("converts number values to strings", () => {
       makeClient().evaluatedConfig({
         key: "timeout",
         type: "integer",
@@ -69,7 +69,7 @@ describe("ReactNativeTelemetryClient", () => {
       );
     });
 
-    it("hashes JSON values as an 8-character hex string", () => {
+    test("hashes JSON values as an 8-character hex string", () => {
       makeClient().evaluatedConfig({
         key: "config",
         type: "json",
@@ -89,7 +89,7 @@ describe("ReactNativeTelemetryClient", () => {
       expect(call.defaultValue.valueId).toBeUndefined();
     });
 
-    it("uses the value ID for object values when type is not provided", () => {
+    test("uses the value ID for object values when type is not provided", () => {
       makeClient().evaluatedConfig({
         key: "config",
         defaultValue: { threshold: 0.5 },
@@ -108,7 +108,7 @@ describe("ReactNativeTelemetryClient", () => {
       expect(call.evaluatedValue.valueId).toMatch(/^[0-9a-zA-Z]{22}$/);
     });
 
-    it("preserves all non-value fields in the sanitized event", () => {
+    test("preserves all non-value fields in the sanitized event", () => {
       makeClient().evaluatedConfig({
         key: "feature",
         contextId: "ctx-1",
@@ -133,13 +133,13 @@ describe("ReactNativeTelemetryClient", () => {
     });
   });
 
-  it("delegates updateContext to the collector", async () => {
+  test("delegates updateContext to the collector", async () => {
     const ctx = { id: "u-1" };
     await makeClient().updateContext(ctx);
     expect(collectorMock.updateContext).toHaveBeenCalledWith(ctx);
   });
 
-  it("delegates close to the collector", async () => {
+  test("delegates close to the collector", async () => {
     await makeClient().close();
     expect(collectorMock.close).toHaveBeenCalled();
   });

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, it, expect, vi } from "vitest";
+import { afterAll, beforeAll, describe, test, expect, vi } from "vitest";
 import { commands } from "vitest/browser";
 import { render, screen } from "@testing-library/react";
 import { ConfigDirectorProvider } from "../src/provider";
@@ -23,7 +23,7 @@ describe("useConfigValue", () => {
     await commands.mswTeardown();
   });
 
-  it("retrieves the value for the given config key", async () => {
+  test("retrieves the value for the given config key", async () => {
     await commands.mswUseSseHandler(SSE_URL, [
       [
         {
@@ -53,7 +53,7 @@ describe("useConfigValue", () => {
     await screen.findByText("Hello", undefined, { timeout: 1_000 });
   });
 
-  it("returns the default value until the configs are loaded", async () => {
+  test("returns the default value until the configs are loaded", async () => {
     await commands.mswUseSseHandler(SSE_URL, [
       [
         {
@@ -85,7 +85,7 @@ describe("useConfigValue", () => {
     await screen.findByText("Hello", undefined, { timeout: 1_000 });
   });
 
-  it("calls updateContext and reconnects when the context prop changes", async () => {
+  test("calls updateContext and reconnects when the context prop changes", async () => {
     await commands.mswUseSseHandler(SSE_URL, [
       [
         {
@@ -139,7 +139,7 @@ describe("useConfigValue", () => {
     expect((payloads[1] as any)?.givenContext).toMatchObject({ id: "user-2" });
   });
 
-  it("returns the parsed object when the server sends a json config and the default is an object", async () => {
+  test("returns the parsed object when the server sends a json config and the default is an object", async () => {
     await commands.mswUseSseHandler(SSE_URL, [
       [
         {
@@ -169,7 +169,7 @@ describe("useConfigValue", () => {
     await screen.findByText(JSON.stringify({ greeting: "hello", count: 3 }), undefined, { timeout: 1_000 });
   });
 
-  it("returns the default object when the json config key is not present in the server response", async () => {
+  test("returns the default object when the json config key is not present in the server response", async () => {
     await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
 
     const TestComponent = () => {
@@ -186,7 +186,7 @@ describe("useConfigValue", () => {
     await screen.findByText(JSON.stringify({ greeting: "default" }), undefined, { timeout: 1_000 });
   });
 
-  it("returns the raw json string when the default value type is string", async () => {
+  test("returns the raw json string when the default value type is string", async () => {
     await commands.mswUseSseHandler(SSE_URL, [
       [
         {
@@ -219,7 +219,7 @@ describe("useConfigValue", () => {
   describe("instanceId", () => {
     const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    it("sends a generated instanceId on the SSE connection", async () => {
+    test("sends a generated instanceId on the SSE connection", async () => {
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
 
       render(
@@ -234,7 +234,7 @@ describe("useConfigValue", () => {
       });
     });
 
-    it("keeps the same instanceId across reconnects triggered by a context change", async () => {
+    test("keeps the same instanceId across reconnects triggered by a context change", async () => {
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
 
       const { rerender } = render(
@@ -265,7 +265,7 @@ describe("useConfigValue", () => {
     });
   });
 
-  it("is 'loading' until configs are loaded", async () => {
+  test("is 'loading' until configs are loaded", async () => {
     await commands.mswUseSseHandler(SSE_URL, [
       [
         {

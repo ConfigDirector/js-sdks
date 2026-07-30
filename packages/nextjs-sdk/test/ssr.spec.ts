@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, test, expect } from "vitest";
 
 const url = (path: string) => `${process.env["NEXTJS_SDK_TEST_URL"]}${path}`;
 
@@ -13,31 +13,31 @@ const $fetchJson = async <T>(path: string): Promise<T> => {
 };
 
 describe("ConfigDirector Next.js SDK — SSR and initialConfigs", () => {
-  it("renders the string config value via initialConfigs in SSR HTML", async () => {
+  test("renders the string config value via initialConfigs in SSR HTML", async () => {
     const html = await $fetch("/");
     expect(html).toContain("Hello from ConfigDirector!");
   });
 
-  it("renders the boolean config value in SSR HTML", async () => {
+  test("renders the boolean config value in SSR HTML", async () => {
     const html = await $fetch("/");
     const match = html.match(/data-testid="feature-enabled"[^>]*>([^<]*)<\/div>/);
     expect(match?.[1]?.trim()).toBe("true");
   });
 
-  it("renders the integer config value in SSR HTML", async () => {
+  test("renders the integer config value in SSR HTML", async () => {
     const html = await $fetch("/");
     const match = html.match(/data-testid="item-count"[^>]*>([^<]*)<\/div>/);
     expect(match?.[1]?.trim()).toBe("7");
   });
 
-  it("renders the json config value as a parsed object in SSR HTML", async () => {
+  test("renders the json config value as a parsed object in SSR HTML", async () => {
     const html = await $fetch("/");
     const match = html.match(/data-testid="json-data"[^>]*>([^<]*)<\/div>/);
     const decoded = match?.[1]?.trim().replace(/&quot;/g, '"');
     expect(decoded).toBe(JSON.stringify({ greeting: "hello", count: 3 }));
   });
 
-  it("reflects a 'loading' status in SSR HTML (browser client has not yet connected)", async () => {
+  test("reflects a 'loading' status in SSR HTML (browser client has not yet connected)", async () => {
     // Unlike Nuxt's SsrClient which delegates isReady from the server SDK, the Next.js provider
     // defers browser client creation to componentDidMount. SSR always renders 'loading'.
     const html = await $fetch("/");
@@ -47,19 +47,19 @@ describe("ConfigDirector Next.js SDK — SSR and initialConfigs", () => {
 });
 
 describe("ConfigDirector Next.js SDK — Server SDK hooks (via register())", () => {
-  it("calls the clientReady hook after the server SDK connects to the backend", async () => {
+  test("calls the clientReady hook after the server SDK connects to the backend", async () => {
     const data = await $fetchJson<{ clientReady: number; configsUpdated: number }>("/api/hook-calls");
     expect(data.clientReady).toBeGreaterThan(0);
   });
 
-  it("calls the configsUpdated hook after receiving the initial config bundle", async () => {
+  test("calls the configsUpdated hook after receiving the initial config bundle", async () => {
     const data = await $fetchJson<{ clientReady: number; configsUpdated: number }>("/api/hook-calls");
     expect(data.configsUpdated).toBeGreaterThan(0);
   });
 });
 
 describe("ConfigDirector Next.js SDK — Route Handler (server SDK client)", () => {
-  it("returns config values from the server SDK client", async () => {
+  test("returns config values from the server SDK client", async () => {
     const data = await $fetchJson<{
       welcomeMessage: string;
       featureEnabled: boolean;
@@ -72,27 +72,27 @@ describe("ConfigDirector Next.js SDK — Route Handler (server SDK client)", () 
     expect(data.itemCount).toBe(7);
   });
 
-  it("reports the server SDK client as ready after connecting to the mock backend", async () => {
+  test("reports the server SDK client as ready after connecting to the mock backend", async () => {
     const data = await $fetchJson<{ isReady: boolean }>("/api/config");
     expect(data.isReady).toBe(true);
   });
 
-  it("returns the default value for an unknown config key", async () => {
+  test("returns the default value for an unknown config key", async () => {
     const data = await $fetchJson<{ nonExistentKey: string }>("/api/config");
     expect(data.nonExistentKey).toBe("default-value");
   });
 
-  it("returns the json config value as a parsed object", async () => {
+  test("returns the json config value as a parsed object", async () => {
     const data = await $fetchJson<{ jsonData: object }>("/api/config");
     expect(data.jsonData).toEqual({ greeting: "hello", count: 3 });
   });
 
-  it("returns the raw json string when the default value type is string", async () => {
+  test("returns the raw json string when the default value type is string", async () => {
     const data = await $fetchJson<{ jsonDataRaw: string }>("/api/config");
     expect(data.jsonDataRaw).toBe(JSON.stringify({ greeting: "hello" }));
   });
 
-  it("returns the default object when the json config key is not in the server bundle", async () => {
+  test("returns the default object when the json config key is not in the server bundle", async () => {
     const data = await $fetchJson<{ jsonDataFallback: object }>("/api/config");
     expect(data.jsonDataFallback).toEqual({ label: "default" });
   });

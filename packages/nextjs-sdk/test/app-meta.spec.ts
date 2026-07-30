@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { chromium, type Browser } from "playwright";
 import { CLIENT_BUNDLE } from "./helpers/mock-sse-server";
 
@@ -20,7 +20,7 @@ const sseBody = (bundle: object) => `data: ${JSON.stringify(bundle)}\n\n`;
 
 describe("ConfigDirector Next.js SDK — appName/appVersion forwarding", () => {
   describe("register() stores metadata accessible via getAppMeta()", () => {
-    it("returns the appName and appVersion set in register()", async () => {
+    test("returns the appName and appVersion set in register()", async () => {
       const res = await fetch(url("/api/app-meta"));
       const data = await res.json();
       expect(data).toMatchObject({ appName: "test-app", appVersion: "1.2.3" });
@@ -38,7 +38,7 @@ describe("ConfigDirector Next.js SDK — appName/appVersion forwarding", () => {
       await browser?.close();
     });
 
-    it(
+    test(
       "includes appName and appVersion in the SSE connection request metaContext",
       { timeout: 30_000 },
       async () => {
