@@ -1,0 +1,28 @@
+name: Release All
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
+jobs:
+  client-sdk:
+    uses: ./.github/workflows/release-client-sdk.yml
+  nextjs-sdk:
+    uses: ./.github/workflows/release-nextjs-sdk.yml
+  nuxt-sdk:
+    uses: ./.github/workflows/release-nuxt-sdk.yml
+  openfeature-server:
+    uses: ./.github/workflows/release-openfeature-server.yml
+  openfeature-web:
+    uses: ./.github/workflows/release-openfeature-web.yml
+  react-native-sdk:
+    uses: ./.github/workflows/release-react-native-sdk.yml
+  react-web-sdk:
+    uses: ./.github/workflows/release-react-web-sdk.yml
+  server-sdk:
+    uses: ./.github/workflows/release-server-sdk.yml
+  vue-sdk:
+    uses: ./.github/workflows/release-vue-sdk.yml
