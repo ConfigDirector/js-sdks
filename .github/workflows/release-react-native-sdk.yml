@@ -2,7 +2,6 @@ name: Release @configdirector/react-native-sdk
 
 on:
   workflow_dispatch:
-  workflow_call:
 
 permissions:
   id-token: write # Required for OIDC

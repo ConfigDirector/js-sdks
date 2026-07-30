@@ -4,25 +4,28 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write # Required for OIDC
+  actions: write # Required to trigger workflow_dispatch on the release-*.yml workflows
   contents: read
 
 jobs:
-  client-sdk:
-    uses: ./.github/workflows/release-client-sdk.yml
-  nextjs-sdk:
-    uses: ./.github/workflows/release-nextjs-sdk.yml
-  nuxt-sdk:
-    uses: ./.github/workflows/release-nuxt-sdk.yml
-  openfeature-server:
-    uses: ./.github/workflows/release-openfeature-server.yml
-  openfeature-web:
-    uses: ./.github/workflows/release-openfeature-web.yml
-  react-native-sdk:
-    uses: ./.github/workflows/release-react-native-sdk.yml
-  react-web-sdk:
-    uses: ./.github/workflows/release-react-web-sdk.yml
-  server-sdk:
-    uses: ./.github/workflows/release-server-sdk.yml
-  vue-sdk:
-    uses: ./.github/workflows/release-vue-sdk.yml
+  trigger-all:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger all release workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for workflow in \
+            release-client-sdk.yml \
+            release-nextjs-sdk.yml \
+            release-nuxt-sdk.yml \
+            release-openfeature-server.yml \
+            release-openfeature-web.yml \
+            release-react-native-sdk.yml \
+            release-react-web-sdk.yml \
+            release-server-sdk.yml \
+            release-vue-sdk.yml; do
+            echo "Triggering $workflow on ${{ github.ref_name }}"
+            gh workflow run "$workflow" --ref "${{ github.ref_name }}"
+          done
