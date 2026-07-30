@@ -27,6 +27,7 @@ import type { TelemetryClient } from "./telemetry";
 import { defaultUrlFactory } from "@shared/url";
 import type { UrlFactory, UrlLike } from "@shared/url";
 import { CLIENT_BASE_URL } from "@shared/constants";
+import { generateInstanceId } from "@shared/instance-id";
 import { PollingTransport } from "./PollingTransport";
 const MAX_EXPONENTIAL_DELAY = 9; // 2^9 = 512 seconds, to cap it to under 10min
 
@@ -60,7 +61,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     clientOptions?: ConfigDirectorClientOptions,
     internalClientOptions?: InternalClientOptions,
   ) {
-    this.instanceId = crypto.randomUUID();
+    this.instanceId = generateInstanceId();
     this.logger = clientOptions?.logger ?? createDefaultLogger();
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
     this.validateSdkKeyPresence(clientSdkKey);
