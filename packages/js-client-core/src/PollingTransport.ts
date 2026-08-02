@@ -27,13 +27,20 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
   public async connect(context: ConfigDirectorContext, timeout: number): Promise<this> {
     this.clearPollingInterval();
 
-    await this.fetchConfigs(context, timeout);
-
-    this.schedulePollingInterval(() => {
-      void this.fetchConfigs(context, timeout).catch((error) => {
-        this.logger.error("[PollingTransport] Error during polling:", error);
-      });
-    });
+    try {
+      await this.fetchConfigs(context, timeout);
+    } finally {
+      // A transient failure on the first fetch must not leave the client without a
+      // connection, so polling is scheduled either way. An unrecoverable failure has
+      // already closed the transport and must not be retried.
+      if (!this.fatalError) {
+        this.schedulePollingInterval(() => {
+          void this.fetchConfigs(context, timeout).catch((error) => {
+            this.logger.error("[PollingTransport] Error during polling:", error);
+          });
+        });
+      }
+    }
 
     return this;
   }

@@ -1286,6 +1286,35 @@ describe("ConfigDirectorClient", () => {
       expect(client.isReady).toBe(false);
       expect(await commands.mswWasRequestReceived()).toBe(false);
     });
+
+    test("keeps polling after a transient failure on initialize", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, status: 500 });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      await client.initialize();
+      expect(client.isReady).toBe(false);
+
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "recovered",
+            },
+          },
+          "2024-01-01T00:00:00.000Z",
+        ),
+      });
+
+      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.waitFor(() => expect(client.getValue("my-config", "default")).toBe("recovered"), {
+        timeout: 1_000,
+      });
+      expect(client.isReady).toBe(true);
+    });
   });
 
   test("returns from initialize if the timeout is reached, but eventually connects", async () => {
