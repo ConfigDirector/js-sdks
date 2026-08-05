@@ -1,42 +1,50 @@
 import type { Operator } from "./types";
 import * as semver from "semver";
 
-export const compareSemver = (value: string | null | undefined, operator: Operator, targetValues: string[]) => {
+/**
+ * Semantic version comparisons.
+ *
+ * Both sides are coerced first, so partial versions such as `1.0` and `v`-prefixed ones are
+ * usable, and any prerelease or build suffix is dropped. A value that cannot be coerced matches
+ * nothing, which makes `is NOT one of` the only operator that can be true for it.
+ */
+export const compareSemver = (value: string, operator: Operator, targetValues: string[]) => {
   const lowercaseOperator = operator.toLowerCase();
-  if (value == null || value.trim().length == 0) {
-    return lowercaseOperator == "is not one of";
+  if (value.trim().length === 0) {
+    return lowercaseOperator === "is not one of";
   }
 
-  const semverValue = semver.coerce(value) ?? value;
-  const semverTargets = targetValues.map((v) => semver.coerce(v) ?? v);
-  try {
-    switch (lowercaseOperator) {
-      case "=":
-        return safeEquals(semverValue, semverTargets[0]);
-      case "<":
-        return semver.lt(semverValue, semverTargets[0]);
-      case "<=":
-        return semver.lte(semverValue, semverTargets[0]);
-      case ">":
-        return semver.gt(semverValue, semverTargets[0]);
-      case ">=":
-        return semver.gte(semverValue, semverTargets[0]);
-      case "is one of":
-        return semverTargets.findIndex((v) => safeEquals(semverValue, v)) >= 0;
-      case "is not one of":
-        return semverTargets.findIndex((v) => safeEquals(semverValue, v)) < 0;
-      default:
-        return false;
-    }
-  } catch {
-    return false;
+  const version = semver.coerce(value);
+  const targets = targetValues.map((target) => semver.coerce(target));
+  const first: semver.SemVer | null = targets[0] ?? null;
+
+  switch (lowercaseOperator) {
+    case "=":
+      return equals(version, first);
+    case "<":
+      return ordered(version, first, semver.lt);
+    case "<=":
+      return ordered(version, first, semver.lte);
+    case ">":
+      return ordered(version, first, semver.gt);
+    case ">=":
+      return ordered(version, first, semver.gte);
+    case "is one of":
+      return targets.some((target) => equals(version, target));
+    case "is not one of":
+      return !targets.some((target) => equals(version, target));
+    default:
+      return false;
   }
 };
 
-const safeEquals = (v1: string | semver.SemVer, v2: string | semver.SemVer): boolean => {
-  try {
-    return semver.eq(v1, v2);
-  } catch {
-    return false;
-  }
-};
+/** An operand that could not be coerced never compares equal. */
+const equals = (value: semver.SemVer | null, target: semver.SemVer | null): boolean =>
+  value !== null && target !== null && semver.eq(value, target);
+
+/** An operand that could not be coerced never satisfies an ordering comparison. */
+const ordered = (
+  value: semver.SemVer | null,
+  target: semver.SemVer | null,
+  compare: (a: semver.SemVer, b: semver.SemVer) => boolean,
+): boolean => value !== null && target !== null && compare(value, target);

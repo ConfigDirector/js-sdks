@@ -1462,10 +1462,12 @@ __metadata:
     "@eslint/js": "npm:^10.0.1"
     "@jsonjoy.com/json-pointer": "npm:^18.1.0"
     "@stylistic/eslint-plugin": "npm:^5.10.0"
+    "@types/luxon": "npm:^3"
     "@types/semver": "npm:^7"
     "@vitest/coverage-v8": "npm:^4.1.2"
     eslint: "npm:^10.7.0"
     globals: "npm:^17.3.0"
+    luxon: "npm:>=1.28.0 <4.0.0"
     msw: "npm:^2.12.9"
     prettier: "npm:^3.8.1"
     rapidhash-js: "npm:^3.0.0"
@@ -1719,11 +1721,13 @@ __metadata:
     "@eslint/js": "npm:^10.0.1"
     "@jsonjoy.com/json-pointer": "npm:^18.1.0"
     "@stylistic/eslint-plugin": "npm:^5.10.0"
+    "@types/luxon": "npm:^3"
     "@types/node": "npm:^25.5.0"
     "@types/semver": "npm:^7"
     "@vitest/coverage-v8": "npm:^4.1.2"
     eslint: "npm:^10.7.0"
     globals: "npm:^17.3.0"
+    luxon: "npm:>=1.28.0 <4.0.0"
     msw: "npm:^2.12.9"
     prettier: "npm:^3.8.1"
     rapidhash-js: "npm:^3.0.0"
@@ -6508,6 +6512,13 @@ __metadata:
   version: 7.0.15
   resolution: "@types/json-schema@npm:7.0.15"
   checksum: 10c0/a996a745e6c5d60292f36731dd41341339d4eeed8180bb09226e5c8d23759067692b1d88e5d91d72ee83dfc00d3aca8e7bd43ea120516c17922cbcb7c3e252db
+  languageName: node
+  linkType: hard
+
+"@types/luxon@npm:^3":
+  version: 3.7.3
+  resolution: "@types/luxon@npm:3.7.3"
+  checksum: 10c0/eae897fcadc5ff925a590c1d4dde3becf4a2520e26c066a7552905bc8a537b7b779aa081e3d403031fd8dd705810bc41b6f353bdc4c11e19e26ecc481e1d3ec3
   languageName: node
   linkType: hard
 
@@ -13730,6 +13741,13 @@ __metadata:
   dependencies:
     yallist: "npm:^3.0.2"
   checksum: 10c0/89b2ef2ef45f543011e38737b8a8622a2f8998cddf0e5437174ef8f1f70a8b9d14a918ab3e232cb3ba343b7abddffa667f0b59075b2b80e6b4d63c3de6127482
+  languageName: node
+  linkType: hard
+
+"luxon@npm:>=1.28.0 <4.0.0":
+  version: 3.7.2
+  resolution: "luxon@npm:3.7.2"
+  checksum: 10c0/ed8f0f637826c08c343a29dd478b00628be93bba6f068417b1d8896b61cb61c6deacbe1df1e057dbd9298334044afa150f9aaabbeb3181418ac8520acfdc2ae2
   languageName: node
   linkType: hard
 

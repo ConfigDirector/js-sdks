@@ -1,37 +1,47 @@
 import type { Operator } from "./types";
 
-export const compareText = (value: string | null | undefined, operator: Operator, targetValues: string[]) => {
+/**
+ * Text comparisons.
+ *
+ * `value` is always a string: an absent attribute has already been rendered to "".
+ *
+ * An empty `targetValues` makes the single-target operators false — there is nothing to compare
+ * against — while the "any of" operators fall out naturally, so "is NOT one of nothing" is true.
+ */
+export const compareText = (value: string, operator: Operator, targetValues: string[]) => {
+  const first: string | undefined = targetValues[0];
+
   switch (operator.toLowerCase()) {
     case "=":
     case "equals":
-      return value == targetValues[0];
+      return first !== undefined && value === first;
     case "!=":
     case "does not equal":
-      return value != targetValues[0];
+      return first !== undefined && value !== first;
     case "is one of":
-      return targetValues.includes(value as any);
+      return targetValues.includes(value);
     case "is not one of":
-      return !targetValues.includes(value as any);
+      return !targetValues.includes(value);
     case "starts with any of":
-      return targetValues.findIndex((v) => value?.startsWith(v)) >= 0;
+      return targetValues.some((target) => value.startsWith(target));
     case "does not start with any of":
-      return targetValues.findIndex((v) => value?.startsWith(v)) < 0;
+      return !targetValues.some((target) => value.startsWith(target));
     case "ends with any of":
-      return targetValues.findIndex((v) => value?.endsWith(v)) >= 0;
+      return targetValues.some((target) => value.endsWith(target));
     case "does not end with any of":
-      return targetValues.findIndex((v) => value?.endsWith(v)) < 0;
+      return !targetValues.some((target) => value.endsWith(target));
     case "matches regex":
-      return matchesRegex(targetValues[0], value);
+      return first !== undefined && matchesRegex(first, value);
     case "does not match regex":
-      return !matchesRegex(targetValues[0], value);
+      return first !== undefined && !matchesRegex(first, value);
     default:
       return false;
   }
 };
 
-const matchesRegex = (regexString: string, value: string | null | undefined) => {
+const matchesRegex = (regexString: string, value: string) => {
   try {
-    return new RegExp(regexString).test(value as any);
+    return new RegExp(regexString).test(value);
   } catch {
     return false;
   }

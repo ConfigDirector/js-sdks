@@ -5,61 +5,68 @@ import { compareNumeric } from "./numeric-comparison";
 import { compareDate } from "./date-comparison";
 import { compareSemver } from "./semver-comparison";
 import { compareArray } from "./array-comparison";
+import { ABSENT, UNKNOWN_ATTRIBUTE, render, unwrap, type Resolved } from "./render";
 
 export class ConditionEvaluator {
+  /**
+   * Decide whether a condition holds for a context.
+   *
+   *
+   * An attribute the context does not carry is not an error: it resolves to the empty string, so
+   * a condition can still match or not match on its own terms.
+   */
   public evaluate(condition: Condition, context?: EvaluationContext): boolean {
-    if (!this.isConditionValidForComparison(condition)) {
+    const value = this.resolve(condition, context);
+    if (value === UNKNOWN_ATTRIBUTE) {
       return false;
     }
 
-    switch (condition.attribute) {
-      case "identifier":
-        return this.compare(context?.context?.id, condition);
-      case "name":
-        return this.compare(context?.context?.name, condition);
-      case "appName":
-        return this.compare(context?.metadata?.appName, condition);
-      case "appVersion":
-        return this.compare(context?.metadata?.appVersion, condition);
-      case "traits":
-        if (condition.trait) {
-          const value = this.findTraitValue(context?.context?.traits, condition.trait);
-          return this.compare(value, condition);
-        }
+    const targetValues = condition.targetValues ?? [];
+
+    switch (condition.targetType) {
+      case "text":
+        return compareText(render(value), condition.operator, targetValues);
+      case "number":
+        return compareNumeric(unwrap(value), condition.operator, targetValues);
+      case "datetime":
+        return compareDate(render(value), condition.operator, targetValues);
+      case "semver":
+        return compareSemver(render(value), condition.operator, targetValues);
+      case "array":
+        return compareArray(unwrap(value), condition.operator, targetValues);
     }
 
     return false;
   }
 
-  private compare(
-    value: any,
-    condition: Condition,
-  ): boolean {
-    switch (condition.targetType) {
-      case "text":
-        return compareText(value?.toString(), condition.operator, condition.targetValues);
-      case "number":
-        return compareNumeric(value, condition.operator, condition.targetValues);
-      case "datetime":
-        return compareDate(value?.toString(), condition.operator, condition.targetValues);
-      case "semver":
-        return compareSemver(value?.toString(), condition.operator, condition.targetValues);
-      case "array":
-        return compareArray(value, condition.operator, condition.targetValues);
+  /** The raw value a condition targets, or one of the two sentinels. */
+  private resolve(condition: Condition, context?: EvaluationContext): Resolved {
+    switch (condition.attribute) {
+      case "identifier":
+        return orAbsent(context?.context?.id);
+      case "name":
+        return orAbsent(context?.context?.name);
+      case "appName":
+        return orAbsent(context?.metadata?.appName);
+      case "appVersion":
+        return orAbsent(context?.metadata?.appVersion);
+      case "traits":
+        if (!condition.trait) {
+          return ABSENT;
+        }
+        return orAbsent(this.findTraitValue(context?.context?.traits, condition.trait));
+      default:
+        return UNKNOWN_ATTRIBUTE;
     }
-    return false;
   }
 
   private findTraitValue(traits: Record<string, unknown> | undefined, path: string) {
     try {
-      const reference = findByPointer(path, traits);
-      return reference.val;
+      return findByPointer(path, traits).val;
     } catch {
       return undefined;
     }
   }
-
-  private isConditionValidForComparison(condition: Condition): boolean {
-    return Array.isArray(condition.targetValues) && condition.targetValues.length > 0;
-  }
 }
+
+const orAbsent = (value: unknown): Resolved => (value === undefined || value === null ? ABSENT : value);

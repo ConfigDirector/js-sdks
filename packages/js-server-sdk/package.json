@@ -55,6 +55,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/luxon": "^3",
     "@types/node": "^25.5.0",
     "@types/semver": "^7",
     "@vitest/coverage-v8": "^4.1.2",
@@ -72,6 +73,7 @@
   },
   "dependencies": {
     "@jsonjoy.com/json-pointer": "^18.1.0",
+    "luxon": ">=1.28.0 <4.0.0",
     "rapidhash-js": "^3.0.0",
     "semver": "^7.7.4"
   }
