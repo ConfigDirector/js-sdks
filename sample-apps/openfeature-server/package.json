@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@configdirector/openfeature-server-provider": "^0.9.0",
+    "@configdirector/openfeature-server-provider": "^0.10.0",
     "@openfeature/core": "^1.11.0",
     "@openfeature/server-sdk": "^1.22.0"
   },

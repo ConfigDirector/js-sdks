@@ -5,12 +5,12 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@configdirector/openfeature-server-provider@npm:^0.9.0":
-  version: 0.9.0
-  resolution: "@configdirector/openfeature-server-provider@npm:0.9.0"
+"@configdirector/openfeature-server-provider@npm:^0.10.0":
+  version: 0.10.0
+  resolution: "@configdirector/openfeature-server-provider@npm:0.10.0"
   peerDependencies:
     "@openfeature/server-sdk": ^1.17.1
-  checksum: 10c0/4de0a2b36c2a32405edca3625d6a271d9873b115fe490ff62c3979038cd0cc396d570b7c10f5f4fb5f45b145570e8cb27fcdc6b4fc906bc62339edfbd18a35de
+  checksum: 10c0/bb0a4147889dd3cfa0261e200be5045ebf1ad1be00589aa7b6811dd6fdea6b4454fc11d5e9404a39dd9b0145f683030305fd4b491eb3e660effcf17cb4b0776a
   languageName: node
   linkType: hard
 
@@ -18,7 +18,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/openfeature-server-sample-app@workspace:."
   dependencies:
-    "@configdirector/openfeature-server-provider": "npm:^0.9.0"
+    "@configdirector/openfeature-server-provider": "npm:^0.10.0"
     "@openfeature/core": "npm:^1.11.0"
     "@openfeature/server-sdk": "npm:^1.22.0"
     "@types/node": "npm:^24.0.0"
