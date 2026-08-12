@@ -40,12 +40,14 @@
   ],
   "scripts": {
     "build": "nuxt prepare && tsdown",
+    "verify:dist": "node ../../scripts/verify-dist-version.mjs",
     "prepack": "nuxt prepare && tsdown",
-    "release": "nuxt prepare && yarn lint && yarn ci:test && yarn build && npm publish --access public",
+    "release": "nuxt prepare && yarn lint && yarn ci:test && yarn build && yarn verify:dist && npm publish --access public",
     "lint": "eslint .",
     "ci:test": "vitest run",
     "test": "vitest watch",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@jsonjoy.com/json-pointer": "^18.1.0",
@@ -58,9 +60,9 @@
   "devDependencies": {
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/eslint-config": "^1.15.2",
-    "@nuxt/schema": "^4.4.2",
+    "@nuxt/schema": "4.4.8",
     "@nuxt/test-utils": "^4.0.2",
-    "@types/node": "latest",
+    "@types/node": "^24.13.3",
     "changelogen": "^0.6.2",
     "eslint": "^10.7.0",
     "nuxt": "^4.4.8",

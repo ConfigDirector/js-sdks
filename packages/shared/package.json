@@ -9,7 +9,8 @@
     "build": "",
     "lint": "eslint .",
     "test": "vitest",
-    "ci:test": "vitest run"
+    "ci:test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

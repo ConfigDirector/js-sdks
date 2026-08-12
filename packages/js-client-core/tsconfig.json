@@ -17,7 +17,6 @@
     "lib": [
       "ES2017",
       "DOM",
-      "WebWorker",
     ],
     "noImplicitReturns": true,
     "noImplicitOverride": true,

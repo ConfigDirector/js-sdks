@@ -12,7 +12,7 @@ export default defineNuxtConfig({
           "@js-browser-client/*": ["../../js-browser-client/src/*"],
           "@js-server-sdk/*": ["../../js-server-sdk/src/*"],
           "@shared/*": ["../../shared/src/*"],
-          "@config-evaluator/*": ["../config-evaluator/src/*"],
+          "@config-evaluator/*": ["../../config-evaluator/src/*"],
         },
       },
     },

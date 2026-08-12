@@ -4,19 +4,29 @@ import {
   type TelemetryClient,
 } from "@js-client-core/telemetry";
 import { mapToTelemetryValue, type TelemetryValue } from "@shared/telemetry/utils";
-import type { ConfigDirectorContext, ConfigDirectorLogger, ConfigValueType } from "@shared/types";
+import type {
+  ConfigDirectorContext,
+  ConfigDirectorLogger,
+  ConfigValueType,
+  IdentifyingSdkOptions,
+} from "@shared/types";
 import type { UrlFactory, UrlLike } from "@shared/url";
 import { generateValueId } from "./value-id-generator";
+
+type ReactNativeTelemetryClientOptions = {
+  sdkKey: string;
+  sdkIdentity: IdentifyingSdkOptions;
+  baseUrl: UrlLike;
+  logger: ConfigDirectorLogger;
+  urlFactory: UrlFactory;
+};
 
 export class ReactNativeTelemetryClient implements TelemetryClient {
   private readonly collector: ClientTelemetryEventCollector;
 
-  constructor(sdkKey: string, baseUrl: UrlLike, logger: ConfigDirectorLogger, urlFactory: UrlFactory) {
+  constructor(options: ReactNativeTelemetryClientOptions) {
     this.collector = new ClientTelemetryEventCollector({
-      sdkKey,
-      logger,
-      baseUrl,
-      urlFactory,
+      ...options,
       valueIdGenerator: async (v: string | boolean | number | null | undefined) => generateValueId(v),
     });
   }

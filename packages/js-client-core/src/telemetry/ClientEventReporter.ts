@@ -1,5 +1,5 @@
 import { isDroppedEventsEmpty, isEventListEmpty } from "@shared/telemetry/utils";
-import type { ConfigDirectorContext, ConfigDirectorLogger } from "../types";
+import type { ConfigDirectorContext, ConfigDirectorLogger, IdentifyingSdkOptions } from "../types";
 import type {
   AggregatedEventList,
   DiscreteEventList,
@@ -14,6 +14,7 @@ import type { UrlFactory, UrlLike } from "@shared/url";
 
 export type EventReporterOptions = {
   sdkKey: string;
+  sdkIdentity: IdentifyingSdkOptions;
   logger: ConfigDirectorLogger;
   baseUrl: UrlLike;
   urlFactory: UrlFactory;
@@ -21,6 +22,7 @@ export type EventReporterOptions = {
 
 export class ClientEventReporter implements EventReporter {
   private readonly sdkKey: string;
+  private readonly sdkIdentity: IdentifyingSdkOptions;
   private readonly logger: ConfigDirectorLogger;
   private readonly url: UrlLike;
   private executeRequests = true;
@@ -28,6 +30,7 @@ export class ClientEventReporter implements EventReporter {
   constructor(options: EventReporterOptions) {
     this.sdkKey = options.sdkKey;
     this.logger = options.logger;
+    this.sdkIdentity = options.sdkIdentity;
     this.url = options.urlFactory("client/telemetry/v1", options.baseUrl);
   }
 
@@ -48,6 +51,10 @@ export class ClientEventReporter implements EventReporter {
 
     const eventReport: EventReport = {
       clientSdkKey: this.sdkKey,
+      metaContext: {
+        sdkName: this.sdkIdentity.sdkName,
+        sdkVersion: this.sdkIdentity.sdkVersion,
+      },
       context,
       discreteEvents,
       aggregatedEvents,

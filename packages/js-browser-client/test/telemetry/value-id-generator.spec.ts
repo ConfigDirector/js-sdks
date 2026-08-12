@@ -10,7 +10,7 @@ describe("ValueIdGenerator", () => {
 
   test("output only contains base62 characters", async () => {
     const result = await generateValueId("hello");
-    expect([...result].every((c) => BASE62.includes(c))).toBe(true);
+    expect(result.split("").every((c) => BASE62.includes(c))).toBe(true);
   });
 
   test("is deterministic", async () => {

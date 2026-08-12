@@ -11,6 +11,10 @@ const logger = createStubbedLogger();
 const createCollector = (options: Record<string, unknown> = {}) =>
   new ServerTelemetryEventCollector({
     sdkKey: "sdk-key",
+    sdkIdentity: {
+      sdkName: "tests",
+      sdkVersion: "1.5.6",
+    },
     logger,
     baseUrl: new URL(BASE_URL),
     urlFactory: defaultUrlFactory,
@@ -69,6 +73,8 @@ describe("ServerTelemetryEventCollector", () => {
       expect(capturedPayloads).toHaveLength(1);
       const payload = capturedPayloads[0];
       expect(payload.serverSdkKey).toBe("sdk-key");
+      expect(payload.metaContext.sdkName).toBe("tests");
+      expect(payload.metaContext.sdkVersion).toBe("1.5.6");
       expect(payload.aggregatedEvents.evaluatedConfig).toHaveLength(1);
       expect(payload.aggregatedEvents.evaluatedConfig[0]).toMatchObject({
         count: 1,

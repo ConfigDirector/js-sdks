@@ -9,7 +9,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <ConfigDirectorProvider
           sdkKey={process.env["CONFIGDIRECTOR_CLIENT_KEY"] ?? ""}
-          url={process.env.CONFIGDIRECTOR_BASE_URL}
+          url={process.env["CONFIGDIRECTOR_BASE_URL"]}
           timeout={2_000}
         >
           {children}

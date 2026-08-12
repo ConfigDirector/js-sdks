@@ -70,6 +70,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     const queueLimit = clientOptions?.telemetry?.eventQueueLimit ?? DEFAULT_EVENT_QUEUE_LIMIT;
     this.usageEventCollector = new ServerTelemetryEventCollector({
       sdkKey: serverSdkKey,
+      sdkIdentity: sdkOptions,
       logger: this.logger,
       baseUrl,
       flushIntervalDelay: clientOptions?.telemetry?.flushInterval ?? DEFAULT_FLUSH_INTERVAL,

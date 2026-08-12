@@ -368,6 +368,11 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
       const payload = telemetryPayloads[0] as Record<string, unknown>;
       expect(payload).toHaveProperty("aggregatedEvents");
 
+      expect(payload["metaContext"]).toEqual({
+        sdkName: "nextjs-sdk",
+        sdkVersion: "__VERSION__",
+      });
+
       await page.close();
     },
   );

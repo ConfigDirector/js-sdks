@@ -18,7 +18,7 @@
     "strict": true,
     "declaration": true,
     "declarationMap": true,
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "noImplicitReturns": true,
     "noImplicitOverride": true,
     "noUnusedLocals": true,

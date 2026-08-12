@@ -8,7 +8,6 @@ import type {
   Percentage,
   PercentageRule,
   Rule,
-  Condition,
   ConfigDirectorLogger,
 } from "./types";
 
@@ -91,16 +90,15 @@ export class ConfigEvaluator {
       configId: config.id,
       contextIdentifier: context?.context?.id ?? crypto.randomUUID(),
     });
-    let index = 0;
     let sum = 0.0;
     let bucket: Percentage | undefined = undefined;
-    while (!bucket && index < percentages.length) {
-      if (assignedPercentage <= percentages[index].percentage + sum) {
-        bucket = percentages[index];
+    for (const percentage of percentages) {
+      if (assignedPercentage <= percentage.percentage + sum) {
+        bucket = percentage;
+        break;
       }
 
-      sum += percentages[index].percentage;
-      index += 1;
+      sum += percentage.percentage;
     }
 
     if (bucket?.value != null) {
@@ -114,15 +112,9 @@ export class ConfigEvaluator {
     config: Config,
     context?: EvaluationContext,
   ): RuleEvaluationResult {
-    const conditions = rule.conditions ?? [];
-    let index = 0;
-    let condition: Condition | undefined = undefined;
-    while (!condition && index < conditions.length) {
-      if (this.conditionEvaluator.evaluate(conditions[index], context)) {
-        condition = conditions[index];
-      }
-      index += 1;
-    }
+    const condition = (rule.conditions ?? []).find((candidate) =>
+      this.conditionEvaluator.evaluate(candidate, context),
+    );
 
     if (condition && rule.target == "value" && rule.value != null) {
       return { success: true, value: rule.value.toString() };

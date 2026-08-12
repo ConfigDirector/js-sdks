@@ -6,6 +6,6 @@ export type {
   ConfigDirectorLogger,
   ConfigDirectorLoggingLevel,
   ConfigDirectorLogMessageDecorator,
-} from "@js-client-core/index";
+} from "@js-server-sdk/index";
 
 export { ConfigDirectorProvider } from "./ConfigDirectorProvider";

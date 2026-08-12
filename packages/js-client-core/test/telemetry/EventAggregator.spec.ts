@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { EvaluatedConfigEvent } from "../../src/telemetry/telemetry-events";
+import type { EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
 import { EventQueue } from "@shared/telemetry/EventQueue";
 import { EventAggregator } from "@shared/telemetry/EventAggregator";
 

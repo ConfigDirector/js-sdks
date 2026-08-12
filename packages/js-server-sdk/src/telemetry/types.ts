@@ -9,6 +9,10 @@ export type ServerTelemetryEventCollectorOptions = TelemetryEventCollectorOption
 
 export type EventReport = {
   serverSdkKey: string;
+  metaContext: {
+    sdkName: string;
+    sdkVersion: string;
+  },
   discreteEvents: DiscreteEventList;
   aggregatedEvents: AggregatedEventList;
   droppedEvents?: DroppedEvents;

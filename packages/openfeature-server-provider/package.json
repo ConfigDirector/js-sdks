@@ -45,12 +45,14 @@
   "module": "dist/configdirector-openfeature-server-provider.mjs",
   "scripts": {
     "build": "tsdown",
+    "verify:dist": "node ../../scripts/verify-dist-version.mjs",
     "clean": "rm -fr dist",
     "lint": "eslint .",
     "test": "vitest",
     "coverage": "vitest run --coverage",
     "ci:test": "vitest run",
-    "release": "yarn clean && yarn lint && yarn ci:test && yarn build && npm publish --access public"
+    "typecheck": "tsc --noEmit",
+    "release": "yarn clean && yarn lint && yarn ci:test && yarn build && yarn verify:dist && npm publish --access public"
   },
   "peerDependencies": {
     "@openfeature/server-sdk": "^1.17.1"
@@ -58,7 +60,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@openfeature/core": "^1.11.0",
-    "@openfeature/server-sdk": "^1.22.0",
+    "@openfeature/server-sdk": "^1.23.0",
     "@rollup/plugin-replace": "^6.0.3",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@vitest/coverage-v8": "^4.1.2",

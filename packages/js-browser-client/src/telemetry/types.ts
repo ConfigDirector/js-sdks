@@ -1,4 +1,4 @@
-import type { ConfigDirectorContext, ConfigDirectorLoggingLevel } from "@js-client-core/types";
+import type { ConfigDirectorContext, ConfigDirectorLoggingLevel, IdentifyingSdkOptions } from "@js-client-core/types";
 import type { EvaluatedConfigEvent } from "@js-client-core/telemetry";
 import type { TelemetryValue } from "@shared/telemetry/utils";
 export * from "@shared/telemetry/types";
@@ -22,6 +22,7 @@ export type TelemetryInitializeEvent = {
   type: "Initialize";
   payload: {
     sdkKey: string;
+    sdkIdentity: IdentifyingSdkOptions;
     baseUrl: string;
     evaluationQueueLimit: number;
     initialFlushIntervalDelay: number;

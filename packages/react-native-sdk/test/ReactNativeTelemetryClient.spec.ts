@@ -33,9 +33,29 @@ beforeEach(() => {
   MockCollector.mockImplementation(() => collectorMock as any);
 });
 
-const makeClient = () => new ReactNativeTelemetryClient("sdk-key", BASE_URL, logger, stubUrlFactory as any);
+const makeClient = () =>
+  new ReactNativeTelemetryClient({
+    sdkKey: "sdk-key",
+    sdkIdentity: { sdkName: "tests", sdkVersion: "1.3.4" },
+    baseUrl: BASE_URL,
+    logger,
+    urlFactory: stubUrlFactory as any,
+  });
 
 describe("ReactNativeTelemetryClient", () => {
+  describe("constructor", () => {
+    test("forwards the SDK identity to the collector", () => {
+      makeClient();
+
+      expect(MockCollector).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sdkKey: "sdk-key",
+          sdkIdentity: { sdkName: "tests", sdkVersion: "1.3.4" },
+        }),
+      );
+    });
+  });
+
   describe("evaluatedConfig", () => {
     test("passes string values through unchanged", () => {
       makeClient().evaluatedConfig({

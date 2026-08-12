@@ -12,8 +12,11 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "esModuleInterop": true,
-    "types": ["vitest/globals", "@testing-library/jest-dom/vitest"],
+    "types": ["vitest/globals"],
     "strict": true,
+    // @testing-library/vue@8.1.0 imports RemoveIndexSignature from type-fest, an export
+    // removed in type-fest v4. No upstream fix exists (8.1.0 is the latest release).
+    "skipLibCheck": true,
     "declaration": true,
     "declarationMap": true,
     "lib": [

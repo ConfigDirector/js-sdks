@@ -41,13 +41,14 @@
     "example": "yarn workspace @configdirector/react-native-sdk-example",
     "clean": "rm -fr dist",
     "build": "tsdown",
+    "verify:dist": "node ../../scripts/verify-dist-version.mjs",
     "prepare": "yarn build",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest --watchAll",
     "ci:test": "jest --ci",
     "coverage": "jest --ci --coverage",
-    "release": "yarn clean && yarn lint && yarn ci:test && yarn build && npm publish --access public"
+    "release": "yarn clean && yarn lint && yarn ci:test && yarn build && yarn verify:dist && npm publish --access public"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

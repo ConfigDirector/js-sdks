@@ -1,4 +1,4 @@
-import type { ConfigDirectorContext, ConfigDirectorLogger } from "../types";
+import type { ConfigDirectorContext, ConfigDirectorLogger, IdentifyingSdkOptions } from "../types";
 import { EventAggregator } from "./EventAggregator";
 import { EventQueue } from "./EventQueue";
 import type { EventReporter, EventSnapshotPreprocessor, ReportableEvent, ReporterResponse, ValueIdGenerator } from "./types";
@@ -6,6 +6,7 @@ import type { UrlFactory, UrlLike } from "../url";
 
 export type TelemetryEventCollectorOptions = {
   sdkKey: string;
+  sdkIdentity: IdentifyingSdkOptions;
   logger: ConfigDirectorLogger;
   baseUrl: UrlLike;
   urlFactory: UrlFactory;

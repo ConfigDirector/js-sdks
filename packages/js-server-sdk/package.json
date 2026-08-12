@@ -42,6 +42,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "verify:dist": "node ../../scripts/verify-dist-version.mjs",
     "clean": "rm -fr dist",
     "lint": "eslint .",
     "test": "vitest",
@@ -49,14 +50,14 @@
     "ci:test": "vitest run",
     "ci:test:bun": "bun run vitest run",
     "ci:test:deno": "deno run -A npm:vitest run",
-    "release": "yarn clean && yarn lint && yarn ci:test && yarn build && npm publish --access public",
+    "release": "yarn clean && yarn lint && yarn ci:test && yarn build && yarn verify:dist && npm publish --access public",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/luxon": "^3",
-    "@types/node": "^25.5.0",
+    "@types/node": "^24.13.3",
     "@types/semver": "^7",
     "@vitest/coverage-v8": "^4.1.2",
     "eslint": "^10.7.0",

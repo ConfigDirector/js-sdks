@@ -1,4 +1,14 @@
 {
   "extends": "./.nuxt/tsconfig.json",
-  "exclude": ["dist", "node_modules"],
+  "exclude": [
+    "dist",
+    "node_modules",
+    // Standalone Nuxt app with its own .nuxt — its auto-imports are generated there,
+    // not here, so they are not resolvable from this project. Exercised at test time
+    // by @nuxt/test-utils, which builds it against its own config.
+    "test/fixtures",
+    // Imports ../../scripts/inline-worker-plugin.mjs, outside the rootDir that Nuxt
+    // generates for this project.
+    "tsdown.config.js",
+  ],
 }

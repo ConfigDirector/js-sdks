@@ -332,6 +332,11 @@ describe("ConfigDirector Nuxt SDK — Browser composables", async () => {
         const payload = telemetryPayloads[0] as Record<string, unknown>;
         // The payload contains aggregated evaluation events from getValue() calls
         expect(payload).toHaveProperty("aggregatedEvents");
+
+        expect(payload["metaContext"]).toEqual({
+          sdkName: "nuxt-sdk",
+          sdkVersion: "__VERSION__",
+        });
       }
 
       await page.close();

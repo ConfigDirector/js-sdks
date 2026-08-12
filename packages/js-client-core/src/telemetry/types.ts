@@ -6,6 +6,10 @@ export * from "@shared/telemetry/types";
 export type EventReport = {
   clientSdkKey: string;
   context?: ConfigDirectorContext | undefined;
+  metaContext: {
+    sdkName: string;
+    sdkVersion: string;
+  },
   discreteEvents: DiscreteEventList;
   aggregatedEvents: AggregatedEventList;
   droppedEvents?: DroppedEvents;

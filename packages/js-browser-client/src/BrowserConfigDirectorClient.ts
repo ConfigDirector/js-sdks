@@ -19,6 +19,10 @@ export const createBrowserClient = (
   const baseUrl = parseUrl(clientOptions?.connection?.url) ?? CLIENT_BASE_URL;
   const telemetryClient = new WebWorkerTelemetryClient({
     sdkKey: clientSdkKey,
+    sdkIdentity: {
+      sdkName: sdkOptions.sdkName,
+      sdkVersion: sdkOptions.sdkVersion,
+    },
     logger: logger,
     baseUrl,
     urlFactory: defaultUrlFactory,

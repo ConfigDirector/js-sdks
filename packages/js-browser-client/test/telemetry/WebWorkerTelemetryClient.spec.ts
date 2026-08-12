@@ -17,6 +17,10 @@ const IMMEDIATE_FLUSH_THRESHOLD = 200;
 const createClient = (options: Record<string, unknown> = {}) =>
   new WebWorkerTelemetryClient({
     sdkKey: "sdk-key",
+    sdkIdentity: {
+      sdkName: "browser-tests",
+      sdkVersion: "1.2.3",
+    },
     logger,
     baseUrl: new URL(BASE_URL),
     initialFlushIntervalDelay: INITIAL_FLUSH_DELAY,
@@ -151,6 +155,46 @@ describe("TelemetryClient", () => {
         });
       },
     );
+  });
+
+  describe("metaContext", () => {
+    test("reports the SDK identity given to the client", async () => {
+      client = createClient();
+
+      client.evaluatedConfig(baseEvent);
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      const payload = payloads[0] as EventReport;
+      expect(payload.metaContext).toEqual({ sdkName: "browser-tests", sdkVersion: "1.2.3" });
+    });
+
+    test("carries a caller-supplied SDK identity across the worker boundary", async () => {
+      client = createClient({ sdkIdentity: { sdkName: "wrapper-sdk", sdkVersion: "4.5.6" } });
+
+      client.evaluatedConfig(baseEvent);
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      const payload = payloads[0] as EventReport;
+      expect(payload.metaContext).toEqual({ sdkName: "wrapper-sdk", sdkVersion: "4.5.6" });
+    });
+
+    test("reports the SDK identity on every flush, not just the first", async () => {
+      client = createClient();
+
+      client.evaluatedConfig(baseEvent);
+      await waitForPayloadCount(1);
+
+      client.evaluatedConfig(baseEvent);
+      await waitForPayloadCount(2);
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads).toHaveLength(2);
+      for (const payload of payloads as EventReport[]) {
+        expect(payload.metaContext).toEqual({ sdkName: "browser-tests", sdkVersion: "1.2.3" });
+      }
+    });
   });
 
   describe("updateContext", () => {

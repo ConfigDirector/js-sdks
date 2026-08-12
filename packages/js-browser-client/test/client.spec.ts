@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
 import type { ConfigDirectorClient, ConfigDirectorClientOptions } from "../src";
 import { createBrowserClient } from "../src";
-import { SSE_URL, POLLING_URL, createStubbedLogger } from "./helpers";
+import { SSE_URL, POLLING_URL, TELEMETRY_URL, createStubbedLogger } from "./helpers";
 
 const logger = createStubbedLogger();
 
@@ -56,6 +56,36 @@ describe("ConfigDirectorClient", () => {
         userAgent: expect.stringContaining("Mozilla"),
       }),
     );
+  });
+
+  test("reports the SDK identity it was created with in telemetry", async () => {
+    await commands.mswUseHandlers(
+      { url: POLLING_URL, responseBody: full() },
+      { url: TELEMETRY_URL, status: 202 },
+    );
+
+    client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
+    await client.initialize();
+    client.getValue("example-config", "Hello");
+
+    const visibilityState = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    try {
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      const report = await vi.waitFor(
+        async () => {
+          const payloads = (await commands.mswGetPayloads()) as Record<string, unknown>[];
+          const telemetry = payloads.find((payload) => "aggregatedEvents" in payload);
+          if (!telemetry) throw new Error("No telemetry report captured yet");
+          return telemetry;
+        },
+        { timeout: 8_000, interval: 50 },
+      );
+
+      expect(report["metaContext"]).toEqual({ sdkName: "test-sdk", sdkVersion: "1.2.0" });
+    } finally {
+      visibilityState.mockRestore();
+    }
   });
 
   test("returns the default value when the config was not sent from the server", async () => {

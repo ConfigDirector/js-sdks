@@ -41,12 +41,14 @@
   "module": "dist/configdirector-vue-client.mjs",
   "scripts": {
     "build": "tsdown",
+    "verify:dist": "node ../../scripts/verify-dist-version.mjs",
     "clean": "rm -fr dist",
     "lint": "eslint .",
     "test": "vitest",
     "coverage": "vitest run --coverage",
     "ci:test": "vitest run",
-    "release": "yarn clean && yarn lint && yarn ci:test && yarn build && npm publish --access public"
+    "typecheck": "tsc --noEmit",
+    "release": "yarn clean && yarn lint && yarn ci:test && yarn build && yarn verify:dist && npm publish --access public"
   },
   "peerDependencies": {
     "vue": ">=3.2.24"
@@ -54,6 +56,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@msw/playwright": "^0.6.7",
+    "@playwright/test": "1.60.0",
     "@rollup/plugin-replace": "^6.0.3",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@testing-library/dom": "^10.4.1",

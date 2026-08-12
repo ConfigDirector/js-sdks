@@ -4,25 +4,32 @@ import { ClientTelemetryEventCollector } from "../../src/telemetry/ClientTelemet
 import type { EventReport } from "../../src/telemetry/types";
 import { BASE_URL, TELEMETRY_URL, createStubbedLogger } from "../helpers";
 import { defaultUrlFactory } from "@shared/url";
+import type { EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
+import type { TelemetryValue } from "@shared/telemetry/utils";
 
 const logger = createStubbedLogger();
 
 const createCollector = (options: Record<string, unknown> = {}) =>
   new ClientTelemetryEventCollector({
     sdkKey: "sdk-key",
+    sdkIdentity: {
+      sdkName: "client-tests",
+      sdkVersion: "1.0.1",
+    },
     logger,
     baseUrl: new URL(BASE_URL),
+    valueIdGenerator: async () => "value-id",
     urlFactory: defaultUrlFactory,
     ...options,
   });
 
-const baseEvent = {
+const baseEvent: EvaluatedConfigEvent<TelemetryValue> = {
   contextId: "user-id",
   key: "my-config",
   type: "string" as const,
-  defaultValue: "default",
+  defaultValue: { value: "default" },
   requestedType: "string",
-  evaluatedValue: "hello",
+  evaluatedValue: { value: "hello" },
   usedDefault: false,
   evaluationReason: "found-match" as const,
 };
@@ -45,7 +52,14 @@ const waitForPayloadCount = async (count: number) => {
  * timers are active, so this is safe inside fake-timer tests.
  */
 const drainNetwork = () =>
-  vi.waitFor(() => { throw new Error(); }, { timeout: 100, interval: 50 }).catch(() => {});
+  vi
+    .waitFor(
+      () => {
+        throw new Error();
+      },
+      { timeout: 100, interval: 50 },
+    )
+    .catch(() => {});
 
 beforeAll(async () => {
   await commands.mswSetup();
@@ -81,6 +95,8 @@ describe("ClientTelemetryEventCollector", () => {
       expect(payloads).toHaveLength(1);
       const payload = payloads[0] as EventReport;
       expect(payload.clientSdkKey).toBe("sdk-key");
+      expect(payload.metaContext.sdkName).toBe("client-tests");
+      expect(payload.metaContext.sdkVersion).toBe("1.0.1");
       expect(payload.aggregatedEvents["evaluatedConfig"]).toHaveLength(1);
       expect(payload.aggregatedEvents["evaluatedConfig"][0]).toMatchObject({
         count: 1,
@@ -88,7 +104,7 @@ describe("ClientTelemetryEventCollector", () => {
           contextId: "user-id",
           key: "my-config",
           type: "string",
-          evaluatedValue: "hello",
+          evaluatedValue: { value: "hello" },
           evaluationReason: "found-match",
         }),
       });
@@ -119,8 +135,8 @@ describe("ClientTelemetryEventCollector", () => {
 
     test("sends distinct events as separate aggregated entries", async () => {
       collector = createCollector();
-      collector.evaluatedConfig({ ...baseEvent, key: "config-a", evaluatedValue: "foo" });
-      collector.evaluatedConfig({ ...baseEvent, key: "config-b", evaluatedValue: "bar" });
+      collector.evaluatedConfig({ ...baseEvent, key: "config-a", evaluatedValue: { value: "foo" } });
+      collector.evaluatedConfig({ ...baseEvent, key: "config-b", evaluatedValue: { value: "bar" } });
 
       await vi.advanceTimersByTimeAsync(5_000);
       await waitForPayloadCount(1);
@@ -219,12 +235,12 @@ describe("ClientTelemetryEventCollector", () => {
       collector.evaluatedConfig(baseEvent);
       await vi.advanceTimersByTimeAsync(5_000);
       await waitForPayloadCount(1);
-      expect((await commands.mswGetPayloads())).toHaveLength(1);
+      expect(await commands.mswGetPayloads()).toHaveLength(1);
 
       collector.evaluatedConfig(baseEvent);
       await vi.advanceTimersByTimeAsync(10_000);
       await waitForPayloadCount(2);
-      expect((await commands.mswGetPayloads())).toHaveLength(2);
+      expect(await commands.mswGetPayloads()).toHaveLength(2);
     });
   });
 
