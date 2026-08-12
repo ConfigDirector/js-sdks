@@ -5,6 +5,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "git config core.hooksPath .githooks || true",
     "build": "yarn workspaces foreach -A run build",
     "lint": "yarn workspaces foreach -A run lint",
     "coverage": "yarn workspaces foreach -A run coverage",

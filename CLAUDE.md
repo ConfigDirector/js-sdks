@@ -61,6 +61,7 @@ yarn clean       # rimraf dist/**
 - **Testing**: Vitest 4 — jsdom for browser packages, node for server packages
 - **Linting**: ESLint 10 flat config with `@typescript-eslint` and `@stylistic`
 - **Formatting**: Prettier (`bracketSameLine: true`)
+- **Git hooks**: shared in `.githooks/`, wired up by the root `postinstall` (`git config core.hooksPath .githooks`). `pre-push` runs typecheck → lint → test → build; bypass with `git push --no-verify`
 
 ## Code Style
 
