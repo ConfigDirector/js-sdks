@@ -59,6 +59,37 @@ describe("ConfigEvaluator", () => {
       expect(evaluator.evaluate(config, { context: { id: "20" } }).value).toEqual("Group B");
     });
 
+    // A bucket spans [start, end), so a 0% bucket is empty and unreachable no matter who asks.
+    // With an inclusive boundary it would take one of the 1000 reachable hash values, and a
+    // variation turned down to 0% would still serve roughly 0.1% of traffic.
+    test("a 0% bucket is unreachable for every identifier", () => {
+      const config: Config = {
+        id: CONFIG_ID,
+        key: "config-without-rules",
+        type: "string",
+        variations: [],
+        target: {
+          defaultValue: "this-is-the-default",
+          rules: [
+            {
+              id: crypto.randomUUID(),
+              order: 0,
+              type: "percentage",
+              target: "percentage",
+              percentages: [
+                { value: "never", percentage: 0, id: crypto.randomUUID() },
+                { value: "always", percentage: 100, id: crypto.randomUUID() },
+              ],
+            },
+          ],
+        },
+      };
+
+      for (let i = 0; i < 4000; i++) {
+        expect(evaluator.evaluate(config, { context: { id: `user-${i}` } }).value).toEqual("always");
+      }
+    });
+
     test("falls back to the default value for some users if the percentages don't add up to 100%", () => {
       const config: Config = {
         id: CONFIG_ID,

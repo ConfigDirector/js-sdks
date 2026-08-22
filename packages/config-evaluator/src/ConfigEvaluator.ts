@@ -92,8 +92,11 @@ export class ConfigEvaluator {
     });
     let sum = 0.0;
     let bucket: Percentage | undefined = undefined;
+    // A bucket spans [sum, sum + percentage). Strict, so a context landing exactly on a boundary
+    // belongs to the bucket that starts there -- which is what keeps a 0% bucket unreachable and
+    // each bucket's share exact. See SEMANTICS.md §7.1 in targeting-rules-contract.
     for (const percentage of percentages) {
-      if (assignedPercentage <= percentage.percentage + sum) {
+      if (assignedPercentage < percentage.percentage + sum) {
         bucket = percentage;
         break;
       }
