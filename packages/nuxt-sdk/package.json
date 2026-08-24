@@ -58,7 +58,7 @@
     "semver": "^7.7.4"
   },
   "devDependencies": {
-    "@nuxt/devtools": "^3.2.4",
+    "@nuxt/devtools": "^3.4.2",
     "@nuxt/eslint-config": "^1.15.2",
     "@nuxt/schema": "4.4.8",
     "@nuxt/test-utils": "^4.0.2",
