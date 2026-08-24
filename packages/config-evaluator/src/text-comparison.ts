@@ -30,19 +30,7 @@ export const compareText = (value: string, operator: Operator, targetValues: str
       return targetValues.some((target) => value.endsWith(target));
     case "does not end with any of":
       return !targetValues.some((target) => value.endsWith(target));
-    case "matches regex":
-      return first !== undefined && matchesRegex(first, value);
-    case "does not match regex":
-      return first !== undefined && !matchesRegex(first, value);
     default:
       return false;
-  }
-};
-
-const matchesRegex = (regexString: string, value: string) => {
-  try {
-    return new RegExp(regexString).test(value);
-  } catch {
-    return false;
   }
 };

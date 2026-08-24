@@ -161,78 +161,6 @@ describe("ConditionEvaluator", () => {
       },
     );
 
-    test("evaluates identifier matches regex", () => {
-      const condition: Condition = {
-        id: "a",
-        attribute: "identifier",
-        trait: undefined,
-        operator: "matches regex",
-        targetType: "text",
-        targetValues: ["[A-Z]"],
-      };
-
-      expect(evaluator.evaluate(condition, { context: { id: "ALEJANDRO" } })).toBe(true);
-      expect(evaluator.evaluate(condition, { context: { id: "B" } })).toBe(true);
-      expect(evaluator.evaluate(condition, { context: { id: "123456" } })).toBe(false);
-      expect(evaluator.evaluate(condition, { context: { id: "." } })).toBe(false);
-      expect(evaluator.evaluate(condition, { context: {} })).toBe(false);
-    });
-
-    test("evaluates identifier matches regex with invalid regex", () => {
-      const condition: Condition = {
-        id: "a",
-        attribute: "identifier",
-        trait: undefined,
-        operator: "matches regex",
-        targetType: "text",
-        targetValues: ["["],
-      };
-
-      expect(evaluator.evaluate(condition, { context: { id: "ALEJANDRO" } })).toBe(false);
-      expect(evaluator.evaluate(condition, { context: { id: "B" } })).toBe(false);
-      expect(evaluator.evaluate(condition, { context: { id: "123456" } })).toBe(false);
-      expect(evaluator.evaluate(condition, { context: { id: "." } })).toBe(false);
-    });
-
-    test.each(["does NOT match regex", "does not match regex"] as Operator[])(
-      "evaluates identifier does NOT match regex (operator: %s)",
-      (operator) => {
-        const condition: Condition = {
-          id: "a",
-          attribute: "identifier",
-          trait: undefined,
-          operator,
-          targetType: "text",
-          targetValues: ["[A-Z]"],
-        };
-
-        expect(evaluator.evaluate(condition, { context: { id: "123456" } })).toBe(true);
-        expect(evaluator.evaluate(condition, { context: { id: "." } })).toBe(true);
-        expect(evaluator.evaluate(condition, { context: {} })).toBe(true);
-        expect(evaluator.evaluate(condition, { context: { id: "ALEJANDRO" } })).toBe(false);
-        expect(evaluator.evaluate(condition, { context: { id: "B" } })).toBe(false);
-      },
-    );
-
-    test.each(["does NOT match regex", "does not match regex"] as Operator[])(
-      "evaluates identifier does NOT match regex with invalid regex (operator: %s)",
-      (operator) => {
-        const condition: Condition = {
-          id: "a",
-          attribute: "identifier",
-          trait: undefined,
-          operator,
-          targetType: "text",
-          targetValues: ["["],
-        };
-
-        expect(evaluator.evaluate(condition, { context: { id: "ALEJANDRO" } })).toBe(true);
-        expect(evaluator.evaluate(condition, { context: { id: "B" } })).toBe(true);
-        expect(evaluator.evaluate(condition, { context: { id: "123456" } })).toBe(true);
-        expect(evaluator.evaluate(condition, { context: { id: "." } })).toBe(true);
-      },
-    );
-
     test.each(["equals", "="] as const)("evaluates name equals (operator: %s)", (operator) => {
       const condition: Condition = {
         id: "a",
@@ -324,38 +252,6 @@ describe("ConditionEvaluator", () => {
       ).toBe(true);
     });
 
-    test.each(["^u", "undefined", "[a-z]", ".+"])(
-      "does not match a missing identifier against the literal text 'undefined' (pattern: %s)",
-      (pattern) => {
-        const condition: Condition = {
-          id: "a",
-          attribute: "identifier",
-          trait: undefined,
-          operator: "matches regex",
-          targetType: "text",
-          targetValues: [pattern],
-        };
-
-        expect(evaluator.evaluate(condition, {})).toBe(false);
-      },
-    );
-
-    test.each(["^$", ".*"])(
-      "matches a missing identifier against a pattern that accepts the empty string (pattern: %s)",
-      (pattern) => {
-        const condition: Condition = {
-          id: "a",
-          attribute: "identifier",
-          trait: undefined,
-          operator: "matches regex",
-          targetType: "text",
-          targetValues: [pattern],
-        };
-
-        expect(evaluator.evaluate(condition, {})).toBe(true);
-      },
-    );
-
     test("evaluates a missing or null trait as empty text", () => {
       const condition: Condition = {
         id: "a",
@@ -441,7 +337,6 @@ describe("ConditionEvaluator", () => {
       "ends with any of",
       "=",
       "!=",
-      "matches regex",
     ] as Operator[])("does not match when there are no target values (operator: %s)", (operator) => {
       const condition: Condition = {
         id: "a",

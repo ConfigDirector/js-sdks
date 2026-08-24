@@ -10,8 +10,6 @@ export const TextOperatorList = [
   "does NOT start with any of",
   "ends with any of",
   "does NOT end with any of",
-  "matches regex",
-  "does NOT match regex",
 ] as const;
 export const NumberOperatorList = ["=", "!=", ">", ">=", "<", "<="] as const;
 export const SemverOperatorList = ["is one of", "is NOT one of", ">", ">=", "<", "<="] as const;
