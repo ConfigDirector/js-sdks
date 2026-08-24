@@ -10,7 +10,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
-    "@configdirector/react-native-sdk": "^0.10.0",
+    "@configdirector/react-native-sdk": "^1.0.0",
     "@expo/vector-icons": "^15.1.1",
     "expo": "^57.0.9",
     "expo-dev-client": "~57.0.10",

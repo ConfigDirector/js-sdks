@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@configdirector/client-sdk": "^0.10.0"
+    "@configdirector/client-sdk": "^1.0.0"
   },
   "devDependencies": {
     "typescript": "~5.9.2",
