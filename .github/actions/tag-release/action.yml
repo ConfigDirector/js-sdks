@@ -1,0 +1,31 @@
+name: Tag release
+description: Tags the released commit with <package>-v<version> after a successful npm publish
+inputs:
+  package_dir:
+    description: 'Path to the package directory that was published, relative to the repo root'
+    required: true
+  github_token:
+    description: 'Token used to create the tag'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Create release tag
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        GH_REPO: ${{ github.repository }}
+        PACKAGE_DIR: ${{ inputs.package_dir }}
+      run: |
+        set -euo pipefail
+        name=$(node -p "require('./$PACKAGE_DIR/package.json').name.split('/').pop()")
+        version=$(node -p "require('./$PACKAGE_DIR/package.json').version")
+        tag="$name-v$version"
+
+        if gh api "repos/$GH_REPO/git/ref/tags/$tag" >/dev/null 2>&1; then
+          echo "Tag $tag already exists, nothing to do"
+          exit 0
+        fi
+
+        gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA" >/dev/null
+        echo "Tagged $GITHUB_SHA as $tag"

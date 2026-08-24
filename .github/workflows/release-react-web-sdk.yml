@@ -5,7 +5,7 @@ on:
 
 permissions:
   id-token: write # Required for OIDC
-  contents: read
+  contents: write # Required to tag the released commit
 
 jobs:
   release:
@@ -19,3 +19,9 @@ jobs:
 
       - run: yarn release
         working-directory: ./packages/react-web-sdk
+
+      - name: Tag release
+        uses: ./.github/actions/tag-release
+        with:
+          package_dir: packages/react-web-sdk
+          github_token: ${{ github.token }}
