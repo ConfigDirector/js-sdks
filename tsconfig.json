@@ -2,16 +2,5 @@
   "files": [],
   "compilerOptions": {
     "resolveJsonModule": true
-  },
-  "references": [
-    {
-      "path": "./packages/js-client-core/tsconfig.ref.json"
-    },
-    {
-      "path": "./packages/js-client-sdk/tsconfig.ref.json"
-    },
-    {
-      "path": "./packages/react-web-sdk/tsconfig.ref.json"
-    },
-  ]
+  }
 }
