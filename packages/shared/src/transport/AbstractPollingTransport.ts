@@ -21,6 +21,7 @@ export abstract class AbstractPollingTransport {
     if (!response.ok) {
       if (this.isStatusFatal(response.status)) {
         this.fatalError = true;
+        this.close();
         throw this.prepareFatalResponseStatusError(response.status, await response.text());
       } else {
         throw new ConfigDirectorConnectionError(

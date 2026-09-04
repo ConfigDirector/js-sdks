@@ -9,6 +9,15 @@ class TestPollingTransport extends AbstractPollingTransport {
     this.handleFetchError(error);
   }
 
+  public async handleResponse(response: Response) {
+    await this.handleNonOkResponse(response);
+  }
+
+  public startPolling() {
+    this.pollingIntervalSeconds = 60;
+    this.schedulePollingInterval(() => {});
+  }
+
   public get hasFatalError(): boolean {
     return this.fatalError;
   }
@@ -57,6 +66,44 @@ describe("AbstractPollingTransport", () => {
 
       expect(() => transport.handle(new Error("boom"))).toThrow("Connection failed with error");
       expect(transport.hasFatalError).toBe(false);
+    });
+  });
+
+  describe("handleNonOkResponse", () => {
+    test("closes the transport on a fatal response status", async () => {
+      const transport = new TestPollingTransport();
+      transport.startPolling();
+
+      await expect(
+        transport.handleResponse(new Response("Unauthorized", { status: 401 })),
+      ).rejects.toThrow(/unrecoverable/);
+
+      expect(transport.hasFatalError).toBe(true);
+      expect(transport.isConnected).toBe(false);
+    });
+
+    test("keeps the transport open on a transient response status", async () => {
+      const transport = new TestPollingTransport();
+      transport.startPolling();
+
+      await expect(
+        transport.handleResponse(new Response("Server error", { status: 500 })),
+      ).rejects.toThrow("Connection failed with status: 500");
+
+      expect(transport.hasFatalError).toBe(false);
+      expect(transport.isConnected).toBe(true);
+      transport.close();
+    });
+
+    test("does nothing on a successful response", async () => {
+      const transport = new TestPollingTransport();
+      transport.startPolling();
+
+      await transport.handleResponse(new Response("{}", { status: 200 }));
+
+      expect(transport.hasFatalError).toBe(false);
+      expect(transport.isConnected).toBe(true);
+      transport.close();
     });
   });
 });

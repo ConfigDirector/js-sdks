@@ -221,6 +221,26 @@ describe("PollingTransport", () => {
       expect(received).toHaveLength(1);
     });
 
+    test("closes the transport when a poll receives a fatal response", async () => {
+      let callCount = 0;
+      server.use(
+        http.post(POLLING_URL, () => {
+          callCount++;
+          if (callCount === 1) return HttpResponse.json(fullBundle);
+          return HttpResponse.text("Unauthorized", { status: 401 });
+        }),
+      );
+
+      vi.useFakeTimers();
+      transport = createTransport(1);
+      await transport.connect(5000);
+      expect(transport.isConnected).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(transport.isConnected).toBe(false);
+    });
+
     test("keeps polling after a network error on connect", async () => {
       let callCount = 0;
       server.use(
