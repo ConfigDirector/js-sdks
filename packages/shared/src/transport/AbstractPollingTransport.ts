@@ -61,12 +61,7 @@ export abstract class AbstractPollingTransport {
   }
 
   protected isFetchErrorFatal(fetchError: unknown): boolean {
-    if ((fetchError as any)?.name === "NotAllowedError") {
-      return true;
-    } else if (fetchError instanceof TypeError) {
-      return true;
-    }
-    return false;
+    return (fetchError as any)?.name === "NotAllowedError";
   }
 
   public get isConnected(): boolean {

@@ -221,6 +221,51 @@ describe("PollingTransport", () => {
       expect(received).toHaveLength(1);
     });
 
+    test("keeps polling after a network error on connect", async () => {
+      let callCount = 0;
+      server.use(
+        http.post(POLLING_URL, () => {
+          callCount++;
+          if (callCount === 1) return HttpResponse.error();
+          return HttpResponse.json(fullBundle);
+        }),
+      );
+
+      const received: any[] = [];
+      vi.useFakeTimers();
+      transport = createTransport(1);
+      transport.on("configBundleReceived", (b) => received.push(b));
+      await expect(transport.connect(5000)).rejects.toThrow("Connection failed with error");
+
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(callCount).toBe(2);
+      expect(received).toHaveLength(1);
+    });
+
+    test("keeps polling after a network error during a poll", async () => {
+      let callCount = 0;
+      server.use(
+        http.post(POLLING_URL, () => {
+          callCount++;
+          if (callCount === 2) return HttpResponse.error();
+          return HttpResponse.json(fullBundle);
+        }),
+      );
+
+      const received: any[] = [];
+      vi.useFakeTimers();
+      transport = createTransport(1);
+      transport.on("configBundleReceived", (b) => received.push(b));
+      await transport.connect(5000);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(callCount).toBe(3);
+      expect(received).toHaveLength(2);
+    });
+
     test("resets the polling interval when connect is called again", async () => {
       server.use(http.post(POLLING_URL, () => HttpResponse.json(fullBundle)));
 
