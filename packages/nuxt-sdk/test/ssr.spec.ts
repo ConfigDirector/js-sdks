@@ -44,6 +44,15 @@ describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
       const decoded = match?.[1]?.trim().replace(/&quot;/g, '"');
       expect(decoded).toBe(JSON.stringify({ greeting: "hello", count: 3 }));
     });
+
+    test("does not accumulate watch handlers on the shared server client across SSR renders", async () => {
+      await $fetch("/");
+      await $fetch("/");
+      await $fetch("/");
+
+      const { count } = await $fetch<{ count: number }>("/api/watch-handlers");
+      expect(count).toBe(0);
+    });
   });
 
   describe("Server composable (useConfigDirectorClient) in a Nitro event handler", () => {

@@ -2,7 +2,6 @@ import type {
   ConfigDirectorClient,
   ConfigDirectorContext,
   ConfigValueType,
-  WatchHandler,
 } from "@js-client-core/index";
 import { createDefaultLogger } from "./logger";
 import type { ConfigDirectorClient as ServerConfigDirectorClient } from "@configdirector/server-sdk";
@@ -71,21 +70,13 @@ class SsrClient implements ConfigDirectorClient {
     return this.serverClient.getValue(configKey, defaultValue, this.currentContext);
   }
 
-  watch<T extends ConfigValueType>(
-    configKey: string,
-    defaultValue: T,
-    callback: WatchHandler<T>,
-  ): () => void {
-    return this.serverClient.watch(configKey, defaultValue, callback, this.currentContext);
+  watch(): () => void {
+    return () => {};
   }
 
-  unwatch<T extends ConfigValueType>(configKey: string, callback?: WatchHandler<T>): void {
-    return this.serverClient.unwatch(configKey, callback);
-  }
+  unwatch(): void {}
 
-  unwatchAll(): void {
-    return this.serverClient.unwatchAll();
-  }
+  unwatchAll(): void {}
 
   pauseNetwork(): void {}
 
