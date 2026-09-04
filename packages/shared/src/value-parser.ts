@@ -40,7 +40,7 @@ export const parseConfigValue = <T extends ConfigValueType>(
   const value = configState.value;
   const requestedType = getRequestedType(defaultValue);
 
-  if (!value) {
+  if (value == null) {
     return {
       parsedValue: defaultValue as T,
       parsedValueId: undefined,

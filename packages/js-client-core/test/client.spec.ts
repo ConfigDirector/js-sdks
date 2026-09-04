@@ -653,7 +653,7 @@ describe("ConfigDirectorClient", () => {
       });
     });
 
-    test("emits with reason 'value-missing' when the config state has no value", async () => {
+    test("emits with reason 'found-match' when the config state has an empty string value", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -663,6 +663,36 @@ describe("ConfigDirectorClient", () => {
                 key: "my-config",
                 type: "string",
                 value: "",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events = collectEvents();
+
+      client.getValue("my-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0].evaluation).toEqual({
+        key: "my-config",
+        value: "",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+    });
+
+    test("emits with reason 'value-missing' when the config state has no value", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: null,
               },
             }),
           },

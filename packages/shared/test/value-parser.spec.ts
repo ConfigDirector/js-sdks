@@ -45,15 +45,25 @@ describe("value parser", () => {
       });
     });
 
-    test("returns the default value when the config value is missing", () => {
+    test("returns an empty string value as-is", () => {
       expect(parseConfigValue(configState("string", ""), "Default")).toMatchObject({
+        parsedValue: "",
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "string",
+        usedDefault: false,
+      });
+    });
+
+    test("returns the default value when the config value is missing", () => {
+      expect(parseConfigValue(configState("string", undefined), "Default")).toMatchObject({
         parsedValue: "Default",
         parsedValueId: undefined,
         reason: "value-missing",
         requestedType: "string",
         usedDefault: true,
       });
-      expect(parseConfigValue(configState("string", undefined), "Default")).toMatchObject({
+      expect(parseConfigValue(configState("string", null), "Default")).toMatchObject({
         parsedValue: "Default",
         parsedValueId: undefined,
         reason: "value-missing",
@@ -92,7 +102,7 @@ describe("value parser", () => {
       expect(parseConfigValue(configState("integer", ""), 10)).toMatchObject({
         parsedValue: 10,
         parsedValueId: undefined,
-        reason: "value-missing",
+        reason: "invalid-number",
         requestedType: "number",
         usedDefault: true,
       });
@@ -152,7 +162,7 @@ describe("value parser", () => {
       expect(parseConfigValue(configState("float", ""), 10.2)).toMatchObject({
         parsedValue: 10.2,
         parsedValueId: undefined,
-        reason: "value-missing",
+        reason: "invalid-number",
         requestedType: "number",
         usedDefault: true,
       });
@@ -219,7 +229,7 @@ describe("value parser", () => {
       expect(parseConfigValue(configState("boolean", ""), true)).toMatchObject({
         parsedValue: true,
         parsedValueId: undefined,
-        reason: "value-missing",
+        reason: "invalid-boolean",
         requestedType: "boolean",
         usedDefault: true,
       });
@@ -377,6 +387,26 @@ describe("value parser", () => {
         reason: "invalid-json",
         requestedType: "Object",
         usedDefault: true,
+      });
+    });
+
+    test("treats an empty string as invalid JSON when the generic type is object", () => {
+      expect(parseConfigValue(configState("json", ""), { otherData: "bye" })).toMatchObject({
+        parsedValue: { otherData: "bye" },
+        parsedValueId: undefined,
+        reason: "invalid-json",
+        requestedType: "Object",
+        usedDefault: true,
+      });
+    });
+
+    test("returns an empty string value as-is when the generic type is string", () => {
+      expect(parseConfigValue(configState("json", ""), "default")).toMatchObject({
+        parsedValue: "",
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "string",
+        usedDefault: false,
       });
     });
   });

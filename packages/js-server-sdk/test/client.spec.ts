@@ -1201,7 +1201,7 @@ describe("ConfigDirectorClient", () => {
         return buildResponse(stream);
       });
 
-    const serverConfig = (key: string, type: string, value: string) => ({
+    const serverConfig = (key: string, type: string, value?: string) => ({
       id: "00000000-0000-0000-0000-000000000001",
       key,
       type,
@@ -1265,8 +1265,26 @@ describe("ConfigDirectorClient", () => {
       });
     });
 
-    test("emits with reason 'value-missing' when the config has an empty value", async () => {
+    test("emits with reason 'found-match' when the config has an empty string value", async () => {
       server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string", "") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: any[] = [];
+      client.on("configEvaluated", (e) => events.push(e));
+
+      client.getValue("my-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0].evaluation).toEqual({
+        key: "my-config",
+        value: "",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+    });
+
+    test("emits with reason 'value-missing' when the config has no value", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string") }));
       const client = createClient("sdk-key", { logger });
       await client.initialize();
       const events: any[] = [];
