@@ -66,7 +66,7 @@ export const parseConfigValue = <T extends ConfigValueType>(
 
   if (
     typeof defaultValue === "boolean" &&
-    (configState.type === "boolean" || configState.type === "string")
+    (configState.type === "boolean" || configState.type === "string" || configState.type === "enum")
   ) {
     const boolValue = parseConfigBoolean(value);
     const hasBoolean = typeof boolValue === "boolean";
@@ -106,11 +106,11 @@ export const parseConfigValue = <T extends ConfigValueType>(
   }
 
   return {
-    parsedValue: value as T,
-    parsedValueId: configState.valueId,
+    parsedValue: defaultValue,
+    parsedValueId: undefined,
     requestedType,
-    usedDefault: false,
-    reason: "found-match",
+    usedDefault: true,
+    reason: "type-mismatch",
   };
 };
 
@@ -164,8 +164,18 @@ const parseJson = <T extends ConfigValueType>(
   }
 
   try {
+    const parsed = JSON.parse(jsonString);
+    if (!isJsonTypeCompatible(parsed, defaultValue)) {
+      return {
+        parsedValue: defaultValue,
+        parsedValueId: undefined,
+        requestedType,
+        usedDefault: true,
+        reason: "type-mismatch",
+      };
+    }
     return {
-      parsedValue: JSON.parse(jsonString),
+      parsedValue: parsed,
       parsedValueId: valueId,
       requestedType,
       usedDefault: false,
@@ -180,4 +190,15 @@ const parseJson = <T extends ConfigValueType>(
       reason: "invalid-json",
     };
   }
+};
+
+const isJsonTypeCompatible = (parsed: unknown, defaultValue: ConfigValueType): boolean => {
+  if (parsed === null) {
+    return false;
+  }
+  const defaultType = typeof defaultValue;
+  if (defaultType === "bigint") {
+    return typeof parsed === "number";
+  }
+  return typeof parsed === defaultType;
 };

@@ -343,15 +343,66 @@ describe("value parser", () => {
         usedDefault: false,
       });
 
+    });
+
+    test("returns the default value when the JSON value is null and the generic type is object", () => {
       expect(parseConfigValue(configState("json", JSON.stringify(null)), { otherData: "bye" })).toMatchObject(
         {
-          parsedValue: null,
-          parsedValueId: testValueId,
-          reason: "found-match",
+          parsedValue: { otherData: "bye" },
+          parsedValueId: undefined,
+          reason: "type-mismatch",
           requestedType: "Object",
-          usedDefault: false,
+          usedDefault: true,
         },
       );
+    });
+
+    test("returns primitive JSON values when the generic type matches", () => {
+      expect(parseConfigValue(configState("json", "true"), false)).toMatchObject({
+        parsedValue: true,
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "boolean",
+        usedDefault: false,
+      });
+      expect(parseConfigValue(configState("json", "42.5"), 10)).toMatchObject({
+        parsedValue: 42.5,
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "number",
+        usedDefault: false,
+      });
+    });
+
+    test("returns the default value when the parsed JSON type does not match the generic type", () => {
+      expect(parseConfigValue(configState("json", '{"a":1}'), 10)).toMatchObject({
+        parsedValue: 10,
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "number",
+        usedDefault: true,
+      });
+      expect(parseConfigValue(configState("json", "[1,2]"), true)).toMatchObject({
+        parsedValue: true,
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "boolean",
+        usedDefault: true,
+      });
+      expect(parseConfigValue(configState("json", "42"), { otherData: "bye" })).toMatchObject({
+        parsedValue: { otherData: "bye" },
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "Object",
+        usedDefault: true,
+      });
+      expect(parseConfigValue(configState("json", '"hello"'), { otherData: "bye" })).toMatchObject({
+        parsedValue: { otherData: "bye" },
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "Object",
+        usedDefault: true,
+      });
     });
 
     test("returns the value as an array when the config type is json and generic type is array", () => {
@@ -449,6 +500,132 @@ describe("value parser", () => {
         reason: "found-match",
         requestedType: "boolean",
         usedDefault: false,
+      });
+    });
+
+    test("returns the config value when an 'enum' config is requested as a parseable boolean", () => {
+      expect(parseConfigValue(configState("enum", "TRUE"), false)).toMatchObject({
+        parsedValue: true,
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "boolean",
+        usedDefault: false,
+      });
+    });
+
+    test("returns the default value when an 'enum' config is requested as a boolean but cannot be parsed", () => {
+      expect(parseConfigValue(configState("enum", "on"), false)).toMatchObject({
+        parsedValue: false,
+        parsedValueId: undefined,
+        reason: "invalid-boolean",
+        requestedType: "boolean",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the default value when a numeric config is requested as a boolean", () => {
+      expect(parseConfigValue(configState("integer", "42"), true)).toMatchObject({
+        parsedValue: true,
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "boolean",
+        usedDefault: true,
+      });
+      expect(parseConfigValue(configState("float", "1.5"), false)).toMatchObject({
+        parsedValue: false,
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "boolean",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the default value when a 'url' config is requested as a boolean or number", () => {
+      expect(parseConfigValue(configState("url", "https://example.com"), true)).toMatchObject({
+        parsedValue: true,
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "boolean",
+        usedDefault: true,
+      });
+      expect(parseConfigValue(configState("url", "https://example.com"), 10)).toMatchObject({
+        parsedValue: 10,
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "number",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the default value when a 'boolean' config is requested as a number", () => {
+      expect(parseConfigValue(configState("boolean", "true"), 10)).toMatchObject({
+        parsedValue: 10,
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "number",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the default value when a 'boolean' config is requested as a bigint", () => {
+      expect(parseConfigValue(configState("boolean", "true"), BigInt(10) as unknown as number)).toMatchObject({
+        parsedValue: BigInt(10),
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "bigint",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the default value when a non-json config is requested as an object", () => {
+      for (const type of ["string", "boolean", "integer", "float", "enum", "url"] as const) {
+        expect(parseConfigValue(configState(type, "some-value"), { otherData: "bye" })).toMatchObject({
+          parsedValue: { otherData: "bye" },
+          parsedValueId: undefined,
+          reason: "type-mismatch",
+          requestedType: "Object",
+          usedDefault: true,
+        });
+      }
+    });
+
+    test("returns the default value when a non-json config is requested as an array", () => {
+      expect(parseConfigValue(configState("string", "a,b,c"), ["a"])).toMatchObject({
+        parsedValue: ["a"],
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "Array",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the default value when a 'custom' config is requested as a non-string", () => {
+      expect(parseConfigValue(configState("custom", "42"), 10)).toMatchObject({
+        parsedValue: 10,
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "number",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the raw string for an unknown config type when the generic type is string", () => {
+      expect(parseConfigValue(configState("something-new" as any, "veryfast"), "default")).toMatchObject({
+        parsedValue: "veryfast",
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "string",
+        usedDefault: false,
+      });
+    });
+
+    test("returns the default value for an unknown config type when the generic type is not string", () => {
+      expect(parseConfigValue(configState("something-new" as any, "veryfast"), true)).toMatchObject({
+        parsedValue: true,
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "boolean",
+        usedDefault: true,
       });
     });
   });
