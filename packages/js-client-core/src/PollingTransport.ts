@@ -21,7 +21,13 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     this.options = options;
     this.logger = options.logger;
     this.url = options.resolveUrl("client/polling/v1", options.baseUrl);
-    this.pollingIntervalSeconds = options.pollingInterval ?? 60;
+    const requestedInterval = options.pollingInterval ?? 300;
+    if (requestedInterval < 60) {
+      this.logger.warn(
+        `[PollingTransport] pollingInterval of ${requestedInterval} seconds is below the minimum of 60 seconds. Using 60 seconds.`,
+      );
+    }
+    this.pollingIntervalSeconds = Math.max(requestedInterval, 60);
   }
 
   public async connect(context: ConfigDirectorContext, timeout: number): Promise<this> {

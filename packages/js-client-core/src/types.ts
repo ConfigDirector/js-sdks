@@ -61,7 +61,8 @@ export type ConfigDirectorClientOptions = {
      * The polling interval in _seconds_ when the `mode` is set to `polling`. This option has no
      * effect when the `mode` is set to `streaming`.
      *
-     * Defaults to 60 seconds
+     * Defaults to 300 seconds (5 minutes). Values below the minimum of 60 seconds are raised
+     * to 60 seconds.
      */
     pollingInterval?: number;
     /**

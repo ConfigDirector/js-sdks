@@ -379,7 +379,7 @@ describe("ConfigDirectorClient", () => {
       await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
       const client = createClient("sdk-key", {
         logger,
-        connection: { mode: "polling", pollingInterval: 10 },
+        connection: { mode: "polling", pollingInterval: 60 },
       });
       await client.initialize();
       await client.updateContext({ id: "user-1", name: "Alice", traits: {} });

@@ -1144,7 +1144,7 @@ describe("ConfigDirectorClient", () => {
     test("polls for config state changes on the configured interval", async () => {
       await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
 
-      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
       await client.initialize();
       expect(client.getValue("my-config", "default")).toBe("default");
 
@@ -1163,8 +1163,47 @@ describe("ConfigDirectorClient", () => {
         ),
       });
 
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(() => expect(client.getValue("my-config", "default")).toBe("polled-value"), {
+        timeout: 1_000,
+      });
+    });
+
+    test("defaults the polling interval to 5 minutes", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+      await client.initialize();
+
+      await vi.advanceTimersByTimeAsync(299_000);
+      await sleep(100);
+      expect(await commands.mswGetPayloads()).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(2), {
+        timeout: 1_000,
+      });
+    });
+
+    test("raises polling intervals below 60 seconds to 60 seconds", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      client = createClient("sdk-key", {
+        logger: warningLogger,
+        connection: { mode: "polling", pollingInterval: 10 },
+      });
+      await client.initialize();
+      expect(warningLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("below the minimum of 60 seconds"),
+      );
+
+      await vi.advanceTimersByTimeAsync(59_000);
+      await sleep(100);
+      expect(await commands.mswGetPayloads()).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(2), {
         timeout: 1_000,
       });
     });
@@ -1173,11 +1212,11 @@ describe("ConfigDirectorClient", () => {
       const timestamp = "2024-06-15T12:00:00.000Z";
       await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, timestamp) });
 
-      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
       await client.initialize();
 
       // Advance time to trigger one poll, then wait for the fetch to complete
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(
         async () => {
           const payloads = await commands.mswGetPayloads();
@@ -1208,7 +1247,7 @@ describe("ConfigDirectorClient", () => {
         ),
       });
 
-      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
       client.on("configsUpdated", () => updateCount++);
       await client.initialize();
       expect(updateCount).toBe(1);
@@ -1216,12 +1255,12 @@ describe("ConfigDirectorClient", () => {
 
       // Server reports no changes — switch to 204 and trigger two polls
       await commands.mswUseHandlers({ url: POLL_URL, status: 204 });
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(
         async () => expect((await commands.mswGetPayloads()).length).toBeGreaterThanOrEqual(1),
         { timeout: 1_000 },
       );
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(
         async () => expect((await commands.mswGetPayloads()).length).toBeGreaterThanOrEqual(2),
         { timeout: 1_000 },
@@ -1248,7 +1287,7 @@ describe("ConfigDirectorClient", () => {
         ),
       });
 
-      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
       client.on("configsUpdated", () => updateCount++);
       await client.initialize();
       expect(updateCount).toBe(1);
@@ -1268,7 +1307,7 @@ describe("ConfigDirectorClient", () => {
         ),
       });
 
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(() => expect(updateCount).toBeGreaterThanOrEqual(2), { timeout: 1_000 });
       expect(client.getValue("my-config", "default")).toBe("v2");
     });
@@ -1276,11 +1315,11 @@ describe("ConfigDirectorClient", () => {
     test("stops polling after dispose", async () => {
       await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
 
-      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
       await client.initialize();
 
       // Trigger a poll and confirm the polling loop is active before stopping it
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(
         async () => {
           const payloads = await commands.mswGetPayloads();
@@ -1293,7 +1332,7 @@ describe("ConfigDirectorClient", () => {
 
       // Reset tracking, advance past further intervals, and verify no more requests arrive
       await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
-      await vi.advanceTimersByTimeAsync(20_000);
+      await vi.advanceTimersByTimeAsync(120_000);
       await sleep(100); // real-time settle for any I/O that may still be in flight
       expect(await commands.mswWasRequestReceived()).toBe(false);
     });
@@ -1301,13 +1340,13 @@ describe("ConfigDirectorClient", () => {
     test("does not retry after a fatal 4xx response on initialize", async () => {
       await commands.mswUseHandlers({ url: POLL_URL, status: 401 });
 
-      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
       await client.initialize();
 
       // Reset tracking, then verify neither updateContext nor the polling timer retries
       await commands.mswUseHandlers({ url: POLL_URL, status: 401 });
       await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
-      await vi.advanceTimersByTimeAsync(30_000); // advance past multiple polling intervals
+      await vi.advanceTimersByTimeAsync(180_000); // advance past multiple polling intervals
       await sleep(100); // real-time settle
 
       expect(client.isReady).toBe(false);
@@ -1317,7 +1356,7 @@ describe("ConfigDirectorClient", () => {
     test("keeps polling after a transient failure on initialize", async () => {
       await commands.mswUseHandlers({ url: POLL_URL, status: 500 });
 
-      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 10 } });
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
       await client.initialize();
       expect(client.isReady).toBe(false);
 
@@ -1336,7 +1375,7 @@ describe("ConfigDirectorClient", () => {
         ),
       });
 
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(() => expect(client.getValue("my-config", "default")).toBe("recovered"), {
         timeout: 1_000,
       });
