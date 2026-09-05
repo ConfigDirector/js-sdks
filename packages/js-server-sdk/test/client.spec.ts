@@ -1,10 +1,10 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { setupServer } from "msw/node";
 import { http } from "msw";
 import { createClient } from "../src";
 import type { DefaultConfigDirectorClient } from "../src/DefaultConfigDirectorClient";
 import { ServerTelemetryEventCollector } from "../src/telemetry";
-import { createStubbedLogger, sleep, SSE_URL } from "./helpers";
+import { createStubbedLogger, sleep, SSE_URL, TELEMETRY_URL } from "./helpers";
 
 const buildResponse = (stream: ReadableStream) => {
   return new Response(stream, {
@@ -28,6 +28,7 @@ describe("ConfigDirectorClient", () => {
     server.listen({ onUnhandledRequest: "error" });
   });
   beforeEach(() => server.resetHandlers());
+  afterEach(() => vi.useRealTimers());
   afterAll(() => server.close());
 
   test("establishes a valid connection on initialize", async () => {
@@ -1093,6 +1094,53 @@ describe("ConfigDirectorClient", () => {
       client.dispose();
 
       expect(client.isReady).toBe(false);
+    });
+
+    test("dispose() stops the telemetry flush timer", () => {
+      vi.useFakeTimers();
+      const client = createClient("sdk-key", { logger });
+
+      client.dispose();
+
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    test("dispose() flushes pending telemetry events", async () => {
+      const telemetryRequests: any[] = [];
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+        http.post(TELEMETRY_URL, async ({ request }) => {
+          telemetryRequests.push(await request.json());
+          return new Response(null, { status: 204 });
+        }),
+      );
+
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      client.getValue("example-config", "default");
+
+      client.dispose();
+
+      await vi.waitFor(() => expect(telemetryRequests).toHaveLength(1));
+      expect(telemetryRequests[0].aggregatedEvents.evaluatedConfig).toHaveLength(1);
+      expect(telemetryRequests[0].aggregatedEvents.evaluatedConfig[0].event).toMatchObject({
+        key: "example-config",
+        usedDefault: true,
+      });
     });
   });
 

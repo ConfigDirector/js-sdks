@@ -403,5 +403,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   public dispose() {
     this.removeAllObservers();
     this.closeConnection();
+    void this.usageEventCollector.close().catch((error) => {
+      this.logger.warn("[ConfigDirectorClient] Error flushing telemetry while disposing the client: ", error);
+    });
   }
 }
