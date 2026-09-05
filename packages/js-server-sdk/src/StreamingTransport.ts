@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { ConfigDirectorConnectionError } from "@shared/errors";
 import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
 import { createEventSourceClient } from "@eventsource/index";
 import type { EventSourceClient } from "@eventsource/EventSourceClient";
 
@@ -17,6 +18,7 @@ export class StreamingTransport implements Transport {
   private eventSource: EventSourceClient | undefined;
   private eventEmitter = new EventEmitter();
   private url: URL;
+  private _sessionId: string | undefined;
 
   constructor(private readonly options: TransportOptions) {
     this.options = options;
@@ -34,10 +36,7 @@ export class StreamingTransport implements Transport {
         url: this.url,
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          metaContext: this.options.metaContext,
-          serverSdkKey: this.options.serverSdkKey,
-        }),
+        body: () => this.buildRequestBody(),
 
         onMessage: ({ data }) => {
           this.dispatchMessage(data);
@@ -78,6 +77,19 @@ export class StreamingTransport implements Transport {
         setTimeout(() => resolve(this), timeout);
       }),
     ]);
+  }
+
+  public get sessionId(): string | undefined {
+    return this._sessionId;
+  }
+
+  private buildRequestBody(): string {
+    this._sessionId = randomUUID();
+    return JSON.stringify({
+      metaContext: this.options.metaContext,
+      serverSdkKey: this.options.serverSdkKey,
+      sessionId: this._sessionId,
+    });
   }
 
   private dispatchMessage(data: string) {

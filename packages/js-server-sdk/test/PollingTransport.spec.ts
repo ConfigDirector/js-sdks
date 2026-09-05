@@ -74,6 +74,42 @@ describe("PollingTransport", () => {
       );
     });
 
+    test("sends a UUID sessionId in the request body", async () => {
+      let requestJson: any = undefined;
+      server.use(
+        http.post(POLLING_URL, async ({ request }) => {
+          requestJson = await request.json();
+          return HttpResponse.json(fullBundle);
+        }),
+      );
+
+      await transport.connect(5000);
+
+      expect(requestJson.sessionId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+    });
+
+    test("sends the same sessionId on every poll", async () => {
+      const capturedSessionIds: string[] = [];
+      server.use(
+        http.post(POLLING_URL, async ({ request }) => {
+          const requestJson: any = await request.json();
+          capturedSessionIds.push(requestJson.sessionId);
+          return HttpResponse.json(fullBundle);
+        }),
+      );
+
+      vi.useFakeTimers();
+      transport = createTransport(1);
+      await transport.connect(5000);
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(capturedSessionIds).toHaveLength(2);
+      expect(capturedSessionIds[0]).toBeDefined();
+      expect(capturedSessionIds[1]).toBe(capturedSessionIds[0]);
+    });
+
     test("sends null lastUpdateTimestamp on the first request", async () => {
       let requestJson: any = undefined;
       server.use(

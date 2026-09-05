@@ -85,6 +85,61 @@ describe("StreamingTransport", () => {
       );
     });
 
+    test("sends a UUID sessionId in the request body", async () => {
+      let requestJson: any = undefined;
+      server.use(
+        http.post(SSE_URL, async ({ request }) => {
+          requestJson = await request.json();
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(message({ environmentId: "10000000-0000-0000-0000-000000000000", projectId: "20000000-0000-0000-0000-000000000000", kind: "full", configs: {} }));
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      await transport.connect(5000);
+
+      expect(requestJson.sessionId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+    });
+
+    test("generates a new sessionId on each reconnect", async () => {
+      const capturedSessionIds: string[] = [];
+      server.use(
+        http.post(SSE_URL, async ({ request }) => {
+          const requestJson: any = await request.json();
+          capturedSessionIds.push(requestJson.sessionId);
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
+              if (capturedSessionIds.length === 1) {
+                controller.close();
+              }
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      vi.useFakeTimers();
+      await transport.connect(5000);
+      await vi.advanceTimersByTimeAsync(2_000);
+      vi.useRealTimers();
+
+      await vi.waitFor(() => expect(capturedSessionIds).toHaveLength(2));
+      expect(capturedSessionIds[0]).not.toBe(capturedSessionIds[1]);
+    });
+
     test("rejects with a ConfigDirectorConnectionError on a 401 response", async () => {
       server.use(http.post(SSE_URL, () => HttpResponse.text("Unauthorized", { status: 401 })));
 

@@ -6,6 +6,7 @@ import type {
 } from "./types";
 import { AbstractPollingTransport } from "@shared/transport/AbstractPollingTransport";
 import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
 import { fetchWithTimeout } from "@shared/fetchWithTimeout";
 
 export class PollingTransport extends AbstractPollingTransport implements Transport {
@@ -13,6 +14,7 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
   private eventEmitter = new EventEmitter();
   private url: URL;
   private lastUpdateTimestamp: string | undefined;
+  private readonly _sessionId = randomUUID();
 
   constructor(private readonly options: TransportOptions) {
     super();
@@ -43,6 +45,10 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     return this;
   }
 
+  public get sessionId(): string {
+    return this._sessionId;
+  }
+
   private async fetchConfigs(timeout: number) {
     if (this.fatalError) {
       this.logger.warn(
@@ -62,6 +68,7 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
             metaContext: this.options.metaContext,
             serverSdkKey: this.options.serverSdkKey,
             lastUpdateTimestamp: this.lastUpdateTimestamp,
+            sessionId: this._sessionId,
           }),
         },
         this.logger,

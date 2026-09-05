@@ -192,6 +192,40 @@ describe("EventSourceClient", () => {
       expect(capturedBody).toBe('{"filter":"test"}');
     });
 
+    test("invokes a body function on each connection attempt and sends its result", async () => {
+      const url = "http://localhost/sse";
+      const capturedBodies: string[] = [];
+
+      server.use(
+        http.post(url, async ({ request }) => {
+          capturedBodies.push(await request.text());
+          return sseResponse(streamOf("data: hi\n\n"));
+        }),
+      );
+
+      let bodyCallCount = 0;
+      let connectCount = 0;
+      await new Promise<void>((resolve) => {
+        const client = createEventSourceClient({
+          url,
+          method: "POST",
+          body: () => `attempt-${++bodyCallCount}`,
+          calculateReconnectDelay: () => 1,
+          onConnect: () => connectCount++,
+          shouldReconnect: () => {
+            if (connectCount >= 2) {
+              resolve();
+              return false;
+            }
+            return true;
+          },
+        });
+        client.connect();
+      });
+
+      expect(capturedBodies).toEqual(["attempt-1", "attempt-2"]);
+    });
+
     test.each([301, 302, 303, 307, 308])("follows redirects by default (%s)", async (status: number) => {
       const url = "http://localhost/sse";
       let originalHeaders: Headers | undefined;

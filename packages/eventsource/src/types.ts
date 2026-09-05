@@ -15,7 +15,7 @@ export type EventSourceClientOptions = {
   url: { toString(): string } | string;
   method?: string;
   headers?: Record<string, string>;
-  body?: any;
+  body?: string | (() => string);
   mode?: "cors" | "no-cors" | "same-origin";
   credentials?: "include" | "omit" | "same-origin";
   redirect?: "error" | "follow";

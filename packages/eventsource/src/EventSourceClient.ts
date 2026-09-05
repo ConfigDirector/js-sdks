@@ -18,6 +18,7 @@ export class EventSourceClient {
   private readonly DEFAULT_CALCULATE_RECONNECT_DELAY = () => this.serverReconnectionTime;
   private readonly url: string;
   private readonly headers?: Record<string, string>;
+  private readonly body: () => string | undefined;
   private readonly requestOptions;
   private lastEventId?: string;
   private reconnectAttempt: number = 0;
@@ -41,8 +42,9 @@ export class EventSourceClient {
       Accept: "text/event-stream",
       ...options.headers,
     };
+    const body = options.body;
+    this.body = typeof body === "function" ? body : () => body;
     this.requestOptions = {
-      body: options.body,
       method: options.method ?? "GET",
       mode: options.mode,
       credentials: options.credentials,
@@ -125,6 +127,7 @@ export class EventSourceClient {
 
     this._fetch(this.url, {
       ...this.requestOptions,
+      body: this.body(),
       headers: this.buildRequestHeaders(),
       signal: this.abortController.signal,
       cache: "no-store",
