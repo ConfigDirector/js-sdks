@@ -12,15 +12,24 @@ import type {
 import type { TelemetryValue } from "@shared/telemetry/utils";
 import { mapToTelemetryValue } from "@shared/telemetry/utils";
 
+const DEFAULT_WORKER_CLOSE_TIMEOUT = 6_000;
+
+export type WebWorkerTelemetryClientOptions = TelemetryEventCollectorOptions & {
+  workerCloseTimeout?: number;
+};
+
 export class WebWorkerTelemetryClient implements TelemetryClient {
   private readonly logger: ConfigDirectorLogger;
   private worker: Worker;
   private closePromise: Promise<void> | undefined;
   private closeResolve: (() => void) | undefined;
+  private closeTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly workerCloseTimeout: number;
   private readonly visibilityHandler: () => void;
 
-  constructor(options: TelemetryEventCollectorOptions) {
+  constructor(options: WebWorkerTelemetryClientOptions) {
     this.logger = options.logger;
+    this.workerCloseTimeout = options.workerCloseTimeout ?? DEFAULT_WORKER_CLOSE_TIMEOUT;
 
     const initializeMessage: TelemetryInitializeEvent = {
       type: "Initialize",
@@ -85,7 +94,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
 
   private handleWorkerEvent(event: TelemetryWorkerResponseEvent) {
     if (event.type === "Closed") {
-      this.closeResolve?.();
+      this.finishClose();
       return;
     }
     if (!event.payload?.level || !event.payload?.message) {
@@ -128,9 +137,22 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
     document.removeEventListener("visibilitychange", this.visibilityHandler);
     this.closePromise = new Promise<void>((resolve) => {
       this.closeResolve = resolve;
+      this.closeTimer = setTimeout(() => {
+        this.logger.warn(
+          "[WebWorkerTelemetryClient] Timed out waiting for the telemetry worker to close. Terminating the worker.",
+        );
+        this.finishClose();
+      }, this.workerCloseTimeout);
       const closeMessage: TelemetryCloseEvent = { type: "Close" };
       this.worker.postMessage(closeMessage);
     });
     return this.closePromise;
+  }
+
+  private finishClose() {
+    clearTimeout(this.closeTimer);
+    this.closeTimer = undefined;
+    this.worker.terminate();
+    this.closeResolve?.();
   }
 }

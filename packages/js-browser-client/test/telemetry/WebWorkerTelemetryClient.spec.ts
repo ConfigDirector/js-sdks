@@ -305,5 +305,26 @@ describe("TelemetryClient", () => {
       await sleep(FLUSH_DELAY * 1.25);
       expect(await commands.mswGetPayloads()).toHaveLength(1);
     });
+
+    test("it terminates the worker after the close acknowledgment", async () => {
+      client = createClient();
+      const terminateSpy = vi.spyOn((client as any).worker as Worker, "terminate");
+
+      await client.close();
+
+      expect(terminateSpy).toHaveBeenCalled();
+    });
+
+    test("it resolves by terminating the worker when the worker cannot acknowledge", async () => {
+      client = createClient({ workerCloseTimeout: 100 });
+      ((client as any).worker as Worker).terminate();
+
+      const result = await Promise.race([
+        client.close().then(() => "closed"),
+        sleep(1_000).then(() => "timed-out"),
+      ]);
+
+      expect(result).toBe("closed");
+    });
   });
 });
