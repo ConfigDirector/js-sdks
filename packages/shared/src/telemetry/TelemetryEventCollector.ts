@@ -38,14 +38,24 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
   protected abstract flush(): Promise<ReporterResponse>;
 
   protected async flushAndScheduleNext() {
-    const response = await this.flush();
+    if (!this.collectEvents) {
+      return;
+    }
+    let response: ReporterResponse;
+    try {
+      response = await this.flush();
+    } catch (error) {
+      this.logger.warn("[TelemetryEventCollector] Error flushing telemetry events: ", error);
+      response = { success: false, fatalError: false };
+    }
     if (response.fatalError) {
       this.collectEvents = false;
       this.close();
       this.logger.warn(
         "[TelemetryEventCollector] Received a fatal error from telemetry collection. No longer collecting events.",
       );
-    } else {
+    } else if (this.collectEvents) {
+      this.cancelScheduledFlush();
       this.flushTimeout = setTimeout(() => this.flushAndScheduleNext(), this.flushIntervalDelay);
     }
   }
@@ -57,7 +67,11 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
   public async close() {
     this.collectEvents = false;
     clearTimeout(this.flushTimeout);
-    await this.flush();
+    try {
+      await this.flush();
+    } catch (error) {
+      this.logger.warn("[TelemetryEventCollector] Error flushing telemetry events during close: ", error);
+    }
     this.evaluationEventQueue.clear();
   }
 
