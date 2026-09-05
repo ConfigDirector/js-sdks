@@ -10,20 +10,26 @@ import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
 import { createEventSourceClient } from "@eventsource/index";
 import type { EventSourceClient } from "@eventsource/EventSourceClient";
+import { fetchWithTimeout } from "@shared/fetchWithTimeout";
 
 const MAX_EXPONENTIAL_DELAY = 9; // 2^9 = 512 seconds, to cap it to under 10min
+
+const HEARTBEAT_INTERVAL_MS = 90_000;
 
 export class StreamingTransport implements Transport {
   private logger: ConfigDirectorLogger;
   private eventSource: EventSourceClient | undefined;
   private eventEmitter = new EventEmitter();
   private url: URL;
+  private heartbeatUrl: URL;
+  private heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   private _sessionId: string | undefined;
 
   constructor(private readonly options: TransportOptions) {
     this.options = options;
     this.logger = options.logger;
     this.url = new URL("server/sse/v1", options.baseUrl);
+    this.heartbeatUrl = new URL("server/heartbeat/v1", options.baseUrl);
   }
 
   public async connect(timeout: number): Promise<this> {
@@ -71,6 +77,7 @@ export class StreamingTransport implements Transport {
       });
       this.eventSource.connect();
     });
+    this.heartbeatTimer = setInterval(() => this.sendHeartbeat(), HEARTBEAT_INTERVAL_MS);
     return Promise.race([
       eventSourcePromise,
       new Promise<this>((resolve) => {
@@ -81,6 +88,33 @@ export class StreamingTransport implements Transport {
 
   public get sessionId(): string | undefined {
     return this._sessionId;
+  }
+
+  private sendHeartbeat(): void {
+    if (!this.isConnected || !this._sessionId) {
+      return;
+    }
+    fetchWithTimeout(
+      HEARTBEAT_INTERVAL_MS,
+      this.heartbeatUrl,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serverSdkKey: this.options.serverSdkKey,
+          sessionId: this._sessionId,
+        }),
+      },
+      this.logger,
+    )
+      .then((response) => {
+        if (!response.ok) {
+          this.logger.debug(`[StreamingTransport] Heartbeat failed with status: ${response.status}`);
+        }
+      })
+      .catch((error) => {
+        this.logger.debug("[StreamingTransport] Heartbeat failed: ", error);
+      });
   }
 
   private buildRequestBody(): string {
@@ -143,6 +177,8 @@ export class StreamingTransport implements Transport {
   }
 
   public close() {
+    clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = undefined;
     this.eventSource?.close();
   }
 

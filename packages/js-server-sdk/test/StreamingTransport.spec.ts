@@ -3,7 +3,7 @@ import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { StreamingTransport } from "../src/StreamingTransport";
 import type { Transport } from "../src/types";
-import { sleep, SSE_URL, BASE_URL, createStubbedLogger } from "./helpers";
+import { sleep, SSE_URL, BASE_URL, HEARTBEAT_URL, createStubbedLogger } from "./helpers";
 
 const buildResponse = (stream: ReadableStream) => {
   return new Response(stream, {
@@ -232,6 +232,76 @@ describe("StreamingTransport", () => {
       await transport.connect(5000);
 
       expect(closeSpy).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("heartbeat", () => {
+    const useHeartbeatHandlers = (heartbeats: any[], sse: { json?: any }) => {
+      server.use(
+        http.post(SSE_URL, async ({ request }) => {
+          sse.json = await request.json();
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+        http.post(HEARTBEAT_URL, async ({ request }) => {
+          heartbeats.push(await request.json());
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+    };
+
+    test("sends a heartbeat with the current sessionId every 90 seconds", async () => {
+      const heartbeats: any[] = [];
+      const sse: { json?: any } = {};
+      useHeartbeatHandlers(heartbeats, sse);
+
+      vi.useFakeTimers();
+      await transport.connect(5000);
+      await vi.advanceTimersByTimeAsync(90_000);
+      await vi.advanceTimersByTimeAsync(90_000);
+      vi.useRealTimers();
+
+      await vi.waitFor(() => expect(heartbeats).toHaveLength(2));
+      expect(heartbeats[0]).toMatchObject({ serverSdkKey: "sdk-key", sessionId: sse.json.sessionId });
+      expect(heartbeats[1].sessionId).toBe(sse.json.sessionId);
+    });
+
+    test("does not send a heartbeat before 90 seconds have passed", async () => {
+      const heartbeats: any[] = [];
+      useHeartbeatHandlers(heartbeats, {});
+
+      vi.useFakeTimers();
+      await transport.connect(5000);
+      await vi.advanceTimersByTimeAsync(89_000);
+      vi.useRealTimers();
+
+      await sleep(50);
+      expect(heartbeats).toHaveLength(0);
+    });
+
+    test("stops sending heartbeats when disposed", async () => {
+      const heartbeats: any[] = [];
+      useHeartbeatHandlers(heartbeats, {});
+
+      vi.useFakeTimers();
+      await transport.connect(5000);
+      transport.dispose();
+      await vi.advanceTimersByTimeAsync(300_000);
+      vi.useRealTimers();
+
+      await sleep(50);
+      expect(heartbeats).toHaveLength(0);
     });
   });
 
