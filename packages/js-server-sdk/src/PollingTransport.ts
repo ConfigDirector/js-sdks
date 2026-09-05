@@ -21,7 +21,7 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     this.options = options;
     this.logger = options.logger;
     this.url = new URL("server/polling/v1", options.baseUrl);
-    this.pollingIntervalSeconds = options.pollingInterval ?? 60;
+    this.pollingIntervalSeconds = options.pollingInterval ?? 300;
   }
 
   public async connect(timeout: number): Promise<this> {

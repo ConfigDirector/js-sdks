@@ -6,7 +6,9 @@
     "dev": "next dev --port 3500",
     "build": "next build",
     "start": "next start --port 3500",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sdk:local": "node ../scripts/use-sdks.mjs local",
+    "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
   "dependencies": {
     "@configdirector/nextjs-sdk": "^1.0.0",
@@ -20,5 +22,10 @@
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.9.0"
   },
-  "packageManager": "yarn@4.13.0"
+  "packageManager": "yarn@4.13.0",
+  "configdirector": {
+    "npmDependencies": {
+      "@configdirector/nextjs-sdk": "^1.0.0"
+    }
+  }
 }
