@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { generateValueId } from "../../src/telemetry/value-id-generator";
 
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -10,7 +10,7 @@ describe("ValueIdGenerator", () => {
 
   test("output only contains base62 characters", async () => {
     const result = await generateValueId("hello");
-    expect(result.split("").every((c) => BASE62.includes(c))).toBe(true);
+    expect(result?.split("").every((c) => BASE62.includes(c))).toBe(true);
   });
 
   test("is deterministic", async () => {
@@ -28,5 +28,23 @@ describe("ValueIdGenerator", () => {
     ["", "6ve2WrOl3mnciB6WIL2fIa"],
   ])("produces known output for %j", async (input, expected) => {
     expect(await generateValueId(input)).toBe(expected);
+  });
+
+  describe("when crypto.subtle is unavailable (insecure origin)", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    test("returns undefined instead of failing", async () => {
+      vi.stubGlobal("crypto", {});
+
+      await expect(generateValueId("hello")).resolves.toBeUndefined();
+    });
+
+    test("returns undefined when crypto is undefined", async () => {
+      vi.stubGlobal("crypto", undefined);
+
+      await expect(generateValueId("hello")).resolves.toBeUndefined();
+    });
   });
 });
