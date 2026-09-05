@@ -112,9 +112,18 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       );
     });
 
+    this.transport.on("connectionError", (error: Error) => {
+      this.logger.error(
+        "[ConfigDirectorClient] The connection encountered an unrecoverable error and will not be retried. Configs will no longer receive updates.",
+        error,
+      );
+      this.eventEmitter.emit("connectionError", { error });
+    });
+
     this.registerHandler("clientReady", clientOptions?.hooks?.clientReady);
     this.registerHandler("configEvaluated", clientOptions?.hooks?.configEvaluated);
     this.registerHandler("configsUpdated", clientOptions?.hooks?.configsUpdated);
+    this.registerHandler("connectionError", clientOptions?.hooks?.connectionError);
   }
 
   private registerHandler<T extends keyof ClientEvents>(

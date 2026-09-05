@@ -136,12 +136,14 @@ export type ClientEvents = {
   configsUpdated: { keys: string[] };
   clientReady: undefined;
   configEvaluated: { evaluation: ConfigEvaluation };
+  connectionError: { error: Error };
 };
 
 export type ClientHooks = {
   clientReady?: HookHandler<"clientReady"> | HookHandler<"clientReady">[];
   configsUpdated?: HookHandler<"configsUpdated"> | HookHandler<"configsUpdated">[];
   configEvaluated?: HookHandler<"configEvaluated"> | HookHandler<"configEvaluated">[];
+  connectionError?: HookHandler<"connectionError"> | HookHandler<"connectionError">[];
 };
 
 export type HookHandler<TEvent extends keyof ClientEvents> = (payload: ClientEvents[TEvent]) => void;
@@ -249,6 +251,7 @@ export interface ConfigDirectorClient {
 
 export type TransportEvents = {
   configBundleReceived: ConfigBundle;
+  connectionError: Error;
 };
 
 export type TransportOptions = {

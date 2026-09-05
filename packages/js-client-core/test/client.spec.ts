@@ -927,6 +927,26 @@ describe("ConfigDirectorClient", () => {
       expect(eventCount).toBe(1); // confirm handler fired once before dispose; verify below it won't again
     });
 
+    test("emits connectionError when the stream dies with a fatal status after connecting", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], { status: 401 }]);
+      const failingClient = new DefaultConfigDirectorClient(
+        telemetryClient,
+        "sdk-key",
+        { sdkName: "test-sdk", sdkVersion: "1.2.0" },
+        { logger },
+        { connectionRetryDelay: () => 10 },
+      );
+      client = failingClient;
+      const events: { error: Error }[] = [];
+      failingClient.on("connectionError", (e) => events.push(e));
+      await failingClient.initialize();
+      expect(failingClient.isReady).toBe(true);
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0].error).toBeInstanceOf(Error);
+      expect(events[0].error.message).toMatch(/401/);
+    });
+
     test("close before the first payload leaves the client not ready and does not emit clientReady", async () => {
       const readyEvents: unknown[] = [];
       await commands.mswUseSseHandler(SSE_URL, [[]]);

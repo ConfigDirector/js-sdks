@@ -21,6 +21,7 @@ export type HandlerDescriptor = {
 
 /** A single SSE message to stream, with an optional delay before it is sent. */
 export type SseMessage = { delay?: number; data: object };
+export type SseConnection = SseMessage[] | { status: number };
 
 const networkStateMap = new WeakMap<Page, NetworkState>();
 
@@ -92,7 +93,7 @@ export const mswWasRequestReceived = defineBrowserCommand(async (ctx: Playwright
  * a slow server.
  */
 export const mswUseSseHandler = defineBrowserCommand(
-  async (ctx: PlaywrightCtx, url: string, responses: SseMessage[][], startDelay?: number) => {
+  async (ctx: PlaywrightCtx, url: string, responses: SseConnection[], startDelay?: number) => {
     const state = networkStateMap.get(ctx.page);
     if (!state) return;
 
@@ -110,8 +111,13 @@ export const mswUseSseHandler = defineBrowserCommand(
         await new Promise<void>((resolve) => setTimeout(resolve, startDelay));
       }
 
-      const messages = responses[requestCount] ?? responses[responses.length - 1] ?? [];
+      const connection = responses[requestCount] ?? responses[responses.length - 1] ?? [];
       requestCount++;
+
+      if (!Array.isArray(connection)) {
+        return HttpResponse.text("connection failed", { status: connection.status });
+      }
+      const messages = connection;
 
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {

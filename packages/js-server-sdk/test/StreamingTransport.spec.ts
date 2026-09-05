@@ -40,7 +40,10 @@ describe("StreamingTransport", () => {
     transport = createTransport();
   });
   afterAll(() => server.close());
-  afterEach(() => transport?.dispose());
+  afterEach(() => {
+    transport?.dispose();
+    vi.useRealTimers();
+  });
 
   describe("connect", () => {
     test("resolves when the connection is established", async () => {
@@ -116,6 +119,44 @@ describe("StreamingTransport", () => {
       const result = await transport.connect(50);
       expect(result).toBe(transport);
       expect(transport.isConnected).toBe(false);
+    });
+
+    test("emits connectionError when a reconnect attempt fails with a fatal status", async () => {
+      let callCount = 0;
+      server.use(
+        http.post(SSE_URL, () => {
+          callCount++;
+          if (callCount === 1) {
+            const stream = new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  message({
+                    environmentId: "10000000-0000-0000-0000-000000000000",
+                    projectId: "20000000-0000-0000-0000-000000000000",
+                    kind: "full",
+                    configs: {},
+                  }),
+                );
+                controller.close();
+              },
+            });
+            return buildResponse(stream);
+          }
+          return HttpResponse.text("Unauthorized", { status: 401 });
+        }),
+      );
+
+      const errors: Error[] = [];
+      vi.useFakeTimers();
+      transport.on("connectionError", (error: Error) => errors.push(error));
+      await transport.connect(5000);
+
+      await vi.advanceTimersByTimeAsync(2_000);
+      vi.useRealTimers();
+
+      await vi.waitFor(() => expect(errors).toHaveLength(1));
+      expect(errors[0].message).toMatch(/401/);
+      expect(callCount).toBe(2);
     });
 
     test("closes an existing connection before reconnecting", async () => {

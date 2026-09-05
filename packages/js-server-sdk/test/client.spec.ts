@@ -1,10 +1,10 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { setupServer } from "msw/node";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import { createClient } from "../src";
 import type { DefaultConfigDirectorClient } from "../src/DefaultConfigDirectorClient";
 import { ServerTelemetryEventCollector } from "../src/telemetry";
-import { createStubbedLogger, sleep, SSE_URL, TELEMETRY_URL } from "./helpers";
+import { createStubbedLogger, sleep, SSE_URL, POLLING_URL, TELEMETRY_URL } from "./helpers";
 
 const buildResponse = (stream: ReadableStream) => {
   return new Response(stream, {
@@ -1094,6 +1094,43 @@ describe("ConfigDirectorClient", () => {
       client.dispose();
 
       expect(client.isReady).toBe(false);
+    });
+
+    test("emits connectionError when polling hits an unrecoverable error", async () => {
+      let callCount = 0;
+      server.use(
+        http.post(POLLING_URL, () => {
+          callCount++;
+          if (callCount === 1) {
+            return HttpResponse.json({
+              environmentId: "10000000-0000-0000-0000-000000000000",
+              projectId: "20000000-0000-0000-0000-000000000000",
+              kind: "full",
+              configs: {},
+              timestamp: "2024-01-01T00:00:00.000Z",
+            });
+          }
+          return HttpResponse.text("Unauthorized", { status: 401 });
+        }),
+      );
+
+      vi.useFakeTimers();
+      const client = createClient("sdk-key", {
+        logger,
+        connection: { mode: "polling", pollingInterval: 1 },
+      });
+      const events: { error: Error }[] = [];
+      client.on("connectionError", (e) => events.push(e));
+      await client.initialize();
+      expect(client.isReady).toBe(true);
+      expect(events).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(events).toHaveLength(1);
+      expect(events[0].error).toBeInstanceOf(Error);
+      expect(events[0].error.message).toMatch(/401/);
+      client.dispose();
     });
 
     test("dispose() stops the telemetry flush timer", () => {

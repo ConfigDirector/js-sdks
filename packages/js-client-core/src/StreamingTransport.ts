@@ -52,7 +52,9 @@ export class StreamingTransport implements Transport {
         shouldReconnect: (state) => {
           const reconnect = !this.isStatusFatal(state.status);
           if (!reconnect) {
-            reject(this.prepareFatalError(state.status, state.error));
+            const error = this.prepareFatalError(state.status, state.error);
+            this.eventEmitter.emit("connectionError", error);
+            reject(error);
           }
           return reconnect;
         },

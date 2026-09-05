@@ -241,6 +241,29 @@ describe("PollingTransport", () => {
       expect(transport.isConnected).toBe(false);
     });
 
+    test("emits connectionError when a poll receives a fatal response", async () => {
+      let callCount = 0;
+      server.use(
+        http.post(POLLING_URL, () => {
+          callCount++;
+          if (callCount === 1) return HttpResponse.json(fullBundle);
+          return HttpResponse.text("Unauthorized", { status: 401 });
+        }),
+      );
+
+      const errors: Error[] = [];
+      vi.useFakeTimers();
+      transport = createTransport(1);
+      transport.on("connectionError", (error: Error) => errors.push(error));
+      await transport.connect(5000);
+      expect(errors).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toMatch(/401/);
+    });
+
     test("keeps polling after a network error on connect", async () => {
       let callCount = 0;
       server.use(

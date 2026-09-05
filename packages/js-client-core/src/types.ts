@@ -118,6 +118,7 @@ export type ClientHooks = {
   configsUpdated?: HookHandler<"configsUpdated"> | HookHandler<"configsUpdated">[];
   contextUpdated?: HookHandler<"contextUpdated"> | HookHandler<"contextUpdated">[];
   configEvaluated?: HookHandler<"configEvaluated"> | HookHandler<"configEvaluated">[];
+  connectionError?: HookHandler<"connectionError"> | HookHandler<"connectionError">[];
 };
 
 export type ClientConnectAction = "initialization" | "context update" | "network resume";
@@ -129,6 +130,7 @@ export type ClientEvents = {
   clientReady: { action: ClientConnectAction };
   contextUpdated: { context: ConfigDirectorContext | undefined };
   configEvaluated: { evaluation: ConfigEvaluation };
+  connectionError: { error: Error };
 };
 
 export type WatchHandler<T extends ConfigValueType> = (message: T) => void;
@@ -266,6 +268,7 @@ export type TransportOptions = {
 
 export type TransportEvents = {
   configSetReceived: ConfigSet;
+  connectionError: Error;
 };
 
 export interface Transport extends EventProvider<TransportEvents> {

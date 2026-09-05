@@ -110,10 +110,19 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       this.logger.debug("[ConfigDirectorClient] ConfigSet updated from server:", { keys: configKeys });
     });
 
+    this.transport.on("connectionError", (error: Error) => {
+      this.logger.error(
+        "[ConfigDirectorClient] The connection encountered an unrecoverable error and will not be retried. Configs will no longer receive updates.",
+        error,
+      );
+      this.emit("connectionError", { error });
+    });
+
     this.registerHandler("clientReady", clientOptions?.hooks?.clientReady);
     this.registerHandler("configEvaluated", clientOptions?.hooks?.configEvaluated);
     this.registerHandler("configsUpdated", clientOptions?.hooks?.configsUpdated);
     this.registerHandler("contextUpdated", clientOptions?.hooks?.contextUpdated);
+    this.registerHandler("connectionError", clientOptions?.hooks?.connectionError);
   }
 
   private registerHandler<T extends keyof ClientEvents>(

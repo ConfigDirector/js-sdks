@@ -79,7 +79,14 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
         this.eventEmitter.emit("configSetReceived", json);
       }
     } catch (fetchError) {
-      this.handleFetchError(fetchError);
+      try {
+        this.handleFetchError(fetchError);
+      } catch (handledError) {
+        if (this.fatalError) {
+          this.eventEmitter.emit("connectionError", handledError as Error);
+        }
+        throw handledError;
+      }
     }
   }
 
