@@ -49,7 +49,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private ready = false;
   private initializing = false;
   private readyPromise: Promise<void> | undefined;
-  private readyResolve: (() => void) | undefined;
+  private readyResolve: ((cancelled?: boolean) => void) | undefined;
   private currentContext?: ConfigDirectorContext;
   private connectionMode: ConnectionMode;
   private instanceId: string;
@@ -159,9 +159,12 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private async connectToTransport(context: ConfigDirectorContext | undefined, caller: ClientConnectAction) {
     try {
       this.ready = false;
-      this.readyPromise = new Promise<void>((resolve) => {
+      this.readyPromise = new Promise<boolean | undefined>((resolve) => {
         this.readyResolve = resolve;
-      }).then(() => {
+      }).then((cancelled) => {
+        if (cancelled) {
+          return;
+        }
         this.ready = true;
         this.initializing = false;
         this.emit("clientReady", { action: caller });
@@ -386,10 +389,11 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   public async close() {
     this.logger.debug("[ConfigDirectorClient] close() has been called, closing connection to server");
     clearTimeout(this.timeoutTimer);
-    this.readyResolve?.();
+    this.readyResolve?.(true);
     this.telemetryClient.close();
     this.transport.close();
     this.ready = false;
+    this.initializing = false;
   }
 
   public dispose() {

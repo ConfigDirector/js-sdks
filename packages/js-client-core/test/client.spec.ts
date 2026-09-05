@@ -927,6 +927,40 @@ describe("ConfigDirectorClient", () => {
       expect(eventCount).toBe(1); // confirm handler fired once before dispose; verify below it won't again
     });
 
+    test("close before the first payload leaves the client not ready and does not emit clientReady", async () => {
+      const readyEvents: unknown[] = [];
+      await commands.mswUseSseHandler(SSE_URL, [[]]);
+      const closingClient = createClient("sdk-key", { logger, connection: { timeout: 100 } });
+      client = closingClient;
+      closingClient.on("clientReady", (e) => readyEvents.push(e));
+      await closingClient.initialize();
+      expect(closingClient.isReady).toBe(false);
+
+      await closingClient.close();
+      await sleep(10);
+
+      expect(closingClient.isReady).toBe(false);
+      expect(closingClient.isInitializing).toBe(false);
+      expect(readyEvents).toHaveLength(0);
+    });
+
+    test("close after ready sets isReady to false and does not emit another clientReady", async () => {
+      const readyEvents: unknown[] = [];
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const closingClient = createClient("sdk-key", { logger });
+      client = closingClient;
+      closingClient.on("clientReady", (e) => readyEvents.push(e));
+      await closingClient.initialize();
+      expect(closingClient.isReady).toBe(true);
+      expect(readyEvents).toHaveLength(1);
+
+      await closingClient.close();
+      await sleep(10);
+
+      expect(closingClient.isReady).toBe(false);
+      expect(readyEvents).toHaveLength(1);
+    });
+
     test("pauseNetwork closes the transport and sets isReady to false without clearing event handlers", async () => {
       let eventCount = 0;
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
