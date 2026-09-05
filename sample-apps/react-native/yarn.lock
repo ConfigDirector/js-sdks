@@ -1226,7 +1226,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/react-native-sample-app@workspace:."
   dependencies:
-    "@configdirector/react-native-sdk": "npm:^1.0.0"
+    "@configdirector/react-native-sdk": "npm:^1.2.0"
     "@expo/vector-icons": "npm:^15.1.1"
     "@types/react": "npm:19.2.3"
     eslint: "npm:^10.7.0"
@@ -1254,9 +1254,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@configdirector/react-native-sdk@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "@configdirector/react-native-sdk@npm:1.0.0"
+"@configdirector/react-native-sdk@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "@configdirector/react-native-sdk@npm:1.2.0"
   dependencies:
     "@noble/hashes": "npm:^2.2.0"
   peerDependencies:
@@ -1266,7 +1266,7 @@ __metadata:
   peerDependenciesMeta:
     expo:
       optional: true
-  checksum: 10c0/d941b7bea7d2056fe3cfd34e48ec1d09525dfad587dd62151fe1d40f2fdc50c59048a9e3f23d2351b6b1759ac660e0fead1e8e0ba5bba764156fbb1e8a617f0c
+  checksum: 10c0/af0e3cdc55d9ad869bd0881121b81d4d77f415e6e56013dccaa1fcea4cdcbf22f61d299a56a9e4c58931125d1de1f765a38949aab7e612b38f60a5bea96014d1
   languageName: node
   linkType: hard
 

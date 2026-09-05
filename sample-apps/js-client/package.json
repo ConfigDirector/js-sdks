@@ -11,7 +11,7 @@
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
   "dependencies": {
-    "@configdirector/client-sdk": "^1.0.0"
+    "@configdirector/client-sdk": "^1.2.0"
   },
   "devDependencies": {
     "typescript": "~5.9.2",
@@ -20,7 +20,7 @@
   "packageManager": "yarn@4.13.0",
   "configdirector": {
     "npmDependencies": {
-      "@configdirector/client-sdk": "^1.0.0"
+      "@configdirector/client-sdk": "^1.2.0"
     }
   }
 }

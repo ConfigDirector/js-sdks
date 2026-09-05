@@ -12,7 +12,7 @@
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
   "dependencies": {
-    "@configdirector/react-native-sdk": "^1.0.0",
+    "@configdirector/react-native-sdk": "^1.2.0",
     "@expo/vector-icons": "^15.1.1",
     "expo": "^57.0.9",
     "expo-dev-client": "~57.0.10",
@@ -44,7 +44,7 @@
   "packageManager": "yarn@4.13.0",
   "configdirector": {
     "npmDependencies": {
-      "@configdirector/react-native-sdk": "^1.0.0"
+      "@configdirector/react-native-sdk": "^1.2.0"
     }
   }
 }
