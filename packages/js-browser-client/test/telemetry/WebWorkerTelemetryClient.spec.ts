@@ -289,6 +289,50 @@ describe("TelemetryClient", () => {
     });
   });
 
+  describe("worker log forwarding", () => {
+    test("forwards worker logs to the logger at the corresponding level", () => {
+      const capturingLogger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      client = createClient({ logger: capturingLogger });
+
+      for (const level of ["debug", "info", "warn", "error"] as const) {
+        (client as any).handleWorkerEvent({
+          type: "Log",
+          payload: { level, message: `${level}-message`, args: ["detail"] },
+        });
+        expect(capturingLogger[level]).toHaveBeenCalledWith(`${level}-message`, "detail");
+      }
+
+      expect(capturingLogger.warn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("worker initialization", () => {
+    test("ignores a duplicate Initialize event instead of starting a second collector", async () => {
+      client = createClient();
+      client.evaluatedConfig(baseEvent);
+
+      (client as any).worker.postMessage({
+        type: "Initialize",
+        payload: {
+          sdkKey: "sdk-key",
+          sdkIdentity: { sdkName: "browser-tests", sdkVersion: "1.2.3" },
+          baseUrl: BASE_URL,
+          evaluationQueueLimit: 1_000,
+          initialFlushIntervalDelay: INITIAL_FLUSH_DELAY,
+          flushIntervalDelay: FLUSH_DELAY,
+        },
+      });
+      client.evaluatedConfig(baseEvent);
+
+      await waitForPayloadCount(1);
+      await sleep(INITIAL_FLUSH_DELAY * 2);
+
+      const payloads = (await commands.mswGetPayloads()) as EventReport[];
+      expect(payloads).toHaveLength(1);
+      expect(payloads[0].aggregatedEvents["evaluatedConfig"][0]).toMatchObject({ count: 2 });
+    });
+  });
+
   describe("close", () => {
     test("it flushes the queued events and stops collecting", async () => {
       client = createClient();
@@ -313,6 +357,23 @@ describe("TelemetryClient", () => {
       await client.close();
 
       expect(terminateSpy).toHaveBeenCalled();
+    });
+
+    test("it succeeds even when removing the visibility listener fails", async () => {
+      client = createClient({ workerCloseTimeout: 100 });
+      const original = document.removeEventListener;
+      document.removeEventListener = () => {
+        throw new Error("removeEventListener is not available");
+      };
+      try {
+        let closePromise: Promise<void> | undefined;
+        expect(() => {
+          closePromise = client.close();
+        }).not.toThrow();
+        await expect(closePromise).resolves.toBeUndefined();
+      } finally {
+        document.removeEventListener = original;
+      }
     });
 
     test("it resolves by terminating the worker when the worker cannot acknowledge", async () => {

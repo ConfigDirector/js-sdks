@@ -113,7 +113,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
         this.logger.warn(message, ...args);
         break;
       case "error":
-        this.logger.warn(message, ...args);
+        this.logger.error(message, ...args);
         break;
     }
   }
@@ -134,7 +134,11 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
   }
 
   private performClose(): Promise<void> {
-    document.removeEventListener("visibilitychange", this.visibilityHandler);
+    try {
+      document.removeEventListener("visibilitychange", this.visibilityHandler);
+    } catch (error) {
+      this.logger.warn("[WebWorkerTelemetryClient] Could not remove 'visibilitychange' listener: ", error);
+    }
     this.closePromise = new Promise<void>((resolve) => {
       this.closeResolve = resolve;
       this.closeTimer = setTimeout(() => {

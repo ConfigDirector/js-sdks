@@ -47,6 +47,10 @@ addEventListener("message", (message: MessageEvent<TelemetryWorkerEvent>) => {
 
   switch (event.type) {
     case "Initialize":
+      if (collector) {
+        loggerProxy.warn("[TelemetryWorker] Received a duplicate Initialize event, ignoring it");
+        break;
+      }
       collector = new ClientTelemetryEventCollector({
         ...event.payload,
         baseUrl: defaultUrlFactory(event.payload.baseUrl),
