@@ -1,6 +1,6 @@
 {
   "name": "@configdirector/openfeature-web-provider",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "OpenFeature web provider for ConfigDirector. ConfigDirector is a remote configuration and feature flag service.",
   "license": "MIT",
   "author": "ConfigDirector",
