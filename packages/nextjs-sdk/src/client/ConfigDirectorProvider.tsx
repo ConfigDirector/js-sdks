@@ -22,6 +22,8 @@ export class ConfigDirectorProvider extends Component<
   PropsWithChildren<ConfigDirectorProviderOptions>,
   ConfigDirectorProviderState
 > {
+  private client: ConfigDirectorClient | undefined;
+
   constructor(props: PropsWithChildren<ConfigDirectorProviderOptions>) {
     super(props);
     this.state = { status: "loading" };
@@ -42,6 +44,7 @@ export class ConfigDirectorProvider extends Component<
 
   override async componentDidMount(): Promise<void> {
     const client = this.buildClient();
+    this.client = client;
 
     client.on("configsUpdated", () => {
       this.setState({ updatedAt: new Date() });
@@ -53,7 +56,7 @@ export class ConfigDirectorProvider extends Component<
     this.setState({ client });
 
     await client.initialize(this.props.context);
-    if (!client.isReady) {
+    if (this.client === client && !client.isReady) {
       this.setState({ status: "default" });
     }
   }
@@ -62,18 +65,19 @@ export class ConfigDirectorProvider extends Component<
     prevProps: PropsWithChildren<ConfigDirectorProviderOptions>,
   ): Promise<void> {
     if (prevProps.context !== this.props.context) {
-      const { client } = this.state;
+      const client = this.client;
       if (!client) return;
       this.setState({ status: "loading" });
       await client.updateContext(this.props.context ?? {});
-      if (!client.isReady) {
+      if (this.client === client && !client.isReady) {
         this.setState({ status: "default" });
       }
     }
   }
 
   override componentWillUnmount(): void {
-    this.state.client?.dispose();
+    this.client?.dispose();
+    this.client = undefined;
   }
 
   override render() {
