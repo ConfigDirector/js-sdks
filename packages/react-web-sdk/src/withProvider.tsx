@@ -21,13 +21,22 @@ export const withProvider = async (options: ConfigDirectorProviderOptions) => {
     }));
 
     useEffect(() => {
-      client.on("configsUpdated", () => {
+      const onConfigsUpdated = () => {
         setData((prevState) => ({ ...prevState, updatedAt: new Date() }));
-      });
-      client.on("clientReady", () => {
-        setData((prevState) => ({ ...prevState, status: "ready" }));
-      });
-    });
+      };
+      const onClientReady = () => {
+        setData((prevState) => (prevState.status === "ready" ? prevState : { ...prevState, status: "ready" }));
+      };
+      client.on("configsUpdated", onConfigsUpdated);
+      client.on("clientReady", onClientReady);
+      if (client.isReady) {
+        onClientReady();
+      }
+      return () => {
+        client.off("configsUpdated", onConfigsUpdated);
+        client.off("clientReady", onClientReady);
+      };
+    }, []);
 
     return <reactContext.Provider value={data}>{children}</reactContext.Provider>;
   };
