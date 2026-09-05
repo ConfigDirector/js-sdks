@@ -12,6 +12,7 @@
     "test": "yarn workspaces foreach -A run ci:test",
     "typecheck": "yarn workspaces foreach -A run typecheck",
     "pack:local": "yarn build && rm -rf artifacts && yarn workspaces foreach -A --no-private exec yarn pack --out \"$PROJECT_CWD/artifacts/%s.tgz\"",
+    "test:artifacts": "yarn pack:local && cd artifact-tests && yarn install && yarn ci:test",
     "version:bump": "yarn workspaces foreach -A --include '@configdirector/*-sdk' --include '@configdirector/openfeature-*' version",
     "changeset": "changeset",
     "version-packages": "changeset version",

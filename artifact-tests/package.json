@@ -1,0 +1,14 @@
+{
+  "name": "@configdirector/artifact-tests",
+  "private": true,
+  "scripts": {
+    "test": "vitest",
+    "ci:test": "vitest run"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "playwright": "1.60.0",
+    "vitest": "^4.1.8"
+  },
+  "packageManager": "yarn@4.13.0"
+}

@@ -2,26 +2,6 @@
 
 This is a Yarn 4 monorepo containing the JavaScript/TypeScript SDKs for the ConfigDirector service.
 
-## Packages
-
-| Package | Visibility | Description |
-|---------|------------|-------------|
-| `@configdirector/client-sdk` | Public (v0.1.9) | Browser/Node.js client SDK |
-| `@configdirector/react-web-sdk` | Public (v0.2.2) | React SDK with hooks and provider |
-| `@configdirector/server-sdk` | Public (v0.1.0) | Server-side SDK with local evaluation |
-| `@configdirector/client-core` | Private | Base client and transport implementations |
-| `@configdirector/config-evaluator` | Private | Config evaluation engine (targeting rules, rollouts) |
-| `@configdirector/shared` | Private | Shared types, utilities, and logger |
-
-### Dependency Graph
-
-```
-js-client-sdk  ──> js-client-core, shared
-react-web-sdk  ──> js-client-core, shared
-js-server-sdk  ──> config-evaluator, shared, js-client-core
-config-evaluator ─> shared
-```
-
 ## Common Commands
 
 ```bash
@@ -29,6 +9,7 @@ config-evaluator ─> shared
 yarn build       # build all packages via tsdown
 yarn lint        # runs linter across all packages
 yarn test        # run tests across all packages
+yarn test:artifacts  # pack the publishable artifacts and run artifact-tests/ against them
 
 # Within a package
 yarn build       # tsdown (public packages only)
@@ -72,7 +53,15 @@ yarn clean       # rimraf dist/**
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`): `yarn install` → `yarn build` → `yarn test`
+GitHub Actions (`.github/workflows/ci.yml`): `yarn install` → `yarn build` → `yarn test`, plus jobs for
+packed-artifact integration tests (`artifact-tests/`), Bun/Deno compatibility, and Nuxt 3 compatibility.
+
+## Artifact Tests
+
+`artifact-tests/` is a standalone project (own `yarn.lock`, not a workspace) that installs each packed
+tarball from `artifacts/` into an isolated temp project and verifies packaging (exports map files exist,
+every bare import in `dist` resolves) plus functional smokes against a mock SDK server — Node SDKs under
+plain `node`, browser SDKs bundled with esbuild and run in Chromium via Playwright. See its README.
 
 ## Workflow Rules
 

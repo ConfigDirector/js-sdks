@@ -41,6 +41,40 @@ jobs:
       - name: yarn test
         run: yarn test
 
+  artifact-tests:
+    name: Packed artifact integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: yarn install
+        run: yarn install
+
+      - name: yarn pack:local
+        run: yarn pack:local
+
+      - name: yarn install (artifact-tests)
+        run: yarn install
+        working-directory: ./artifact-tests
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('artifact-tests/yarn.lock') }}
+
+      - name: yarn playwright install
+        run: yarn playwright install chromium --with-deps
+        timeout-minutes: 10
+        working-directory: ./artifact-tests
+
+      - name: yarn ci:test
+        run: yarn ci:test
+        working-directory: ./artifact-tests
+
   server-sdk-bun:
     name: Server SDK — Bun compatibility
     runs-on: ubuntu-latest
