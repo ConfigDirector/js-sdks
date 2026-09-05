@@ -48,20 +48,18 @@ export type ConfigDirectorClientOptions = {
    */
   connection?: {
     /**
-     * The connection mode to be used, one of `streaming` (default), `polling`, or `one-time`.
+     * The connection mode to be used, one of `streaming` (default) or `polling`.
      * If set to `streaming`, the connection will remain open and receive updates whenever
      * config state is updated on the ConfigDirector dashboard.
      * When set to `polling`, there will be an initial request to retrieve config state during
      * initialization, and additional requests on a `pollingInterval`.
-     * The `one-time` connection mode will only retrieve config state during initialization and
-     * context updates. It will not poll for regular updates.
      *
      * Defaults to `streaming`
      */
     mode?: ConnectionMode;
     /**
      * The polling interval in _seconds_ when the `mode` is set to `polling`. This option has no
-     * effect when the `mode` is set to `streaming` or `one-time`.
+     * effect when the `mode` is set to `streaming`.
      *
      * Defaults to 60 seconds
      */

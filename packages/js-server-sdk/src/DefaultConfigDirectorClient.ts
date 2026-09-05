@@ -1,5 +1,4 @@
 import { StreamingTransport } from "./StreamingTransport";
-import { OneTimeTransport } from "./OneTimeTransport";
 import { PollingTransport } from "./PollingTransport";
 import { ConfigEvaluator } from "@config-evaluator/ConfigEvaluator";
 import { getRequestedType, parseConfigValue } from "@shared/value-parser";
@@ -180,8 +179,6 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
 
   private getTransportConstructor(mode: ConnectionMode) {
     switch (mode) {
-      case "one-time":
-        return OneTimeTransport;
       case "polling":
         return PollingTransport;
       default:

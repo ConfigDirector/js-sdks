@@ -163,7 +163,7 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
     expect(await client.getStringValue("greeting", "default", { name: "Bob" })).toBe("Bye");
   });
 
-  test("supports the 'one-time' connection mode configured via clientOptions", async () => {
+  test("supports the 'polling' connection mode configured via clientOptions", async () => {
     server.use(
       http.post(POLLING_URL, () =>
         HttpResponse.json(fullBundle({ greeting: configWithValue("greeting", "string", "from-pull") })),
@@ -171,7 +171,7 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
     );
 
     await OpenFeature.setProviderAndWait(
-      new ConfigDirectorProvider("sdk-key", { logger, connection: { mode: "one-time" } }),
+      new ConfigDirectorProvider("sdk-key", { logger, connection: { mode: "polling" } }),
     );
 
     expect(await OpenFeature.getClient().getStringValue("greeting", "default")).toBe("from-pull");

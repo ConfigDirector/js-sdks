@@ -22,7 +22,6 @@ import type {
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "./errors";
-import { OneTimeTransport } from "./OneTimeTransport";
 import type { TelemetryClient } from "./telemetry";
 import { defaultUrlFactory } from "@shared/url";
 import type { UrlFactory, UrlLike } from "@shared/url";
@@ -143,8 +142,6 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
 
   private getTransportConstructor(connectionMode?: ConnectionMode) {
     switch (connectionMode) {
-      case "one-time":
-        return OneTimeTransport;
       case "polling":
         return PollingTransport;
       default:

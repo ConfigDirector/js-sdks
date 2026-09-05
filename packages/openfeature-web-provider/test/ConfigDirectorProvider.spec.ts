@@ -135,14 +135,14 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
     expect((payloads[1] as any)?.givenContext).toEqual({ id: "user-1", name: "Alice" });
   });
 
-  test("supports the 'one-time' connection mode configured via clientOptions", async () => {
+  test("supports the 'polling' connection mode configured via clientOptions", async () => {
     await commands.mswUseHandlers({
       url: POLL_URL,
       responseBody: full(stringConfig("greeting", "from-pull")),
     });
 
     await OpenFeature.setProviderAndWait(
-      new ConfigDirectorProvider("sdk-key", { logger, connection: { mode: "one-time" } }),
+      new ConfigDirectorProvider("sdk-key", { logger, connection: { mode: "polling" } }),
     );
 
     expect(OpenFeature.getClient().getStringValue("greeting", "default")).toBe("from-pull");

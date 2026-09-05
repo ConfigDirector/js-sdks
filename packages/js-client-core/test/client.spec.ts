@@ -1090,63 +1090,6 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
-  describe("OneTimeTransport (connection.mode: 'one-time')", () => {
-    test("initializes and evaluates config values from the pull endpoint", async () => {
-      await commands.mswUseHandlers({
-        url: POLL_URL,
-        responseBody: {
-          environmentId: "10000000-0000-0000-0000-000000000000",
-          projectId: "20000000-0000-0000-0000-000000000000",
-          kind: "full",
-          configs: {
-            "my-config": {
-              id: "00000000-0000-0000-0000-000000000001",
-              key: "my-config",
-              type: "string",
-              value: "from-pull",
-            },
-          },
-        },
-      });
-
-      client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
-      await client.initialize();
-
-      expect(client.isReady).toBe(true);
-      expect(client.getValue("my-config", "default")).toBe("from-pull");
-
-      const payloads = await commands.mswGetPayloads();
-      expect(payloads[0]).toMatchObject({ clientSdkKey: "sdk-key" });
-    });
-
-    test("does not retry after a fatal 4xx response", async () => {
-      await commands.mswUseHandlers({ url: POLL_URL, status: 401 });
-
-      client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
-      await client.initialize();
-      await commands.mswUseHandlers({ url: POLL_URL, status: 401 });
-      await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
-
-      expect(client.isReady).toBe(false);
-      expect(await commands.mswWasRequestReceived()).toBe(false); // second connect attempt is silently ignored after fatal error
-    });
-
-    test("does not poll on an interval after initialization", async () => {
-      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
-
-      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-      client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
-      await client.initialize();
-
-      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
-      await vi.advanceTimersByTimeAsync(300_000);
-      await sleep(100);
-
-      expect(await commands.mswWasRequestReceived()).toBe(false);
-      vi.useRealTimers();
-    });
-  });
-
   describe("PollingTransport (connection.mode: 'polling')", () => {
     beforeAll(() => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });

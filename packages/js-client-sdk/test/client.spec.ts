@@ -375,15 +375,6 @@ describe("ConfigDirectorClient", () => {
       expect((payloads[0] as any)?.instanceId).not.toBe((payloads[1] as any)?.instanceId);
     });
 
-    test("sends a generated instanceId in 'one-time' connection mode", async () => {
-      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
-      const client = createClient("sdk-key", { logger, connection: { mode: "one-time" } });
-      await client.initialize();
-
-      const payloads = await commands.mswGetPayloads();
-      expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
-    });
-
     test("sends a generated instanceId in 'polling' connection mode and reuses it across polls", async () => {
       await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() });
       const client = createClient("sdk-key", {

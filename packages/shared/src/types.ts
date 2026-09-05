@@ -107,4 +107,4 @@ export type ConfigDirectorMetaContext = {
   appName?: string;
 };
 
-export type ConnectionMode = "streaming" | "polling" | "one-time";
+export type ConnectionMode = "streaming" | "polling";
