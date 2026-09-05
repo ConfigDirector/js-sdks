@@ -126,25 +126,33 @@ const parseConfigBoolean = (value: string): boolean | undefined => {
 };
 
 const parseConfigInteger = (value: string): number | undefined => {
-  if (!value) {
+  const num = parseStrictNumber(value);
+  return num == null ? undefined : Math.trunc(num);
+};
+
+const parseConfigFloat = (value: string): number | undefined => {
+  return parseStrictNumber(value);
+};
+
+const parseStrictNumber = (value: string): number | undefined => {
+  if (!value || !isDecimalCharacters(value)) {
     return;
   }
-  const num = Number.parseInt(value);
+  const num = Number(value);
   if (isNaN(num) || !isFinite(num)) {
     return;
   }
   return num;
 };
 
-const parseConfigFloat = (value: string): number | undefined => {
-  if (!value) {
-    return;
+const isDecimalCharacters = (value: string): boolean => {
+  for (const character of value) {
+    const isDigit = character >= "0" && character <= "9";
+    if (!isDigit && !"+-.eE".includes(character)) {
+      return false;
+    }
   }
-  const num = Number.parseFloat(value);
-  if (isNaN(num) || !isFinite(num)) {
-    return;
-  }
-  return num;
+  return true;
 };
 
 const parseJson = <T extends ConfigValueType>(

@@ -122,6 +122,28 @@ describe("value parser", () => {
       });
     });
 
+    test("uses the default when the value has surrounding or trailing garbage", () => {
+      for (const value of ["42abc", " 42", "42 ", "0x10", "1,000"]) {
+        expect(parseConfigValue(configState("integer", value), 10)).toMatchObject({
+          parsedValue: 10,
+          parsedValueId: undefined,
+          reason: "invalid-number",
+          requestedType: "number",
+          usedDefault: true,
+        });
+      }
+    });
+
+    test("parses exponent notation as its full numeric value", () => {
+      expect(parseConfigValue(configState("integer", "1e3"), 10)).toMatchObject({
+        parsedValue: 1000,
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "number",
+        usedDefault: false,
+      });
+    });
+
     test("returns a string when the generic type is string", () => {
       expect(parseConfigValue<string>(configState("integer", "50.5"), "10")).toMatchObject({
         parsedValue: "50.5",
@@ -180,6 +202,18 @@ describe("value parser", () => {
         requestedType: "number",
         usedDefault: true,
       });
+    });
+
+    test("uses the default when the value has surrounding or trailing garbage", () => {
+      for (const value of ["1.5abc", " 1.5", "1.5 ", "0x10", "1.2.3", "Infinity"]) {
+        expect(parseConfigValue(configState("float", value), 10.2)).toMatchObject({
+          parsedValue: 10.2,
+          parsedValueId: undefined,
+          reason: "invalid-number",
+          requestedType: "number",
+          usedDefault: true,
+        });
+      }
     });
 
     test("returns a string when the generic type is string", () => {
@@ -465,6 +499,16 @@ describe("value parser", () => {
   describe("type mismatches", () => {
     test("returns the default value when a 'string' config is requested as a number but cannot be parsed", () => {
       expect(parseConfigValue(configState("string", "not-a-number"), 10)).toMatchObject({
+        parsedValue: 10,
+        parsedValueId: undefined,
+        reason: "invalid-number",
+        requestedType: "number",
+        usedDefault: true,
+      });
+    });
+
+    test("returns the default value when a 'string' config requested as a number has trailing garbage", () => {
+      expect(parseConfigValue(configState("string", "42px"), 10)).toMatchObject({
         parsedValue: 10,
         parsedValueId: undefined,
         reason: "invalid-number",
