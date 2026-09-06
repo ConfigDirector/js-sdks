@@ -58,6 +58,15 @@ interface ConfigDirectorRuntimeConfig {
      */
     timeout?: number;
   };
+  /**
+   * Whether requests that arrive before the server SDK client received its initial config payload
+   * (for example right after the server starts) wait for it, for up to the connection `timeout`, before
+   * being handled. When disabled, such requests are handled immediately and evaluate configs to their
+   * default values until the payload arrives.
+   *
+   * Defaults to `true`. Can be set via the NUXT_CONFIGDIRECTOR_WAIT_FOR_INITIALIZATION environment variable.
+   */
+  waitForInitialization?: boolean;
 }
 
 interface ConfigDirectorPublicRuntimeConfig {
@@ -137,6 +146,7 @@ export default defineNuxtModule<ModuleOptions>({
       serverSdkKey: "",
       baseUrl: "",
       connection: { mode: "streaming", pollingInterval: 0, timeout: 0 },
+      waitForInitialization: true,
     };
     nuxt.options.runtimeConfig.configdirector = defu(
       nuxt.options.runtimeConfig.configdirector,
