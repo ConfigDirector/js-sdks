@@ -10,6 +10,7 @@ import {
 } from "@nuxt/kit";
 import type { LogLevel } from "consola";
 import { defu } from "defu";
+import type { ConnectionMode } from "@shared/types";
 
 interface ConfigDirectorRuntimeConfig {
   /**
@@ -32,6 +33,31 @@ interface ConfigDirectorRuntimeConfig {
    * Can be set via the NUXT_CONFIGDIRECTOR_BASE_URL environment variable.
    */
   baseUrl?: string;
+  /**
+   * Connection options for the server SDK client used during SSR and in Nitro handlers.
+   */
+  connection?: {
+    /**
+     * The connection mode, one of `streaming` (default) or `polling`. In `streaming` mode the
+     * connection stays open and receives config updates as they happen. In `polling` mode configs
+     * are fetched once during initialization and then again on every `pollingInterval`.
+     * Can be set via the NUXT_CONFIGDIRECTOR_CONNECTION_MODE environment variable.
+     */
+    mode?: ConnectionMode;
+    /**
+     * The polling interval in seconds when `mode` is `polling`. Has no effect in `streaming` mode.
+     * When omitted (or `0`), the server SDK default is used.
+     * Can be set via the NUXT_CONFIGDIRECTOR_CONNECTION_POLLING_INTERVAL environment variable.
+     */
+    pollingInterval?: number;
+    /**
+     * How long, in milliseconds, the server SDK client waits for its initial config payload. Requests
+     * that arrive before the payload is received are held until it arrives or this timeout elapses,
+     * after which they render with default values. When omitted (or `0`), the server SDK default is used.
+     * Can be set via the NUXT_CONFIGDIRECTOR_CONNECTION_TIMEOUT environment variable.
+     */
+    timeout?: number;
+  };
 }
 
 interface ConfigDirectorPublicRuntimeConfig {
@@ -107,11 +133,14 @@ export default defineNuxtModule<ModuleOptions>({
     const logger = useLogger("configdirector");
     const resolver = createResolver(import.meta.url);
 
+    const serverDefaults: ConfigDirectorRuntimeConfig = {
+      serverSdkKey: "",
+      baseUrl: "",
+      connection: { mode: "streaming", pollingInterval: 0, timeout: 0 },
+    };
     nuxt.options.runtimeConfig.configdirector = defu(
       nuxt.options.runtimeConfig.configdirector,
-      options.logLevel !== undefined
-        ? { serverSdkKey: "", logLevel: options.logLevel, baseUrl: "" }
-        : { serverSdkKey: "", baseUrl: "" },
+      options.logLevel !== undefined ? { ...serverDefaults, logLevel: options.logLevel } : serverDefaults,
     );
     nuxt.options.runtimeConfig.public.configdirector = defu(
       nuxt.options.runtimeConfig.public.configdirector,

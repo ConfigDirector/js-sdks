@@ -16,22 +16,28 @@ export default defineNitroPlugin((nitroApp) => {
   }
 
   logger.debug("Initializing ConfigDirector Nitro plugin");
-  const { serverSdkKey, baseUrl } = runtimeConfig.configdirector;
+  const { serverSdkKey, baseUrl, connection } = runtimeConfig.configdirector;
   const client: ConfigDirectorClient = new DefaultConfigDirectorClient(
     serverSdkKey,
     { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
     {
       logger,
-      ...(baseUrl ? { connection: { url: baseUrl } } : {}),
+      connection: {
+        url: baseUrl || undefined,
+        mode: connection?.mode || undefined,
+        pollingInterval: connection?.pollingInterval || undefined,
+        timeout: connection?.timeout || undefined,
+      },
     },
   );
 
   nitroApp.configDirectorClient = client;
-  client.initialize();
+  nitroApp.configDirectorInitialization = client.initialize();
 });
 
 declare module "nitropack" {
   interface NitroApp {
     configDirectorClient: ConfigDirectorClient;
+    configDirectorInitialization: Promise<void>;
   }
 }

@@ -94,8 +94,21 @@ export const CLIENT_BUNDLE = {
   },
 };
 
+export const HELD_SERVER_SDK_KEY = "test-server-sdk-key-held";
+const RELEASE_HELD_BUNDLES_PATH = "/__control/release-held-bundles";
+
 const sseEvent = (bundle: object): string =>
   `data: ${JSON.stringify(bundle)}\n\n`;
+
+const readBody = (req: IncomingMessage): Promise<string> =>
+  new Promise((resolve) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk: string) => {
+      body += chunk;
+    });
+    req.on("end", () => resolve(body));
+  });
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -109,22 +122,49 @@ const handlePreflight = (_req: IncomingMessage, res: ServerResponse): void => {
   res.end();
 };
 
-const handleSseRequest = (
-  bundle: object,
+const openSseStream = (res: ServerResponse): void => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    ...CORS_HEADERS,
+  });
+};
+
+const handleClientSseRequest = async (
   req: IncomingMessage,
   res: ServerResponse,
+): Promise<void> => {
+  await readBody(req);
+  openSseStream(res);
+  res.write(sseEvent(CLIENT_BUNDLE));
+};
+
+const handleServerSseRequest = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  heldStreams: Set<ServerResponse>,
+): Promise<void> => {
+  const { serverSdkKey } = JSON.parse(await readBody(req)) as { serverSdkKey?: string };
+  openSseStream(res);
+  if (serverSdkKey === HELD_SERVER_SDK_KEY) {
+    heldStreams.add(res);
+    res.on("close", () => heldStreams.delete(res));
+    return;
+  }
+  res.write(sseEvent(SERVER_BUNDLE));
+};
+
+const releaseHeldStreams = (
+  heldStreams: Set<ServerResponse>,
+  res: ServerResponse,
 ): void => {
-  req.resume();
-  req.on("end", () => {
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-      ...CORS_HEADERS,
-    });
-    res.write(sseEvent(bundle));
-    // Keep the connection open; the SDK holds it alive until it disposes.
-  });
+  for (const heldStream of heldStreams) {
+    heldStream.write(sseEvent(SERVER_BUNDLE));
+  }
+  heldStreams.clear();
+  res.writeHead(204);
+  res.end();
 };
 
 const handleTelemetryRequest = (
@@ -144,8 +184,13 @@ export interface MockSseServer {
   close(): Promise<void>;
 }
 
+export const releaseHeldServerBundles = async (mockServerBaseUrl: string): Promise<void> => {
+  await fetch(new URL(RELEASE_HELD_BUNDLES_PATH, mockServerBaseUrl), { method: "POST" });
+};
+
 export const startMockSseServer = (): Promise<MockSseServer> => {
   return new Promise((resolve, reject) => {
+    const heldStreams = new Set<ServerResponse>();
     const server: Server = createServer(
       (req: IncomingMessage, res: ServerResponse) => {
         const { pathname } = new URL(req.url!, "http://localhost");
@@ -162,10 +207,13 @@ export const startMockSseServer = (): Promise<MockSseServer> => {
         }
 
         if (pathname === "/server/sse/v1") {
-          handleSseRequest(SERVER_BUNDLE, req, res);
+          handleServerSseRequest(req, res, heldStreams);
         }
         else if (pathname === "/client/sse/v1") {
-          handleSseRequest(CLIENT_BUNDLE, req, res);
+          handleClientSseRequest(req, res);
+        }
+        else if (pathname === RELEASE_HELD_BUNDLES_PATH) {
+          releaseHeldStreams(heldStreams, res);
         }
         else if (
           pathname === "/server/telemetry/v1"
