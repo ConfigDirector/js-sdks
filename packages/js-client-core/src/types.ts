@@ -25,6 +25,7 @@ export type ConfigSet = {
 
 export type SdkMetaContext = IdentifyingSdkOptions & {
   userAgent?: string;
+  host?: string;
 };
 
 type ConnectionRetryDelayCalculator = (attempt: number) => number;

@@ -28,6 +28,7 @@ import type { UrlFactory, UrlLike } from "@shared/url";
 import { CLIENT_BASE_URL } from "@shared/constants";
 import { resolveInstanceId } from "./instance-id";
 import { PollingTransport } from "./PollingTransport";
+import { readHost, readUserAgent } from "./browser-globals";
 const MAX_EXPONENTIAL_DELAY = 9; // 2^9 = 512 seconds, to cap it to under 10min
 
 type WatchHandlerWithOptions<T extends ConfigValueType> = {
@@ -78,7 +79,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         ...clientOptions?.metadata,
         sdkName: sdkOptions.sdkName,
         sdkVersion: sdkOptions.sdkVersion,
-        userAgent: navigator?.userAgent,
+        userAgent: readUserAgent(),
+        host: readHost(),
       },
       logger: this.logger,
       fetch: internalClientOptions?.fetch,

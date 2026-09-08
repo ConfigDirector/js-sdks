@@ -63,6 +63,7 @@ describe("ConfigDirectorClient", () => {
         sdkName: "test-sdk",
         sdkVersion: "1.2.0",
         userAgent: expect.stringContaining("Mozilla"),
+        host: location.host,
       }),
     );
   });
