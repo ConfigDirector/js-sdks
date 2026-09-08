@@ -1,5 +1,11 @@
 # @configdirector/nextjs-sdk
 
+## 1.3.0
+
+### Minor Changes
+
+- 4f7db37: Changed the default polling interval for `connection.mode: "polling"` from 60 seconds to 5 minutes, and enforced a minimum polling interval of 60 seconds. A configured `pollingInterval` below 60 seconds is raised to 60 seconds and a warning is logged.
+
 ## 1.2.0
 
 ### Minor Changes

@@ -1,5 +1,12 @@
 # @configdirector/nuxt-sdk
 
+## 1.3.0
+
+### Minor Changes
+
+- f7153c2: Fixed requests arriving before the server SDK client received its initial config payload (for example right after the Nuxt server starts) rendering with default values. Such requests are now held until the payload arrives, for up to the client's initialization timeout, after which they proceed with defaults as before. This can be disabled with the new `runtimeConfig.configdirector.waitForInitialization` option (or `NUXT_CONFIGDIRECTOR_WAIT_FOR_INITIALIZATION=false`). The server client's connection options are now configurable under `runtimeConfig.configdirector.connection` (`mode`, `pollingInterval`, `timeout`), including through the matching `NUXT_CONFIGDIRECTOR_CONNECTION_*` environment variables, and the Nitro app exposes the client's initialization promise as `configDirectorInitialization` for code running outside the request lifecycle.
+- 4f7db37: Changed the default polling interval for `connection.mode: "polling"` from 60 seconds to 5 minutes, and enforced a minimum polling interval of 60 seconds. A configured `pollingInterval` below 60 seconds is raised to 60 seconds and a warning is logged.
+
 ## 1.2.0
 
 ### Minor Changes
