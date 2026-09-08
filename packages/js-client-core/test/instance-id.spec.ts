@@ -45,29 +45,29 @@ describe("resolveInstanceId", () => {
     expect(readRecord().checksum).toEqual(expect.any(String));
   });
 
-  test("reuses the stored instance id when it was generated less than 60 minutes ago", () => {
+  test("reuses the stored instance id when it was generated less than 6 hours ago", () => {
     vi.setSystemTime(1_700_000_000_000);
     const instanceId = resolveInstanceId(logger);
     const storedRecord = readRecord();
 
-    vi.setSystemTime(1_700_000_000_000 + 59 * 60 * 1_000);
+    vi.setSystemTime(1_700_000_000_000 + (6 * 60 - 1) * 60 * 1_000);
 
     expect(resolveInstanceId(logger)).toBe(instanceId);
     expect(readRecord()).toEqual(storedRecord);
   });
 
-  test("generates and stores a new instance id when the stored one is 60 minutes old", () => {
+  test("generates and stores a new instance id when the stored one is 6 hours old", () => {
     vi.setSystemTime(1_700_000_000_000);
     const instanceId = resolveInstanceId(logger);
 
-    vi.setSystemTime(1_700_000_000_000 + 60 * 60 * 1_000);
+    vi.setSystemTime(1_700_000_000_000 + 6 * 60 * 60 * 1_000);
     const newInstanceId = resolveInstanceId(logger);
 
     expect(newInstanceId).not.toBe(instanceId);
     expect(newInstanceId).toMatch(UUID_V4_PATTERN);
     expect(readRecord()).toMatchObject({
       id: newInstanceId,
-      createdAt: 1_700_000_000_000 + 60 * 60 * 1_000,
+      createdAt: 1_700_000_000_000 + 6 * 60 * 60 * 1_000,
     });
   });
 
@@ -97,9 +97,9 @@ describe("resolveInstanceId", () => {
     vi.setSystemTime(1_700_000_000_000);
     resolveInstanceId(logger);
     const record = readRecord();
-    writeRecord({ ...record, createdAt: record.createdAt + 60 * 60 * 1_000 });
+    writeRecord({ ...record, createdAt: record.createdAt + 6 * 60 * 60 * 1_000 });
 
-    vi.setSystemTime(1_700_000_000_000 + 90 * 60 * 1_000);
+    vi.setSystemTime(1_700_000_000_000 + 9 * 60 * 60 * 1_000);
 
     expect(resolveInstanceId(logger)).not.toBe(record.id);
   });
