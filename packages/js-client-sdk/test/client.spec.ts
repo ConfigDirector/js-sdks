@@ -341,6 +341,7 @@ describe("ConfigDirectorClient", () => {
 
   describe("instanceId", () => {
     const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const INSTANCE_ID_STORAGE_KEY = "configdirector-sdk:instance-id";
 
     test("sends a generated instanceId on the streaming (SSE) connection", async () => {
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
@@ -363,7 +364,8 @@ describe("ConfigDirectorClient", () => {
       expect((payloads[1] as any)?.instanceId).toBe((payloads[0] as any)?.instanceId);
     });
 
-    test("different client instances receive different instanceIds", async () => {
+    test("different client instances share the instanceId persisted in localStorage", async () => {
+      localStorage.removeItem(INSTANCE_ID_STORAGE_KEY);
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
       const clientA = createClient("sdk-key", { logger });
       await clientA.initialize();
@@ -372,7 +374,22 @@ describe("ConfigDirectorClient", () => {
 
       const payloads = await commands.mswGetPayloads();
       expect(payloads).toHaveLength(2);
-      expect((payloads[0] as any)?.instanceId).not.toBe((payloads[1] as any)?.instanceId);
+      expect((payloads[0] as any)?.instanceId).toMatch(UUID_PATTERN);
+      expect((payloads[1] as any)?.instanceId).toBe((payloads[0] as any)?.instanceId);
+    });
+
+    test("a new instanceId is generated when localStorage has no persisted one", async () => {
+      localStorage.removeItem(INSTANCE_ID_STORAGE_KEY);
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      const clientA = createClient("sdk-key", { logger });
+      await clientA.initialize();
+      localStorage.removeItem(INSTANCE_ID_STORAGE_KEY);
+      const clientB = createClient("sdk-key", { logger });
+      await clientB.initialize();
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads).toHaveLength(2);
+      expect((payloads[1] as any)?.instanceId).not.toBe((payloads[0] as any)?.instanceId);
     });
 
     test("sends a generated instanceId in 'polling' connection mode and reuses it across polls", async () => {

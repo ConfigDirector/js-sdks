@@ -67,6 +67,27 @@ describe("ConfigDirectorClient", () => {
     );
   });
 
+  test("reuses the instance id persisted in localStorage across client instances", async () => {
+    localStorage.removeItem("configdirector-sdk:instance-id");
+    await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+
+    const firstClient = createClient("sdk-key", { logger });
+    await firstClient.initialize();
+    const secondClient = createClient("sdk-key", { logger });
+    await secondClient.initialize();
+
+    const payloads = (await commands.mswGetPayloads()) as any[];
+    expect(payloads[0]?.instanceId).toEqual(expect.any(String));
+    expect(payloads[1]?.instanceId).toBe(payloads[0]?.instanceId);
+    expect(JSON.parse(localStorage.getItem("configdirector-sdk:instance-id") as string)).toMatchObject({
+      id: payloads[0]?.instanceId,
+    });
+
+    firstClient.dispose();
+    secondClient.dispose();
+    localStorage.removeItem("configdirector-sdk:instance-id");
+  });
+
   test("returns the default value when the config was not sent from the server", async () => {
     await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
     client = createClient("sdk-key", { logger });
