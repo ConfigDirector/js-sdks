@@ -1001,6 +1001,8 @@ describe("ConfigDirectorClient", () => {
       await vi.waitFor(() => expect(retryingClient.getValue("my-config", "default")).toBe("recovered"));
       expect(events).toHaveLength(0);
       expect(retryingClient.isReady).toBe(true);
+
+      retryingClient.dispose();
     });
 
     test("close before the first payload leaves the client not ready and does not emit clientReady", async () => {
