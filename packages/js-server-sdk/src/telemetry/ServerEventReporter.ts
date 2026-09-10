@@ -89,6 +89,6 @@ export class ServerEventReporter implements EventReporter {
   }
 
   private isStatusFatal(status: number | undefined): boolean {
-    return !!status && status >= 400 && status < 500;
+    return !!status && status >= 400 && status < 500 && status != 429;
   }
 }

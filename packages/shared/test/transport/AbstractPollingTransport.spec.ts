@@ -95,6 +95,19 @@ describe("AbstractPollingTransport", () => {
       transport.close();
     });
 
+    test("keeps the transport open on a 429 response status", async () => {
+      const transport = new TestPollingTransport();
+      transport.startPolling();
+
+      await expect(
+        transport.handleResponse(new Response("Too Many Requests", { status: 429 })),
+      ).rejects.toThrow("Connection failed with status: 429");
+
+      expect(transport.hasFatalError).toBe(false);
+      expect(transport.isConnected).toBe(true);
+      transport.close();
+    });
+
     test("does nothing on a successful response", async () => {
       const transport = new TestPollingTransport();
       transport.startPolling();

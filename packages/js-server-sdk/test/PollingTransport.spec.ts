@@ -257,6 +257,29 @@ describe("PollingTransport", () => {
       expect(received).toHaveLength(1);
     });
 
+    test("keeps polling after a 429 response on connect", async () => {
+      let callCount = 0;
+      server.use(
+        http.post(POLLING_URL, () => {
+          callCount++;
+          if (callCount === 1) return HttpResponse.text("Too Many Requests", { status: 429 });
+          return HttpResponse.json(fullBundle);
+        }),
+      );
+
+      const received: any[] = [];
+      vi.useFakeTimers();
+      transport = createTransport(1);
+      transport.on("configBundleReceived", (b) => received.push(b));
+      await expect(transport.connect(5000)).rejects.toThrow("Connection failed with status: 429");
+
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(callCount).toBe(2);
+      expect(received).toHaveLength(1);
+      expect(transport.isConnected).toBe(true);
+    });
+
     test("closes the transport when a poll receives a fatal response", async () => {
       let callCount = 0;
       server.use(

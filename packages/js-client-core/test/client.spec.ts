@@ -969,6 +969,40 @@ describe("ConfigDirectorClient", () => {
       expect(events[0].error.message).toMatch(/401/);
     });
 
+    test("reconnects when the stream dies with a 429 status after connecting", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [{ data: full() }],
+        { status: 429 },
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "recovered",
+              },
+            }),
+          },
+        ],
+      ]);
+      const retryingClient = new DefaultConfigDirectorClient(
+        telemetryClient,
+        "sdk-key",
+        { sdkName: "test-sdk", sdkVersion: "1.2.0" },
+        { logger },
+        { connectionRetryDelay: () => 10 },
+      );
+      client = retryingClient;
+      const events: { error: Error }[] = [];
+      retryingClient.on("connectionError", (e) => events.push(e));
+      await retryingClient.initialize();
+
+      await vi.waitFor(() => expect(retryingClient.getValue("my-config", "default")).toBe("recovered"));
+      expect(events).toHaveLength(0);
+      expect(retryingClient.isReady).toBe(true);
+    });
+
     test("close before the first payload leaves the client not ready and does not emit clientReady", async () => {
       const readyEvents: unknown[] = [];
       await commands.mswUseSseHandler(SSE_URL, [[]]);
@@ -1373,6 +1407,35 @@ describe("ConfigDirectorClient", () => {
 
       expect(client.isReady).toBe(false);
       expect(await commands.mswWasRequestReceived()).toBe(false);
+    });
+
+    test("keeps polling after a 429 response on initialize", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, status: 429 });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
+      await client.initialize();
+      expect(client.isReady).toBe(false);
+
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "recovered",
+            },
+          },
+          "2024-01-01T00:00:00.000Z",
+        ),
+      });
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.waitFor(() => expect(client.getValue("my-config", "default")).toBe("recovered"), {
+        timeout: 1_000,
+      });
+      expect(client.isReady).toBe(true);
     });
 
     test("keeps polling after a transient failure on initialize", async () => {

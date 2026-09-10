@@ -152,6 +152,45 @@ describe("StreamingTransport", () => {
       await expect(transport.connect(5000)).rejects.toThrow("Connection failed with status: 403");
     });
 
+    test("reconnects after a 429 response instead of failing", async () => {
+      let callCount = 0;
+      server.use(
+        http.post(SSE_URL, () => {
+          callCount++;
+          if (callCount === 1) {
+            return HttpResponse.text("Too Many Requests", { status: 429 });
+          }
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      const errors: Error[] = [];
+      transport.on("connectionError", (error: Error) => errors.push(error));
+
+      const connectPromise = transport.connect(5000);
+      await vi.waitFor(() => expect(callCount).toBe(1));
+      vi.useFakeTimers();
+      await vi.advanceTimersByTimeAsync(2_000);
+      vi.useRealTimers();
+
+      await expect(connectPromise).resolves.toBe(transport);
+      await vi.waitFor(() => expect(transport.isConnected).toBe(true));
+      expect(callCount).toBe(2);
+      expect(errors).toHaveLength(0);
+    });
+
     test("includes the server response status in the error message", async () => {
       server.use(http.post(SSE_URL, () => HttpResponse.text("Invalid SDK key provided", { status: 401 })));
 

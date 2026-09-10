@@ -268,6 +268,33 @@ describe("ClientTelemetryEventCollector", () => {
     });
   });
 
+  describe("rate limiting", () => {
+    test("keeps collecting events after a 429 response", async () => {
+      await commands.mswUseHandlers({ url: TELEMETRY_URL, status: 429 });
+
+      collector = createCollector();
+      collector.evaluatedConfig(baseEvent);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await vi.waitFor(
+        async () => {
+          if (!(await commands.mswWasRequestReceived())) throw new Error("Request not yet received");
+        },
+        { timeout: 2_000 },
+      );
+
+      await commands.mswUseHandlers({ url: TELEMETRY_URL });
+      collector.evaluatedConfig({ ...baseEvent, key: "config-after-rate-limit" });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await waitForPayloadCount(1);
+
+      const payloads = (await commands.mswGetPayloads()) as EventReport[];
+      expect(payloads[0].aggregatedEvents["evaluatedConfig"][0].event["key"]).toBe(
+        "config-after-rate-limit",
+      );
+    });
+  });
+
   describe("fetch error handling", () => {
     test("a TypeError stops collecting events", async () => {
       vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));

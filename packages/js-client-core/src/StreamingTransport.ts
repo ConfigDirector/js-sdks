@@ -109,7 +109,7 @@ export class StreamingTransport implements Transport {
   }
 
   private isStatusFatal(status: number | undefined): boolean {
-    return !!status && status >= 400 && status < 500;
+    return !!status && status >= 400 && status < 500 && status != 429;
   }
 
   public on<TName extends keyof TransportEvents>(

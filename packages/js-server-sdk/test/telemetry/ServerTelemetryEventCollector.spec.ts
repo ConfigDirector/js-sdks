@@ -309,6 +309,31 @@ describe("ServerTelemetryEventCollector", () => {
     });
   });
 
+  describe("rate limiting", () => {
+    test("keeps collecting events after a 429 response", async () => {
+      server.use(
+        http.post(TELEMETRY_URL, async ({ request }) => {
+          capturedPayloads.push(await request.json());
+          return HttpResponse.json({}, { status: capturedPayloads.length === 1 ? 429 : 200 });
+        }),
+      );
+
+      const collector = createCollector();
+      collector.evaluatedConfig(basePayload);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(capturedPayloads).toHaveLength(1);
+
+      collector.evaluatedConfig({ evaluation: { ...baseEvaluation, key: "config-after-rate-limit" } });
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(capturedPayloads).toHaveLength(2);
+      expect(capturedPayloads[1].aggregatedEvents.evaluatedConfig[0]).toMatchObject({
+        event: { key: "config-after-rate-limit" },
+      });
+    });
+  });
+
   describe("close", () => {
     test("flushes remaining events on close", async () => {
       const collector = createCollector();
