@@ -1,5 +1,11 @@
 # @configdirector/client-sdk
 
+## 1.4.0
+
+### Minor Changes
+
+- Retry 429 response codes. The SDK server may return a 429 when the account capacity is reached, but the clients must continue to retry in order to reconnect once the limit is cleared.
+
 ## 1.3.0
 
 ### Minor Changes
