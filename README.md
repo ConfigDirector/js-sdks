@@ -2,7 +2,9 @@
 
 [![Actions Status][ci-badge]][ci]
 
-ConfigDirector JavaScript SDKs are hosted in this repository. Refer to the tables below for individual SDK packages.
+JavaScript and TypeScript SDKs for [ConfigDirector](https://www.configdirector.com), remote config and feature flags with typed values, JSON Schema validation, and safe renames of live flags. Start free, no card required.
+
+Pick the package for your framework from the tables below; each one has its own README with an install command and a first example, and the [quickstart](https://docs.configdirector.com/getting-started/quickstart) walks through the first flag end to end.
 
 | Browser & Mobile SDKs                                                                   | npm                                                             | Docs                                                         |
 | --------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -21,7 +23,8 @@ ConfigDirector JavaScript SDKs are hosted in this repository. Refer to the table
 
 ## Getting Help
 
-Reach out to us via https://www.configdirector.com/support
+- [Ask a question in Discussions](https://github.com/ConfigDirector/js-sdks/discussions)
+- [Contact support](https://www.configdirector.com/support)
 
 [//]: # "links"
 [ci-badge]: https://github.com/ConfigDirector/js-sdks/actions/workflows/ci.yml/badge.svg
