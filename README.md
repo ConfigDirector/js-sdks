@@ -23,7 +23,7 @@ Pick the package for your framework from the tables below; each one has its own 
 
 ## Getting Help
 
-- [Ask a question in Discussions](https://github.com/ConfigDirector/js-sdks/discussions)
+- [Ask a question in Discussions](https://github.com/orgs/ConfigDirector/discussions)
 - [Contact support](https://www.configdirector.com/support)
 
 [//]: # "links"

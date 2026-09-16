@@ -40,7 +40,7 @@ There is also [a quickstart guide for ConfigDirector and any of our SDKs](https:
 
 ## Getting Help
 
-- [Ask a question in Discussions](https://github.com/ConfigDirector/js-sdks/discussions)
+- [Ask a question in Discussions](https://github.com/orgs/ConfigDirector/discussions)
 - [Contact support](https://www.configdirector.com/support)
 
 [//]: # "links"
