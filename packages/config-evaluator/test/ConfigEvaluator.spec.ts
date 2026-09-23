@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import type { Config } from "../src/types";
+import type { ConditionalRule, Config } from "../src/types";
 import { ConfigEvaluator } from "../src/ConfigEvaluator";
 import { createStubbedLogger } from "./helpers";
 
@@ -275,7 +275,7 @@ describe("ConfigEvaluator", () => {
       expect(evaluator.evaluate(config, { context: { id: "20" } }).value).toEqual("this-is-the-default");
     });
 
-    test("falls back to the default when conditions array is empty", () => {
+    test("a rule with no conditions applies to every context", () => {
       const config: Config = {
         id: CONFIG_ID,
         key: "config-without-rules",
@@ -297,13 +297,30 @@ describe("ConfigEvaluator", () => {
         },
       };
 
-      expect(evaluator.evaluate(config, { context: { id: "10" } }).value).toEqual("this-is-the-default");
+      expect(evaluator.evaluate(config, { context: { id: "10" } }).value).toEqual("Rule A Value");
+      expect(evaluator.evaluate(config).value).toEqual("Rule A Value");
     });
 
-    test("matches on the first true condition (OR semantics across multiple conditions)", () => {
-      const config: Config = {
+    describe("a rule with several conditions", () => {
+      const identifierIs = (value: string) => ({
+        id: crypto.randomUUID(),
+        attribute: "identifier",
+        operator: "=" as const,
+        trait: undefined,
+        targetType: "text" as const,
+        targetValues: [value],
+      });
+      const planIs = (value: string) => ({
+        id: crypto.randomUUID(),
+        attribute: "traits",
+        operator: "=" as const,
+        trait: "/plan",
+        targetType: "text" as const,
+        targetValues: [value],
+      });
+      const configRequiring = (...conditions: ConditionalRule["conditions"]): Config => ({
         id: CONFIG_ID,
-        key: "config-without-rules",
+        key: "config-with-a-two-condition-rule",
         type: "string",
         variations: [],
         target: {
@@ -316,32 +333,43 @@ describe("ConfigEvaluator", () => {
               target: "value",
               value: "Rule A Value",
               percentages: [],
-              conditions: [
-                {
-                  id: crypto.randomUUID(),
-                  attribute: "identifier",
-                  operator: "=",
-                  trait: undefined,
-                  targetType: "text",
-                  targetValues: ["10"],
-                },
-                {
-                  id: crypto.randomUUID(),
-                  attribute: "identifier",
-                  operator: "=",
-                  trait: undefined,
-                  targetType: "text",
-                  targetValues: ["20"],
-                },
-              ],
+              conditions,
             },
           ],
         },
-      };
+      });
+      const config = configRequiring(identifierIs("10"), planIs("pro"));
 
-      expect(evaluator.evaluate(config, { context: { id: "10" } }).value).toEqual("Rule A Value");
-      expect(evaluator.evaluate(config, { context: { id: "20" } }).value).toEqual("Rule A Value");
-      expect(evaluator.evaluate(config, { context: { id: "30" } }).value).toEqual("this-is-the-default");
+      test("matches when every condition matches", () => {
+        const value = evaluator.evaluate(config, { context: { id: "10", traits: { plan: "pro" } } }).value;
+        expect(value).toEqual("Rule A Value");
+      });
+
+      test("does not match when only the first condition matches", () => {
+        const value = evaluator.evaluate(config, { context: { id: "10", traits: { plan: "free" } } }).value;
+        expect(value).toEqual("this-is-the-default");
+      });
+
+      test("does not match when only the second condition matches", () => {
+        const value = evaluator.evaluate(config, { context: { id: "20", traits: { plan: "pro" } } }).value;
+        expect(value).toEqual("this-is-the-default");
+      });
+
+      test("does not match when no condition matches", () => {
+        const value = evaluator.evaluate(config, { context: { id: "20", traits: { plan: "free" } } }).value;
+        expect(value).toEqual("this-is-the-default");
+      });
+
+      test("never matches when its conditions cannot all hold", () => {
+        const contradiction = configRequiring(identifierIs("10"), identifierIs("20"));
+
+        expect(evaluator.evaluate(contradiction, { context: { id: "10" } }).value).toEqual(
+          "this-is-the-default",
+        );
+        expect(evaluator.evaluate(contradiction, { context: { id: "20" } }).value).toEqual(
+          "this-is-the-default",
+        );
+      });
     });
 
     test("falls back to the default when the condition matches but the value is undefined", () => {
@@ -787,7 +815,6 @@ describe("ConfigEvaluator", () => {
 
       expect(() =>
         evaluator.evaluate(config, {
-
           context: { id: "10", traits: { score: 5n as any } },
         }),
       ).not.toThrow();
@@ -826,7 +853,6 @@ describe("ConfigEvaluator", () => {
 
       expect(() =>
         evaluator.evaluate(config, {
-
           context: { id: "10", traits: { score: 5n as any } },
         }),
       ).not.toThrow();

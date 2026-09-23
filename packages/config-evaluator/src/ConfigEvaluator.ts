@@ -115,13 +115,13 @@ export class ConfigEvaluator {
     config: Config,
     context?: EvaluationContext,
   ): RuleEvaluationResult {
-    const condition = (rule.conditions ?? []).find((candidate) =>
+    const conditionsMet = (rule.conditions ?? []).every((candidate) =>
       this.conditionEvaluator.evaluate(candidate, context),
     );
 
-    if (condition && rule.target == "value" && rule.value != null) {
+    if (conditionsMet && rule.target == "value" && rule.value != null) {
       return { success: true, value: rule.value.toString() };
-    } else if (condition && rule.target == "percentage") {
+    } else if (conditionsMet && rule.target == "percentage") {
       return this.evaluatePercentage(rule.percentages ?? [], config, context);
     }
     return { success: false };

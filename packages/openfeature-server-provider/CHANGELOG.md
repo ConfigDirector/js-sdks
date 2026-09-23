@@ -1,5 +1,11 @@
 # @configdirector/openfeature-server-provider
 
+## 1.5.0
+
+### Minor Changes
+
+- Fix bug in conditional rule evaluation incorrectly evaluating multiple conditions in an OR instead of AND
+
 ## 1.4.0
 
 ### Minor Changes
