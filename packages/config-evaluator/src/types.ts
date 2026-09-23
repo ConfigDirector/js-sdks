@@ -104,3 +104,52 @@ export type EvaluationContext = {
   context?: ConfigDirectorContext;
   metadata?: ConfigDirectorMetaContext;
 };
+
+export type ResolvedType = "absent" | "scalar" | "array" | "object" | "unknown-attribute";
+
+export type ConditionCheck = {
+  matched: boolean;
+  resolvedValue: unknown;
+  resolvedType: ResolvedType;
+};
+
+export type ConditionExplanation =
+  | { conditionId: string; outcome: "not-evaluated" }
+  | {
+      conditionId: string;
+      outcome: "matched" | "not-matched";
+      resolvedValue: unknown;
+      resolvedType: ResolvedType;
+    };
+
+export type Share = {
+  percentageId: string;
+  from: number;
+  to: number;
+  value: string | undefined;
+};
+
+export type BucketExplanation = {
+  identifier: string;
+  identifierWasGenerated: boolean;
+  assignedPercentage: number;
+  shares: Share[];
+  selectedPercentageId: string | undefined;
+};
+
+export type RuleOutcome = "matched" | "not-matched" | "not-evaluated" | "errored";
+
+export type RuleExplanation = {
+  ruleId: string;
+  outcome: RuleOutcome;
+  conditions: ConditionExplanation[];
+  bucket: BucketExplanation | undefined;
+};
+
+export type ServedBy = { kind: "rule"; ruleId: string } | { kind: "default" };
+
+export type EvaluationExplanation = {
+  value: string | undefined;
+  servedBy: ServedBy;
+  rules: RuleExplanation[];
+};

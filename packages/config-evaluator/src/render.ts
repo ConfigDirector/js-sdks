@@ -1,6 +1,7 @@
 /**
  * Rendering a resolved context value to text.
  */
+import type { ResolvedType } from "./types";
 
 /** A value the context does not carry. Compared as "", so a negative operator can still match. */
 export const ABSENT = Symbol("absent");
@@ -35,3 +36,16 @@ export const renderScalar = (value: string | number | boolean): string => {
 
 /** The raw value, for comparisons that inspect its JSON type rather than its text. */
 export const unwrap = (value: Resolved): unknown => (value === ABSENT ? undefined : value);
+
+export const resolvedTypeOf = (value: Resolved): ResolvedType => {
+  if (value === UNKNOWN_ATTRIBUTE) {
+    return "unknown-attribute";
+  }
+  if (value === ABSENT) {
+    return "absent";
+  }
+  if (isScalar(value)) {
+    return "scalar";
+  }
+  return Array.isArray(value) ? "array" : "object";
+};

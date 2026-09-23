@@ -1,6 +1,6 @@
 {
   "name": "@configdirector/config-evaluator-internal",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "ConfigDirector internal package, not intended for use outside ConfigDirector. The targeting rules evaluator shared by the ConfigDirector server SDKs and the ConfigDirector dashboard; its API can change in any release.",
   "license": "MIT",
   "author": "ConfigDirector",

@@ -6,21 +6,17 @@ import type {
   EvaluationContext,
   ConfigState,
   Percentage,
-  PercentageRule,
   Rule,
   ConfigDirectorLogger,
+  EvaluationExplanation,
+  RuleExplanation,
+  Share,
 } from "./types";
 
-type RuleSuccess = {
-  success: true;
-  value: string;
+type RuleResult = {
+  explanation: RuleExplanation;
+  value: string | undefined;
 };
-
-type RuleFailure = {
-  success: false;
-};
-
-type RuleEvaluationResult = RuleSuccess | RuleFailure;
 
 export class ConfigEvaluator {
   private readonly conditionEvaluator = new ConditionEvaluator();
@@ -38,92 +34,139 @@ export class ConfigEvaluator {
       id: config.id,
       key: config.key,
       type: config.type,
-      value: this.getConfigValue(config, context),
+      value: this.explain(config, context).value,
     };
   }
 
-  private getConfigValue(config: Config, context?: EvaluationContext) {
+  /**
+   * Evaluate a config for a context and record how the value was reached: every rule in the
+   * order it was walked with its outcome, the conditions that were checked with what they
+   * resolved to, and the share a rollout assigned the context to. `evaluate` is this walk with
+   * only the value kept, so the two cannot disagree.
+   */
+  public explain(config: Config, context?: EvaluationContext): EvaluationExplanation {
     const rules = [...(config.target?.rules ?? [])].sort(
       (a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER),
     );
+    const explanations: RuleExplanation[] = [];
+    let served: { ruleId: string; value: string } | undefined;
     for (const rule of rules) {
-      const result = this.evaluateRule(rule, config, context);
-      if (result.success) {
-        return result.value;
+      if (served) {
+        explanations.push({ ruleId: rule.id, outcome: "not-evaluated", conditions: [], bucket: undefined });
+        continue;
+      }
+      const result = this.explainRule(rule, config, context);
+      explanations.push(result.explanation);
+      if (result.value !== undefined) {
+        served = { ruleId: rule.id, value: result.value };
       }
     }
-    return config.target?.defaultValue;
+    return {
+      value: served?.value ?? config.target?.defaultValue,
+      servedBy: served ? { kind: "rule", ruleId: served.ruleId } : { kind: "default" },
+      rules: explanations,
+    };
   }
 
-  private evaluateRule(rule: Rule, config: Config, context?: EvaluationContext): RuleEvaluationResult {
+  private explainRule(rule: Rule, config: Config, context?: EvaluationContext): RuleResult {
+    const explanation: RuleExplanation = {
+      ruleId: rule.id,
+      outcome: "not-matched",
+      conditions: [],
+      bucket: undefined,
+    };
     try {
+      let value: string | undefined;
       if (rule.type == "percentage") {
-        return this.evaluatePercentageRule(rule, config, context);
+        value = this.explainPercentage(rule.percentages ?? [], config, context, explanation);
       } else if (rule.type == "conditional") {
-        return this.evaluateConditionalRule(rule, config, context);
+        value = this.explainConditionalRule(rule, config, context, explanation);
       }
+      if (value !== undefined) {
+        explanation.outcome = "matched";
+      }
+      return { explanation, value };
     } catch (error) {
-      this.logger.warn(`There was an error while evaluating a targeting rule '${rule?.id}' for '${config?.key}'. The rule will be disregarded.`, {
-        error,
-        configKey: config?.key,
-        ruleId: rule?.id,
-      });
+      this.logger.warn(
+        `There was an error while evaluating a targeting rule '${rule?.id}' for '${config?.key}'. The rule will be disregarded.`,
+        {
+          error,
+          configKey: config?.key,
+          ruleId: rule?.id,
+        },
+      );
+      return {
+        explanation: { ruleId: rule.id, outcome: "errored", conditions: [], bucket: undefined },
+        value: undefined,
+      };
     }
-
-    return { success: false };
   }
 
-  private evaluatePercentageRule(
-    rule: PercentageRule,
-    config: Config,
-    context?: EvaluationContext,
-  ): RuleEvaluationResult {
-    return this.evaluatePercentage(rule.percentages ?? [], config, context);
-  }
-
-  private evaluatePercentage(
+  private explainPercentage(
     percentages: Percentage[],
     config: Config,
-    context?: EvaluationContext,
-  ): RuleEvaluationResult {
-    const assignedPercentage = assignPercentage({
-      configId: config.id,
-      contextIdentifier: context?.context?.id ?? crypto.randomUUID(),
-    });
+    context: EvaluationContext | undefined,
+    explanation: RuleExplanation,
+  ): string | undefined {
+    const contextIdentifier = context?.context?.id;
+    const identifier = contextIdentifier ?? crypto.randomUUID();
+    const assignedPercentage = assignPercentage({ configId: config.id, contextIdentifier: identifier });
+    const shares: Share[] = [];
     let sum = 0.0;
-    let bucket: Percentage | undefined = undefined;
+    let selected: Percentage | undefined = undefined;
     // A bucket spans [sum, sum + percentage). Strict, so a context landing exactly on a boundary
     // belongs to the bucket that starts there -- which is what keeps a 0% bucket unreachable and
     // each bucket's share exact. See SEMANTICS.md §7.1 in targeting-rules-contract.
     for (const percentage of percentages) {
-      if (assignedPercentage < percentage.percentage + sum) {
-        bucket = percentage;
-        break;
+      const to = sum + percentage.percentage;
+      shares.push({ percentageId: percentage.id, from: sum, to, value: percentage.value?.toString() });
+      if (selected === undefined && assignedPercentage < to) {
+        selected = percentage;
       }
-
-      sum += percentage.percentage;
+      sum = to;
     }
 
-    if (bucket?.value != null) {
-      return { success: true, value: bucket.value.toString() };
-    }
-    return { success: false };
+    explanation.bucket = {
+      identifier,
+      identifierWasGenerated: contextIdentifier == null,
+      assignedPercentage,
+      shares,
+      selectedPercentageId: selected?.id,
+    };
+    return selected?.value != null ? selected.value.toString() : undefined;
   }
 
-  private evaluateConditionalRule(
+  private explainConditionalRule(
     rule: ConditionalRule,
     config: Config,
-    context?: EvaluationContext,
-  ): RuleEvaluationResult {
-    const conditionsMet = (rule.conditions ?? []).every((candidate) =>
-      this.conditionEvaluator.evaluate(candidate, context),
-    );
-
-    if (conditionsMet && rule.target == "value" && rule.value != null) {
-      return { success: true, value: rule.value.toString() };
-    } else if (conditionsMet && rule.target == "percentage") {
-      return this.evaluatePercentage(rule.percentages ?? [], config, context);
+    context: EvaluationContext | undefined,
+    explanation: RuleExplanation,
+  ): string | undefined {
+    let failed = false;
+    for (const condition of rule.conditions ?? []) {
+      if (failed) {
+        explanation.conditions.push({ conditionId: condition.id, outcome: "not-evaluated" });
+        continue;
+      }
+      const check = this.conditionEvaluator.explain(condition, context);
+      explanation.conditions.push({
+        conditionId: condition.id,
+        outcome: check.matched ? "matched" : "not-matched",
+        resolvedValue: check.resolvedValue,
+        resolvedType: check.resolvedType,
+      });
+      failed = !check.matched;
     }
-    return { success: false };
+
+    if (failed) {
+      return undefined;
+    }
+    if (rule.target == "value") {
+      return rule.value != null ? rule.value.toString() : undefined;
+    }
+    if (rule.target == "percentage") {
+      return this.explainPercentage(rule.percentages ?? [], config, context, explanation);
+    }
+    return undefined;
   }
 }

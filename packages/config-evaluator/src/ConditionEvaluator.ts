@@ -1,11 +1,11 @@
-import type { Condition, EvaluationContext } from "./types";
+import type { Condition, ConditionCheck, EvaluationContext } from "./types";
 import { findByPointer } from "@jsonjoy.com/json-pointer";
 import { compareText } from "./text-comparison";
 import { compareNumeric } from "./numeric-comparison";
 import { compareDate } from "./date-comparison";
 import { compareSemver } from "./semver-comparison";
 import { compareArray } from "./array-comparison";
-import { ABSENT, UNKNOWN_ATTRIBUTE, render, unwrap, type Resolved } from "./render";
+import { ABSENT, UNKNOWN_ATTRIBUTE, render, resolvedTypeOf, unwrap, type Resolved } from "./render";
 
 export class ConditionEvaluator {
   /**
@@ -16,11 +16,24 @@ export class ConditionEvaluator {
    * a condition can still match or not match on its own terms.
    */
   public evaluate(condition: Condition, context?: EvaluationContext): boolean {
-    const value = this.resolve(condition, context);
-    if (value === UNKNOWN_ATTRIBUTE) {
-      return false;
-    }
+    return this.explain(condition, context).matched;
+  }
 
+  /**
+   * Decide whether a condition holds for a context, and say what the condition was compared
+   * against: the raw resolved value and its shape.
+   */
+  public explain(condition: Condition, context?: EvaluationContext): ConditionCheck {
+    const value = this.resolve(condition, context);
+    const resolvedType = resolvedTypeOf(value);
+    const resolvedValue = value === ABSENT || value === UNKNOWN_ATTRIBUTE ? undefined : value;
+    if (value === UNKNOWN_ATTRIBUTE) {
+      return { matched: false, resolvedValue, resolvedType };
+    }
+    return { matched: this.compare(condition, value), resolvedValue, resolvedType };
+  }
+
+  private compare(condition: Condition, value: Resolved): boolean {
     const targetValues = condition.targetValues ?? [];
 
     switch (condition.targetType) {
