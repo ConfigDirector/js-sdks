@@ -21,8 +21,10 @@ yarn changeset
 
 Select each public package whose behavior changed, pick the bump type (patch/minor/major), and
 describe the change from the consumer's perspective. Internal packages (`shared`, `client-core`,
-`browser-client`, `config-evaluator`, `eventsource`) are bundled into the SDKs and are not
-versioned — select the public SDKs that ship the change instead. Commit the generated markdown
+`browser-client`, `eventsource`) are bundled into the SDKs and are not versioned — select the
+public SDKs that ship the change instead. `config-evaluator` is bundled the same way and is also
+published on its own as `@configdirector/config-evaluator-internal`, versioned independently of
+the SDKs for the ConfigDirector dashboard; an evaluator change selects that package as well. Commit the generated markdown
 file with your change.
 
 ## Release process

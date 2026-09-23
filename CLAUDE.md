@@ -29,7 +29,7 @@ yarn clean       # rimraf dist/**
 **Layered structure:**
 - Core (`js-client-core`): Base client, transport contracts, emitter
 - SDKs (`js-client-sdk`, `react-web-sdk`, `js-server-sdk`): Public API
-- Domain (`config-evaluator`, `shared`): Evaluation logic and shared types
+- Domain (`config-evaluator`, `shared`): Evaluation logic and shared types. `config-evaluator` is bundled into the server SDKs from source and is also published as `@configdirector/config-evaluator-internal` (versioned independently) for the ConfigDirector dashboard
 
 **Server-side evaluation** — `config-evaluator` evaluates targeting rules locally using comparison operators for numeric, text, array, date, and semver types. Percent-based rollouts use `rapidhash-js` for consistent hashing.
 

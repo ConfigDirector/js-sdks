@@ -1,0 +1,25 @@
+name: Release @configdirector/config-evaluator-internal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Required for OIDC
+  contents: write # Required to tag the released commit
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/prepare-release-build
+
+      - run: yarn release
+        working-directory: ./packages/config-evaluator
+
+      - name: Tag release
+        uses: ./.github/actions/tag-release
+        with:
+          package_dir: packages/config-evaluator
+          github_token: ${{ github.token }}
