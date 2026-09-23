@@ -1,5 +1,11 @@
 # @configdirector/openfeature-web-provider
 
+## 1.4.1
+
+### Patch Changes
+
+- 3d3ff18: The provider now reports when ConfigDirector could not be reached in time. When no config state arrives within `connection.timeout`, `initialize` rejects with a `ProviderNotReadyError`, so `OpenFeature.setProviderAndWait` rejects and the provider's status is `ERROR` instead of `READY`; a context change that times out sets the same status. The underlying client keeps trying to connect, and the provider emits `PROVIDER_READY` as soon as config state arrives. Until then flags resolve to the config state received earlier, or to their default values when there is none. Previously the provider reported `READY` while serving default values. A successful context change no longer emits a redundant `PROVIDER_READY` after the SDK's own `PROVIDER_CONTEXT_CHANGED`.
+
 ## 1.4.0
 
 ### Minor Changes

@@ -6,7 +6,7 @@ import type {
   ProviderMetadata,
   ResolutionDetails,
 } from "@openfeature/web-sdk";
-import { OpenFeatureEventEmitter, ProviderEvents } from "@openfeature/web-sdk";
+import { OpenFeatureEventEmitter, ProviderEvents, ProviderNotReadyError } from "@openfeature/web-sdk";
 import type {
   ConfigDirectorClient,
   ConfigDirectorClientOptions,
@@ -17,7 +17,7 @@ import { createBrowserClient } from "@js-browser-client/index";
 
 export class ConfigDirectorProvider implements Provider {
   private readonly client: ConfigDirectorClient;
-  private readonly readyHandler: () => void;
+  private awaitingRecovery = false;
 
   readonly metadata: ProviderMetadata = {
     name: ConfigDirectorProvider.name,
@@ -34,23 +34,35 @@ export class ConfigDirectorProvider implements Provider {
       },
       clientOptions,
     );
-    this.readyHandler = () => {
+    this.client.on("clientReady", () => {
+      if (!this.awaitingRecovery) {
+        return;
+      }
+      this.awaitingRecovery = false;
       this.events.emit(ProviderEvents.Ready);
-    };
+    });
     this.client.on("configsUpdated", ({ keys }) => {
       this.events.emit(ProviderEvents.ConfigurationChanged, { flagsChanged: keys });
     });
   }
 
   async initialize(context: EvaluationContext) {
+    this.awaitingRecovery = false;
     await this.client.initialize(this.mapContext(context));
-    this.client.off("clientReady", this.readyHandler);
-    this.client.on("clientReady", this.readyHandler);
+    this.requireReady(
+      "ConfigDirector did not become ready during initialization. Flags resolve to their default values " +
+        "until the connection succeeds.",
+    );
   }
 
   async onContextChange?(_oldContext: EvaluationContext, newContext: EvaluationContext): Promise<void> {
+    this.awaitingRecovery = false;
     this.events.emit(ProviderEvents.Stale, { message: "Context Changed" });
     await this.client.updateContext(this.mapContext(newContext));
+    this.requireReady(
+      "ConfigDirector did not become ready after the context changed. Flags resolve against the previous " +
+        "context until the connection succeeds.",
+    );
   }
 
   resolveBooleanEvaluation(flagKey: string, defaultValue: boolean): ResolutionDetails<boolean> {
@@ -72,6 +84,14 @@ export class ConfigDirectorProvider implements Provider {
   onClose?(): Promise<void> {
     this.client.dispose();
     return Promise.resolve();
+  }
+
+  private requireReady(message: string) {
+    if (this.client.isReady) {
+      return;
+    }
+    this.awaitingRecovery = true;
+    throw new ProviderNotReadyError(message);
   }
 
   private evaluate<T extends ConfigValueType>(configKey: string, defaultValue: T): ResolutionDetails<T> {

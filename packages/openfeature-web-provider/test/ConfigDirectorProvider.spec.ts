@@ -1,6 +1,6 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
-import { OpenFeature, ProviderEvents } from "@openfeature/web-sdk";
+import { OpenFeature, ProviderEvents, ProviderNotReadyError, ProviderStatus } from "@openfeature/web-sdk";
 import { ConfigDirectorProvider } from "../src";
 import { SSE_URL, POLL_URL, createStubbedLogger } from "./helpers";
 
@@ -196,7 +196,7 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
       expect(client.getStringValue("greeting", "default")).toBe("Updated");
     });
 
-    test("onContextChange notifies the OpenFeature client of PROVIDER_STALE before the reconciled PROVIDER_CONFIGURATION_CHANGED and PROVIDER_READY", async () => {
+    test("onContextChange notifies the OpenFeature client of PROVIDER_STALE before the reconciled PROVIDER_CONFIGURATION_CHANGED and PROVIDER_CONTEXT_CHANGED", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [{ data: full(stringConfig("greeting", "Hello")) }],
         [{ data: full(stringConfig("greeting", "Bye")) }],
@@ -210,6 +210,7 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
         order.push("stale");
       });
       client.addHandler(ProviderEvents.ConfigurationChanged, () => order.push("configurationChanged"));
+      client.addHandler(ProviderEvents.ContextChanged, () => order.push("contextChanged"));
       client.addHandler(ProviderEvents.Ready, () => order.push("ready"));
 
       await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
@@ -219,7 +220,59 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
       await OpenFeature.setContext({ targetingKey: "user-1" });
 
       expect(staleEvents).toMatchObject([{ message: "Context Changed" }]);
-      expect(order).toEqual(["stale", "configurationChanged", "ready"]);
+      expect(order).toEqual(["stale", "configurationChanged", "contextChanged"]);
+      expect(client.getStringValue("greeting", "default")).toBe("Bye");
+    });
+  });
+
+  describe("when ConfigDirector does not become ready in time", () => {
+    test("rejects registration with PROVIDER_NOT_READY, serves defaults, and reports ready once config state arrives", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ delay: 400, data: full(boolConfig("dark-mode", true)) }]]);
+
+      const client = OpenFeature.getClient();
+      const errorEvents: unknown[] = [];
+      client.addHandler(ProviderEvents.Error, (details: unknown) => errorEvents.push(details));
+
+      await expect(
+        OpenFeature.setProviderAndWait(
+          new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+        ),
+      ).rejects.toThrow(ProviderNotReadyError);
+
+      expect(client.providerStatus).toBe(ProviderStatus.ERROR);
+      expect(errorEvents).toHaveLength(1);
+      expect(client.getBooleanValue("dark-mode", false)).toBe(false);
+
+      const readyEvents: unknown[] = [];
+      client.addHandler(ProviderEvents.Ready, (details: unknown) => readyEvents.push(details));
+
+      await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.READY), { timeout: 2_000 });
+
+      expect(readyEvents).toHaveLength(1);
+      expect(client.getBooleanValue("dark-mode", false)).toBe(true);
+    });
+
+    test("reports an error after a context change, keeps the previous context's values, and recovers", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [{ data: full(stringConfig("greeting", "Hello")) }],
+        [{ delay: 400, data: full(stringConfig("greeting", "Bye")) }],
+      ]);
+
+      await OpenFeature.setProviderAndWait(
+        new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+      );
+      const client = OpenFeature.getClient();
+      const errorEvents: unknown[] = [];
+      client.addHandler(ProviderEvents.Error, (details: unknown) => errorEvents.push(details));
+
+      await OpenFeature.setContext({ targetingKey: "user-1" });
+
+      expect(client.providerStatus).toBe(ProviderStatus.ERROR);
+      expect(errorEvents).toHaveLength(1);
+      expect(client.getStringValue("greeting", "default")).toBe("Hello");
+
+      await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.READY), { timeout: 2_000 });
+
       expect(client.getStringValue("greeting", "default")).toBe("Bye");
     });
   });
