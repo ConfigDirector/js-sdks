@@ -1,4 +1,4 @@
-import type { ConfigState, ConfigValueType, EvaluationReason } from "./types";
+import type { ConfigState, ConfigType, ConfigValueType, EvaluationReason } from "./types";
 
 type NativeType = "string" | "number" | "bigint" | "boolean" | "symbol" | "undefined" | "object" | "function";
 
@@ -33,6 +33,8 @@ const isNumericNativeType = (requestedType: NativeType): boolean => {
   return requestedType === "number" || requestedType === "bigint";
 };
 
+const configTypesNotReadableAsString: ReadonlySet<ConfigType> = new Set<ConfigType>(["boolean", "integer", "float"]);
+
 export const parseConfigValue = <T extends ConfigValueType>(
   configState: ConfigState,
   defaultValue: T,
@@ -55,6 +57,15 @@ export const parseConfigValue = <T extends ConfigValueType>(
   }
 
   if (typeof defaultValue === "string") {
+    if (configTypesNotReadableAsString.has(configState.type)) {
+      return {
+        parsedValue: defaultValue,
+        parsedValueId: undefined,
+        requestedType,
+        usedDefault: true,
+        reason: "type-mismatch",
+      };
+    }
     return {
       parsedValue: value as T,
       parsedValueId: configState.valueId,

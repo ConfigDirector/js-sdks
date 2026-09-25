@@ -144,13 +144,13 @@ describe("value parser", () => {
       });
     });
 
-    test("returns a string when the generic type is string", () => {
-      expect(parseConfigValue<string>(configState("integer", "50.5"), "10")).toMatchObject({
-        parsedValue: "50.5",
-        parsedValueId: testValueId,
-        reason: "found-match",
+    test("returns the default value when the generic type is string", () => {
+      expect(parseConfigValue<string>(configState("integer", "50"), "10")).toMatchObject({
+        parsedValue: "10",
+        parsedValueId: undefined,
+        reason: "type-mismatch",
         requestedType: "string",
-        usedDefault: false,
+        usedDefault: true,
       });
     });
   });
@@ -216,18 +216,28 @@ describe("value parser", () => {
       }
     });
 
-    test("returns a string when the generic type is string", () => {
+    test("returns the default value when the generic type is string", () => {
       expect(parseConfigValue<string>(configState("float", "50.5"), "10")).toMatchObject({
-        parsedValue: "50.5",
-        parsedValueId: testValueId,
-        reason: "found-match",
+        parsedValue: "10",
+        parsedValueId: undefined,
+        reason: "type-mismatch",
         requestedType: "string",
-        usedDefault: false,
+        usedDefault: true,
       });
     });
   });
 
   describe("boolean", () => {
+    test("returns the default value when the generic type is string", () => {
+      expect(parseConfigValue<string>(configState("boolean", "true"), "no")).toMatchObject({
+        parsedValue: "no",
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "string",
+        usedDefault: true,
+      });
+    });
+
     test("returns a boolean when the config type is boolean and the generic type is boolean", () => {
       expect(parseConfigValue(configState("boolean", "true"), false)).toMatchObject({
         parsedValue: true,
@@ -651,6 +661,18 @@ describe("value parser", () => {
         requestedType: "number",
         usedDefault: true,
       });
+    });
+
+    test("returns the config value when a text-valued config is requested as a string", () => {
+      for (const type of ["string", "enum", "url", "custom"] as const) {
+        expect(parseConfigValue(configState(type, "some-value"), "default")).toMatchObject({
+          parsedValue: "some-value",
+          parsedValueId: testValueId,
+          reason: "found-match",
+          requestedType: "string",
+          usedDefault: false,
+        });
+      }
     });
 
     test("returns the raw string for an unknown config type when the generic type is string", () => {

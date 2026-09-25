@@ -1,5 +1,11 @@
 # @configdirector/server-sdk
 
+## 1.6.0
+
+### Minor Changes
+
+- A boolean, integer, or float config requested as a string now evaluates to the default value with the `type-mismatch` reason, instead of the value's text with `found-match`, so the mistake reaches ConfigDirector's type-mismatch alert. Reading a JSON config as a string still returns its raw document.
+
 ## 1.5.0
 
 ### Minor Changes
