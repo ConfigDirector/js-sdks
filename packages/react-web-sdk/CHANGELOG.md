@@ -1,5 +1,11 @@
 # @configdirector/react-web-sdk
 
+## 1.5.1
+
+### Patch Changes
+
+- Fixed telemetry reporter to include appName and appVersion with telemetry data to support activity graphs.
+
 ## 1.5.0
 
 ### Minor Changes

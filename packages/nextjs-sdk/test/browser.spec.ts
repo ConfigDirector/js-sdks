@@ -371,6 +371,8 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
       expect(payload["metaContext"]).toEqual({
         sdkName: "nextjs-sdk",
         sdkVersion: "__VERSION__",
+        appName: "test-app",
+        appVersion: "1.2.3",
       });
 
       await page.close();

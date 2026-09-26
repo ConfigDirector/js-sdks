@@ -1,5 +1,10 @@
 import { isDroppedEventsEmpty, isEventListEmpty } from "@shared/telemetry/utils";
-import type { ConfigDirectorContext, ConfigDirectorLogger, IdentifyingSdkOptions } from "../types";
+import type {
+  ConfigDirectorContext,
+  ConfigDirectorLogger,
+  ConfigDirectorMetaContext,
+  IdentifyingSdkOptions,
+} from "../types";
 import type {
   AggregatedEventList,
   DiscreteEventList,
@@ -15,6 +20,7 @@ import type { UrlFactory, UrlLike } from "@shared/url";
 export type EventReporterOptions = {
   sdkKey: string;
   sdkIdentity: IdentifyingSdkOptions;
+  metaContext: ConfigDirectorMetaContext;
   logger: ConfigDirectorLogger;
   baseUrl: UrlLike;
   urlFactory: UrlFactory;
@@ -23,6 +29,7 @@ export type EventReporterOptions = {
 export class ClientEventReporter implements EventReporter {
   private readonly sdkKey: string;
   private readonly sdkIdentity: IdentifyingSdkOptions;
+  private readonly metaContext: ConfigDirectorMetaContext;
   private readonly logger: ConfigDirectorLogger;
   private readonly url: UrlLike;
   private executeRequests = true;
@@ -31,6 +38,7 @@ export class ClientEventReporter implements EventReporter {
     this.sdkKey = options.sdkKey;
     this.logger = options.logger;
     this.sdkIdentity = options.sdkIdentity;
+    this.metaContext = options.metaContext;
     this.url = options.urlFactory("client/telemetry/v1", options.baseUrl);
   }
 
@@ -54,6 +62,8 @@ export class ClientEventReporter implements EventReporter {
       metaContext: {
         sdkName: this.sdkIdentity.sdkName,
         sdkVersion: this.sdkIdentity.sdkVersion,
+        appName: this.metaContext.appName,
+        appVersion: this.metaContext.appVersion,
       },
       context,
       discreteEvents,

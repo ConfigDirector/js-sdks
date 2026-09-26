@@ -15,6 +15,10 @@ const createCollector = (options: Record<string, unknown> = {}) =>
       sdkName: "tests",
       sdkVersion: "1.5.6",
     },
+    metaContext: {
+      appName: "test-app",
+      appVersion: "3.4.5",
+    },
     logger,
     baseUrl: new URL(BASE_URL),
     urlFactory: defaultUrlFactory,
@@ -61,6 +65,23 @@ describe("ServerTelemetryEventCollector", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  describe("metaContext", () => {
+    test("includes the app name and version in the report", async () => {
+      const collector = createCollector();
+      collector.evaluatedConfig(basePayload);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      expect(capturedPayloads).toHaveLength(1);
+      expect(capturedPayloads[0].metaContext).toEqual({
+        sdkName: "tests",
+        sdkVersion: "1.5.6",
+        appName: "test-app",
+        appVersion: "3.4.5",
+      });
+    });
   });
 
   describe("evaluatedConfig", () => {

@@ -19,6 +19,7 @@ export const createClient = (
   const telemetryClient = new ReactNativeTelemetryClient({
     sdkKey: clientSdkKey,
     sdkIdentity,
+    metaContext: clientOptions?.metadata ?? {},
     baseUrl,
     logger,
     urlFactory,

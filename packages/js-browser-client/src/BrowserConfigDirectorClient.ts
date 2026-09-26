@@ -23,6 +23,10 @@ export const createBrowserClient = (
       sdkName: sdkOptions.sdkName,
       sdkVersion: sdkOptions.sdkVersion,
     },
+    metaContext: {
+      appName: clientOptions?.metadata?.appName,
+      appVersion: clientOptions?.metadata?.appVersion,
+    },
     logger: logger,
     baseUrl,
     urlFactory: defaultUrlFactory,

@@ -21,6 +21,10 @@ const createClient = (options: Record<string, unknown> = {}) =>
       sdkName: "browser-tests",
       sdkVersion: "1.2.3",
     },
+    metaContext: {
+      appName: "browser-app",
+      appVersion: "3.2.1",
+    },
     logger,
     baseUrl: new URL(BASE_URL),
     initialFlushIntervalDelay: INITIAL_FLUSH_DELAY,
@@ -166,7 +170,12 @@ describe("TelemetryClient", () => {
 
       const payloads = await commands.mswGetPayloads();
       const payload = payloads[0] as EventReport;
-      expect(payload.metaContext).toEqual({ sdkName: "browser-tests", sdkVersion: "1.2.3" });
+      expect(payload.metaContext).toEqual({
+        sdkName: "browser-tests",
+        sdkVersion: "1.2.3",
+        appName: "browser-app",
+        appVersion: "3.2.1",
+      });
     });
 
     test("carries a caller-supplied SDK identity across the worker boundary", async () => {
@@ -177,7 +186,28 @@ describe("TelemetryClient", () => {
 
       const payloads = await commands.mswGetPayloads();
       const payload = payloads[0] as EventReport;
-      expect(payload.metaContext).toEqual({ sdkName: "wrapper-sdk", sdkVersion: "4.5.6" });
+      expect(payload.metaContext).toEqual({
+        sdkName: "wrapper-sdk",
+        sdkVersion: "4.5.6",
+        appName: "browser-app",
+        appVersion: "3.2.1",
+      });
+    });
+
+    test("carries a caller-supplied app name and version across the worker boundary", async () => {
+      client = createClient({ metaContext: { appName: "wrapper-app", appVersion: "9.8.7" } });
+
+      client.evaluatedConfig(baseEvent);
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      const payload = payloads[0] as EventReport;
+      expect(payload.metaContext).toEqual({
+        sdkName: "browser-tests",
+        sdkVersion: "1.2.3",
+        appName: "wrapper-app",
+        appVersion: "9.8.7",
+      });
     });
 
     test("reports the SDK identity on every flush, not just the first", async () => {
@@ -192,7 +222,12 @@ describe("TelemetryClient", () => {
       const payloads = await commands.mswGetPayloads();
       expect(payloads).toHaveLength(2);
       for (const payload of payloads as EventReport[]) {
-        expect(payload.metaContext).toEqual({ sdkName: "browser-tests", sdkVersion: "1.2.3" });
+        expect(payload.metaContext).toEqual({
+          sdkName: "browser-tests",
+          sdkVersion: "1.2.3",
+          appName: "browser-app",
+          appVersion: "3.2.1",
+        });
       }
     });
   });
@@ -316,6 +351,7 @@ describe("TelemetryClient", () => {
         payload: {
           sdkKey: "sdk-key",
           sdkIdentity: { sdkName: "browser-tests", sdkVersion: "1.2.3" },
+          metaContext: { appName: "browser-app", appVersion: "3.2.1" },
           baseUrl: BASE_URL,
           evaluationQueueLimit: 1_000,
           initialFlushIntervalDelay: INITIAL_FLUSH_DELAY,

@@ -37,6 +37,7 @@ const makeClient = () =>
   new ReactNativeTelemetryClient({
     sdkKey: "sdk-key",
     sdkIdentity: { sdkName: "tests", sdkVersion: "1.3.4" },
+    metaContext: { appName: "test-app", appVersion: "4.3.2" },
     baseUrl: BASE_URL,
     logger,
     urlFactory: stubUrlFactory as any,
@@ -51,6 +52,16 @@ describe("ReactNativeTelemetryClient", () => {
         expect.objectContaining({
           sdkKey: "sdk-key",
           sdkIdentity: { sdkName: "tests", sdkVersion: "1.3.4" },
+        }),
+      );
+    });
+
+    test("forwards the app name and version to the collector", () => {
+      makeClient();
+
+      expect(MockCollector).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metaContext: { appName: "test-app", appVersion: "4.3.2" },
         }),
       );
     });

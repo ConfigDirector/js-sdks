@@ -7,6 +7,7 @@ import { mapToTelemetryValue, type TelemetryValue } from "@shared/telemetry/util
 import type {
   ConfigDirectorContext,
   ConfigDirectorLogger,
+  ConfigDirectorMetaContext,
   ConfigValueType,
   IdentifyingSdkOptions,
 } from "@shared/types";
@@ -16,6 +17,7 @@ import { generateValueId } from "./value-id-generator";
 type ReactNativeTelemetryClientOptions = {
   sdkKey: string;
   sdkIdentity: IdentifyingSdkOptions;
+  metaContext: ConfigDirectorMetaContext;
   baseUrl: UrlLike;
   logger: ConfigDirectorLogger;
   urlFactory: UrlFactory;

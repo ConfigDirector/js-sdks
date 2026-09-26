@@ -36,6 +36,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
       payload: {
         sdkKey: options.sdkKey,
         sdkIdentity: options.sdkIdentity,
+        metaContext: options.metaContext,
         baseUrl: options.baseUrl.toString(),
         evaluationQueueLimit: options.evaluationQueueLimit ?? 1_000,
         initialFlushIntervalDelay: options.initialFlushIntervalDelay ?? 5_000,

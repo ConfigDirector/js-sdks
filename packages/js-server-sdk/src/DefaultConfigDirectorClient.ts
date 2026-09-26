@@ -70,6 +70,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.usageEventCollector = new ServerTelemetryEventCollector({
       sdkKey: serverSdkKey,
       sdkIdentity: sdkOptions,
+      metaContext: clientOptions?.metadata ?? {},
       logger: this.logger,
       baseUrl,
       flushIntervalDelay: clientOptions?.telemetry?.flushInterval ?? DEFAULT_FLUSH_INTERVAL,

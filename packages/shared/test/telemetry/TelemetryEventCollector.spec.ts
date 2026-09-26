@@ -48,6 +48,7 @@ const createCollector = (initialDelay = 100, intervalDelay = 1_000) =>
   new TestCollector({
     sdkKey: "sdk-key",
     sdkIdentity: { sdkName: "test-sdk", sdkVersion: "1.0.0" },
+    metaContext: { appName: "test-app", appVersion: "2.0.0" },
     logger: createStubbedLogger(),
     baseUrl: { toString: () => "https://example.com/" },
     urlFactory: (input) => ({ toString: () => input }),

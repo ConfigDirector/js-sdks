@@ -16,6 +16,10 @@ const createCollector = (options: Record<string, unknown> = {}) =>
       sdkName: "client-tests",
       sdkVersion: "1.0.1",
     },
+    metaContext: {
+      appName: "client-app",
+      appVersion: "2.0.2",
+    },
     logger,
     baseUrl: new URL(BASE_URL),
     valueIdGenerator: async () => "value-id",
@@ -81,6 +85,25 @@ describe("ClientTelemetryEventCollector", () => {
     await collector.close();
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  describe("metaContext", () => {
+    test("includes the app name and version in the report", async () => {
+      collector = createCollector();
+      collector.evaluatedConfig(baseEvent);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      const payload = payloads[0] as EventReport;
+      expect(payload.metaContext).toEqual({
+        sdkName: "client-tests",
+        sdkVersion: "1.0.1",
+        appName: "client-app",
+        appVersion: "2.0.2",
+      });
+    });
   });
 
   describe("evaluatedConfig", () => {
@@ -289,9 +312,7 @@ describe("ClientTelemetryEventCollector", () => {
       await waitForPayloadCount(1);
 
       const payloads = (await commands.mswGetPayloads()) as EventReport[];
-      expect(payloads[0].aggregatedEvents["evaluatedConfig"][0].event["key"]).toBe(
-        "config-after-rate-limit",
-      );
+      expect(payloads[0].aggregatedEvents["evaluatedConfig"][0].event["key"]).toBe("config-after-rate-limit");
     });
   });
 

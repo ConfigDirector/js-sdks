@@ -12,6 +12,8 @@ export type EventReport = {
   metaContext: {
     sdkName: string;
     sdkVersion: string;
+    appName?: string;
+    appVersion?: string;
   },
   discreteEvents: DiscreteEventList;
   aggregatedEvents: AggregatedEventList;
