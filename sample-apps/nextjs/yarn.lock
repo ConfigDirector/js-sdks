@@ -9,7 +9,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/nextjs-sample-app@workspace:."
   dependencies:
-    "@configdirector/nextjs-sdk": "npm:^1.6.0"
+    "@configdirector/nextjs-sdk": "npm:^1.6.1"
     "@types/node": "npm:^24.0.0"
     "@types/react": "npm:^19.0.0"
     "@types/react-dom": "npm:^19.0.0"
@@ -20,9 +20,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@configdirector/nextjs-sdk@npm:^1.6.0":
-  version: 1.6.0
-  resolution: "@configdirector/nextjs-sdk@npm:1.6.0"
+"@configdirector/nextjs-sdk@npm:^1.6.1":
+  version: 1.6.1
+  resolution: "@configdirector/nextjs-sdk@npm:1.6.1"
   dependencies:
     "@jsonjoy.com/json-pointer": "npm:^18.1.0"
     rapidhash-js: "npm:^3.0.0"
@@ -31,7 +31,7 @@ __metadata:
     next: ">=14.0.0"
     react: ">=18.0.0"
     react-dom: ">=18.0.0"
-  checksum: 10c0/ec02394c1dfc50a56897d41253928d6332497a3e8d5509ef9567e077d58ef6f8999e745ad9a4edf4f9e5023e956230cfa0cd44d7cca76f0d61b79bad4d763650
+  checksum: 10c0/2768dd731600e3b319980dfa12045055fdf18cd041a41cc5d957ac56659bf4caabca58dcb4dce98c7a5191d7af09cf2ac39d2db96077e7bb2d5012ca6f7ad16a
   languageName: node
   linkType: hard
 
