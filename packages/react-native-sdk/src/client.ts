@@ -3,6 +3,7 @@ import {
   type ConfigDirectorClientOptions,
   DefaultConfigDirectorClient,
 } from "@js-client-core/index";
+import { resolveMetadata } from "./appInfo";
 import { createConsoleLogger } from "./logger";
 import { reactNativeStreamingFetch } from "./reactNativeStreamingFetch";
 import { ReactNativeTelemetryClient } from "./ReactNativeTelemetryClient";
@@ -15,11 +16,12 @@ export const createClient = (
 ): ConfigDirectorClient => {
   const sdkIdentity = { sdkName: "react-native-sdk", sdkVersion: "__VERSION__" };
   const logger = clientOptions?.logger ?? createConsoleLogger("warn");
+  const metadata = resolveMetadata(clientOptions?.metadata, logger);
   const baseUrl = clientOptions?.connection?.url ? urlFactory(clientOptions.connection.url) : CLIENT_BASE_URL;
   const telemetryClient = new ReactNativeTelemetryClient({
     sdkKey: clientSdkKey,
     sdkIdentity,
-    metaContext: clientOptions?.metadata ?? {},
+    metaContext: metadata,
     baseUrl,
     logger,
     urlFactory,
@@ -28,7 +30,7 @@ export const createClient = (
     telemetryClient,
     clientSdkKey,
     sdkIdentity,
-    { ...clientOptions, logger },
+    { ...clientOptions, logger, metadata },
     {
       fetch: reactNativeStreamingFetch,
       urlFactory,
