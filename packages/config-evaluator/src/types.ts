@@ -130,8 +130,8 @@ export type Share = {
 };
 
 export type BucketExplanation = {
-  identifier: string;
-  identifierWasGenerated: boolean;
+  identifier: string | undefined;
+  defaultedToPredefinedBucket: boolean;
   assignedPercentage: number;
   shares: Share[];
   selectedPercentageId: string | undefined;

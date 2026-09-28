@@ -1,5 +1,5 @@
 import { ConditionEvaluator } from "./ConditionEvaluator";
-import { assignPercentage } from "./percent-hashing";
+import { assignPercentage, PERCENTAGE_WITHOUT_IDENTIFIER } from "./percent-hashing";
 import type {
   ConditionalRule,
   Config,
@@ -108,9 +108,11 @@ export class ConfigEvaluator {
     context: EvaluationContext | undefined,
     explanation: RuleExplanation,
   ): string | undefined {
-    const contextIdentifier = context?.context?.id;
-    const identifier = contextIdentifier ?? crypto.randomUUID();
-    const assignedPercentage = assignPercentage({ configId: config.id, contextIdentifier: identifier });
+    const identifier = context?.context?.id ?? undefined;
+    const assignedPercentage =
+      identifier === undefined
+        ? PERCENTAGE_WITHOUT_IDENTIFIER
+        : assignPercentage({ configId: config.id, contextIdentifier: identifier });
     const shares: Share[] = [];
     let sum = 0.0;
     let selected: Percentage | undefined = undefined;
@@ -128,7 +130,7 @@ export class ConfigEvaluator {
 
     explanation.bucket = {
       identifier,
-      identifierWasGenerated: contextIdentifier == null,
+      defaultedToPredefinedBucket: identifier === undefined,
       assignedPercentage,
       shares,
       selectedPercentageId: selected?.id,

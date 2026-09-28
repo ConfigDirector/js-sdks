@@ -210,7 +210,7 @@ describe("ConfigEvaluator.explain", () => {
       conditions: [],
       bucket: {
         identifier: "abc",
-        identifierWasGenerated: false,
+        defaultedToPredefinedBucket: false,
         assignedPercentage: 61.8,
         shares: [
           { percentageId: SHARE_ENABLED, from: 0, to: 25, value: "Enabled" },
@@ -233,7 +233,7 @@ describe("ConfigEvaluator.explain", () => {
     expect(explanation.rules[0]?.outcome).toEqual("not-matched");
     expect(explanation.rules[0]?.bucket).toEqual({
       identifier: "abc",
-      identifierWasGenerated: false,
+      defaultedToPredefinedBucket: false,
       assignedPercentage: 61.8,
       shares: [{ percentageId: SHARE_ENABLED, from: 0, to: 25, value: "Enabled" }],
       selectedPercentageId: undefined,
@@ -260,16 +260,27 @@ describe("ConfigEvaluator.explain", () => {
     expect(explanation.rules[0]?.bucket?.selectedPercentageId).toEqual(SHARE_ENABLED);
   });
 
-  test("says when the rollout identifier was generated for a context without an id", () => {
+  test("explains a rollout for a context without an id as assigned to 0", () => {
     const config = configWith(
-      rolloutRule(RULE_A, 0, [{ id: SHARE_ENABLED, percentage: 100, value: "Enabled" }]),
+      rolloutRule(RULE_A, 0, [
+        { id: SHARE_DISABLED, percentage: 0, value: "Disabled by rollout" },
+        { id: SHARE_ENABLED, percentage: 100, value: "Enabled" },
+      ]),
     );
 
     const explanation = evaluator.explain(config, { context: {} });
 
     expect(explanation.value).toEqual("Enabled");
-    expect(explanation.rules[0]?.bucket?.identifierWasGenerated).toBe(true);
-    expect(explanation.rules[0]?.bucket?.identifier).toMatch(/^[0-9a-f-]{36}$/);
+    expect(explanation.rules[0]?.bucket).toEqual({
+      identifier: undefined,
+      defaultedToPredefinedBucket: true,
+      assignedPercentage: 0,
+      shares: [
+        { percentageId: SHARE_DISABLED, from: 0, to: 0, value: "Disabled by rollout" },
+        { percentageId: SHARE_ENABLED, from: 0, to: 100, value: "Enabled" },
+      ],
+      selectedPercentageId: SHARE_ENABLED,
+    });
   });
 
   test("marks a rule whose evaluation throws as errored and moves on to the next rule", () => {

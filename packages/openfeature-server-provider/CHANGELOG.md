@@ -1,5 +1,11 @@
 # @configdirector/openfeature-server-provider
 
+## 1.7.0
+
+### Minor Changes
+
+- Default percentage rollouts to the first bucket when there is no context identifier on server evaluations.
+
 ## 1.6.1
 
 ### Patch Changes

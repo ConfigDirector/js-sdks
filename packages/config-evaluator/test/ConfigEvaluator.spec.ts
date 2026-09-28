@@ -562,8 +562,37 @@ describe("ConfigEvaluator", () => {
         },
       };
 
-      // with no context, a random UUID is used — at 100% the bucket always matches
       expect(evaluator.evaluate(config).value).toEqual("Only Group");
+    });
+
+    test("always assigns the first non-empty bucket without an identifier", () => {
+      const config: Config = {
+        id: CONFIG_ID,
+        key: "config-without-rules",
+        type: "string",
+        variations: [],
+        target: {
+          defaultValue: "this-is-the-default",
+          rules: [
+            {
+              id: crypto.randomUUID(),
+              order: 0,
+              type: "percentage",
+              target: "percentage",
+              percentages: [
+                { value: "never", percentage: 0, id: crypto.randomUUID() },
+                { value: "first", percentage: 50, id: crypto.randomUUID() },
+                { value: "second", percentage: 50, id: crypto.randomUUID() },
+              ],
+            },
+          ],
+        },
+      };
+
+      for (let evaluation = 0; evaluation < 50; evaluation++) {
+        expect(evaluator.evaluate(config).value).toEqual("first");
+        expect(evaluator.evaluate(config, { context: {} }).value).toEqual("first");
+      }
     });
   });
 

@@ -1,5 +1,11 @@
 # @configdirector/config-evaluator-internal
 
+## 0.2.0
+
+### Minor Changes
+
+- Default percentage rollouts to the first bucket when there is no context identifier on server evaluations.
+
 ## 0.1.0
 
 ### Minor Changes
