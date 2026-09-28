@@ -1112,12 +1112,13 @@ describe("ConfigDirectorClient", () => {
           }
           return HttpResponse.text("Unauthorized", { status: 401 });
         }),
+        http.post(TELEMETRY_URL, () => new Response(null, { status: 204 })),
       );
 
       vi.useFakeTimers();
       const client = createClient("sdk-key", {
         logger,
-        connection: { mode: "polling", pollingInterval: 1 },
+        connection: { mode: "polling", pollingInterval: 60 },
       });
       const events: { error: Error }[] = [];
       client.on("connectionError", (e) => events.push(e));
@@ -1125,7 +1126,7 @@ describe("ConfigDirectorClient", () => {
       expect(client.isReady).toBe(true);
       expect(events).toHaveLength(0);
 
-      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(60_000);
 
       expect(events).toHaveLength(1);
       expect(events[0].error).toBeInstanceOf(Error);
@@ -1178,6 +1179,132 @@ describe("ConfigDirectorClient", () => {
         key: "example-config",
         usedDefault: true,
       });
+    });
+  });
+
+  describe("polling interval", () => {
+    let pollCount = 0;
+
+    beforeEach(() => {
+      pollCount = 0;
+      server.use(
+        http.post(POLLING_URL, () => {
+          pollCount++;
+          return HttpResponse.json({
+            environmentId: "10000000-0000-0000-0000-000000000000",
+            projectId: "20000000-0000-0000-0000-000000000000",
+            kind: "full",
+            configs: {},
+            timestamp: "2024-01-01T00:00:00.000Z",
+          });
+        }),
+        http.post(TELEMETRY_URL, () => new Response(null, { status: 204 })),
+      );
+      vi.useFakeTimers();
+    });
+
+    test("defaults the polling interval to 300 seconds", async () => {
+      const client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+      await client.initialize();
+      expect(pollCount).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(299_000);
+      expect(pollCount).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(() => expect(pollCount).toBe(2));
+      client.dispose();
+    });
+
+    test("raises a polling interval below 60 seconds to 60 seconds and warns once per client", async () => {
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      const connection = { mode: "polling" as const, pollingInterval: 10 };
+      const client = createClient("sdk-key", { logger: warningLogger, connection });
+      await client.initialize();
+
+      expect(connection.pollingInterval).toBe(10);
+      expect(warningLogger.warn).toHaveBeenCalledTimes(1);
+      expect(warningLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("pollingInterval of 10 seconds is below the minimum of 60 seconds"),
+      );
+
+      await vi.advanceTimersByTimeAsync(59_000);
+      expect(pollCount).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(() => expect(pollCount).toBe(2));
+      client.dispose();
+    });
+
+    test("accepts a polling interval of exactly 60 seconds without a warning", async () => {
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      const client = createClient("sdk-key", {
+        logger: warningLogger,
+        connection: { mode: "polling", pollingInterval: 60 },
+      });
+      await client.initialize();
+
+      expect(warningLogger.warn).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(59_000);
+      expect(pollCount).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(() => expect(pollCount).toBe(2));
+      client.dispose();
+    });
+
+    test("raises a polling interval of zero to 60 seconds", async () => {
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      const client = createClient("sdk-key", {
+        logger: warningLogger,
+        connection: { mode: "polling", pollingInterval: 0 },
+      });
+      await client.initialize();
+
+      expect(warningLogger.warn).toHaveBeenCalledTimes(1);
+      expect(warningLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("pollingInterval of 0 seconds is below the minimum of 60 seconds"),
+      );
+
+      await vi.advanceTimersByTimeAsync(59_000);
+      expect(pollCount).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(() => expect(pollCount).toBe(2));
+      client.dispose();
+    });
+
+    test("raises a negative polling interval to 60 seconds", async () => {
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      const client = createClient("sdk-key", {
+        logger: warningLogger,
+        connection: { mode: "polling", pollingInterval: -5 },
+      });
+      await client.initialize();
+
+      expect(warningLogger.warn).toHaveBeenCalledTimes(1);
+      expect(warningLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("pollingInterval of -5 seconds is below the minimum of 60 seconds"),
+      );
+
+      await vi.advanceTimersByTimeAsync(59_000);
+      expect(pollCount).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(() => expect(pollCount).toBe(2));
+      client.dispose();
+    });
+
+    test("does not warn about a low polling interval in streaming mode", () => {
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      const client = createClient("sdk-key", {
+        logger: warningLogger,
+        connection: { mode: "streaming", pollingInterval: 10 },
+      });
+
+      expect(warningLogger.warn).not.toHaveBeenCalled();
+      client.dispose();
     });
   });
 

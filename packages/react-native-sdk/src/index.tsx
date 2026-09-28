@@ -14,4 +14,5 @@ export {
   type ConfigDirectorClientOptions,
   type ConfigDirectorLogger,
   type ConfigDirectorLoggingLevel,
+  type ConnectionMode,
 } from "@js-client-core/index";

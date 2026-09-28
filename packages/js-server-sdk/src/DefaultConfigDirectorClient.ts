@@ -24,6 +24,11 @@ import { ConfigDirectorValidationError } from "@shared/errors";
 import EventEmitter from "node:events";
 import type { ConfigDirectorMetaContext, EvaluationReason } from "@shared/types";
 import { defaultUrlFactory } from "@shared/url";
+import {
+  SERVER_DEFAULT_POLLING_INTERVAL_SECONDS,
+  SERVER_MIN_POLLING_INTERVAL_SECONDS,
+} from "@shared/constants";
+import { resolvePollingInterval } from "@shared/transport/pollingInterval";
 import { ServerTelemetryEventCollector } from "./telemetry";
 import { generateValueId } from "./telemetry/value-id-generator";
 
@@ -88,7 +93,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         sdkVersion: sdkOptions.sdkVersion,
       },
       logger: this.logger,
-      pollingInterval: clientOptions?.connection?.pollingInterval,
+      pollingInterval: this.resolvePollingIntervalForMode(clientOptions?.connection?.pollingInterval),
     });
 
     this.transport.on("configBundleReceived", (configBundle: ConfigBundle) => {
@@ -176,6 +181,20 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     } catch (error) {
       this.logger.error("[ConfigDirectorClient] An error occurred during initialization: ", error);
     }
+  }
+
+  private resolvePollingIntervalForMode(configuredSeconds: number | undefined): number | undefined {
+    if (this.connectionMode !== "polling") {
+      return undefined;
+    }
+    const resolved = resolvePollingInterval(configuredSeconds, {
+      defaultSeconds: SERVER_DEFAULT_POLLING_INTERVAL_SECONDS,
+      minimumSeconds: SERVER_MIN_POLLING_INTERVAL_SECONDS,
+    });
+    if (resolved.warning) {
+      this.logger.warn(`[ConfigDirectorClient] ${resolved.warning}`);
+    }
+    return resolved.seconds;
   }
 
   private getTransportConstructor(mode: ConnectionMode) {

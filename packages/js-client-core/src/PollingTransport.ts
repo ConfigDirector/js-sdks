@@ -9,8 +9,10 @@ import { Emitter } from "./Emitter";
 import { AbstractPollingTransport } from "@shared/transport/AbstractPollingTransport";
 import { fetchWithTimeout } from "@shared/fetchWithTimeout";
 import type { UrlLike } from "@shared/url";
+import { CLIENT_DEFAULT_POLLING_INTERVAL_SECONDS } from "@shared/constants";
 
 export class PollingTransport extends AbstractPollingTransport implements Transport {
+  protected pollingIntervalSeconds: number;
   private logger: ConfigDirectorLogger;
   private eventEmitter = new Emitter<TransportEvents>();
   private url: UrlLike;
@@ -21,13 +23,7 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     this.options = options;
     this.logger = options.logger;
     this.url = options.resolveUrl("client/polling/v1", options.baseUrl);
-    const requestedInterval = options.pollingInterval ?? 300;
-    if (requestedInterval < 60) {
-      this.logger.warn(
-        `[PollingTransport] pollingInterval of ${requestedInterval} seconds is below the minimum of 60 seconds. Using 60 seconds.`,
-      );
-    }
-    this.pollingIntervalSeconds = Math.max(requestedInterval, 60);
+    this.pollingIntervalSeconds = options.pollingInterval ?? CLIENT_DEFAULT_POLLING_INTERVAL_SECONDS;
   }
 
   public async connect(context: ConfigDirectorContext, timeout: number): Promise<this> {

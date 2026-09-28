@@ -2,6 +2,7 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
 import { StrictMode } from "react";
 import { render, cleanup } from "@testing-library/react";
+import { createBrowserClient } from "@js-browser-client/index";
 import { ConfigDirectorProvider } from "../src/client/ConfigDirectorProvider";
 
 type FakeClient = {
@@ -83,5 +84,30 @@ describe("client ConfigDirectorProvider lifecycle", () => {
 
     expect(createdClients).toHaveLength(1);
     expect(createdClients[0].dispose).toHaveBeenCalledTimes(1);
+  });
+
+  test("passes mode and pollingInterval through to the browser client", async () => {
+    render(
+      <ConfigDirectorProvider
+        sdkKey="dummy-key"
+        url="https://proxy.test/"
+        timeout={5_000}
+        mode="polling"
+        pollingInterval={120}>
+        <div />
+      </ConfigDirectorProvider>,
+    );
+
+    await vi.waitFor(() => expect(createdClients).toHaveLength(1));
+
+    const clientOptions = vi.mocked(createBrowserClient).mock.lastCall?.[2] as {
+      connection: Record<string, unknown>;
+    };
+    expect(clientOptions.connection).toEqual({
+      url: "https://proxy.test/",
+      timeout: 5_000,
+      mode: "polling",
+      pollingInterval: 120,
+    });
   });
 });

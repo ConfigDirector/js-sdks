@@ -12,7 +12,12 @@ export const createClient = (
 
 export const createClientFromPluginOptions = (options: ConfigDirectorPluginOptions): ConfigDirectorClient => {
   return createClient(options.sdkKey, {
-    connection: { url: options.url, timeout: options.timeout },
+    connection: {
+      url: options.url,
+      timeout: options.timeout,
+      mode: options.mode,
+      pollingInterval: options.pollingInterval,
+    },
     metadata: { appName: options.appName, appVersion: options.appVersion },
     logger: options.logger ?? createConsoleLogger("warn"),
     hooks: options.hooks,

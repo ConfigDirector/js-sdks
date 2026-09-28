@@ -3,7 +3,7 @@ import { ConfigDirectorConnectionError } from "../errors";
 export abstract class AbstractPollingTransport {
   protected fatalError = false;
   protected pollingInterval: ReturnType<typeof setInterval> | undefined;
-  protected pollingIntervalSeconds: number = 60;
+  protected abstract pollingIntervalSeconds: number;
 
   protected clearPollingInterval() {
     clearInterval(this.pollingInterval);

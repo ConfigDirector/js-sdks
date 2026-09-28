@@ -8,8 +8,10 @@ import { AbstractPollingTransport } from "@shared/transport/AbstractPollingTrans
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
 import { fetchWithTimeout } from "@shared/fetchWithTimeout";
+import { SERVER_DEFAULT_POLLING_INTERVAL_SECONDS } from "@shared/constants";
 
 export class PollingTransport extends AbstractPollingTransport implements Transport {
+  protected pollingIntervalSeconds: number;
   private logger: ConfigDirectorLogger;
   private eventEmitter = new EventEmitter();
   private url: URL;
@@ -21,7 +23,7 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     this.options = options;
     this.logger = options.logger;
     this.url = new URL("server/polling/v1", options.baseUrl);
-    this.pollingIntervalSeconds = options.pollingInterval ?? 300;
+    this.pollingIntervalSeconds = options.pollingInterval ?? SERVER_DEFAULT_POLLING_INTERVAL_SECONDS;
   }
 
   public async connect(timeout: number): Promise<this> {

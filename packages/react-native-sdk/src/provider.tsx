@@ -17,7 +17,12 @@ export class ConfigDirectorProvider extends Component<
     super(props);
 
     const client = createClient(props.sdkKey, {
-      connection: { url: props.url, timeout: props.timeout },
+      connection: {
+        url: props.url,
+        timeout: props.timeout,
+        mode: props.mode,
+        pollingInterval: props.pollingInterval,
+      },
       metadata: { appName: props.appName, appVersion: props.appVersion },
       logger: props.logger ?? createConsoleLogger("warn"),
       hooks: props.hooks,

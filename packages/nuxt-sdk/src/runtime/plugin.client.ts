@@ -6,6 +6,8 @@ import { createDefaultLogger } from "./logger";
 import { ConfigDirectorInitializationError } from "@shared/errors";
 import type { ClientStatus } from "./types";
 
+const DEFAULT_INITIALIZATION_TIMEOUT_MILLISECONDS = 2_000;
+
 export default defineNuxtPlugin((nuxtApp) => {
   const runtimeConfig = useRuntimeConfig();
   const logger = createDefaultLogger(runtimeConfig.public?.configdirector?.logLevel);
@@ -19,15 +21,17 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   logger.debug("Installed ConfigDirector Nuxt plugin");
 
-  const { clientSdkKey, appName, appVersion, baseUrl } = runtimeConfig.public.configdirector;
+  const { clientSdkKey, appName, appVersion, baseUrl, connection } = runtimeConfig.public.configdirector;
   const client = createBrowserClient(
     clientSdkKey,
     { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
     {
       metadata: { appName, appVersion },
       connection: {
-        timeout: 2_000,
-        ...(baseUrl ? { url: baseUrl } : {}),
+        url: baseUrl || undefined,
+        mode: connection?.mode || undefined,
+        pollingInterval: connection?.pollingInterval || undefined,
+        timeout: connection?.timeout || DEFAULT_INITIALIZATION_TIMEOUT_MILLISECONDS,
       },
       logger,
     },

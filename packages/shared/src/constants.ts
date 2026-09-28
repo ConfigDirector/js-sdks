@@ -1,1 +1,5 @@
 export const CLIENT_BASE_URL = "https://client-sdk-api.configdirector.com";
+export const CLIENT_DEFAULT_POLLING_INTERVAL_SECONDS = 60;
+export const CLIENT_MIN_POLLING_INTERVAL_SECONDS = 30;
+export const SERVER_DEFAULT_POLLING_INTERVAL_SECONDS = 300;
+export const SERVER_MIN_POLLING_INTERVAL_SECONDS = 60;

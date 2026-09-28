@@ -3,6 +3,8 @@ import { AbstractPollingTransport } from "../../src/transport/AbstractPollingTra
 import { ConfigDirectorConnectionError } from "../../src/errors";
 
 class TestPollingTransport extends AbstractPollingTransport {
+  protected pollingIntervalSeconds = 60;
+
   public clear(): void {}
 
   public handle(error: unknown) {

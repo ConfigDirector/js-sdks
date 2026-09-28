@@ -7,7 +7,12 @@ import type { ConfigDirectorProviderOptions, ConfigDirectorProviderState } from 
 export const withProvider = async (options: ConfigDirectorProviderOptions) => {
   const logger = options.logger ?? createConsoleLogger("debug");
   const client = createClient(options.sdkKey, {
-    connection: { url: options.url, timeout: options.timeout },
+    connection: {
+      url: options.url,
+      timeout: options.timeout,
+      mode: options.mode,
+      pollingInterval: options.pollingInterval,
+    },
     metadata: { appName: options.appName, appVersion: options.appVersion },
     logger: logger,
     hooks: options.hooks,

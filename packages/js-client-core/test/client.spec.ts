@@ -1227,34 +1227,11 @@ describe("ConfigDirectorClient", () => {
       });
     });
 
-    test("defaults the polling interval to 5 minutes", async () => {
+    test("defaults the polling interval to 60 seconds", async () => {
       await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
 
       client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
       await client.initialize();
-
-      await vi.advanceTimersByTimeAsync(299_000);
-      await sleep(100);
-      expect(await commands.mswGetPayloads()).toHaveLength(1);
-
-      await vi.advanceTimersByTimeAsync(1_000);
-      await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(2), {
-        timeout: 1_000,
-      });
-    });
-
-    test("raises polling intervals below 60 seconds to 60 seconds", async () => {
-      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
-
-      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
-      client = createClient("sdk-key", {
-        logger: warningLogger,
-        connection: { mode: "polling", pollingInterval: 10 },
-      });
-      await client.initialize();
-      expect(warningLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining("below the minimum of 60 seconds"),
-      );
 
       await vi.advanceTimersByTimeAsync(59_000);
       await sleep(100);
@@ -1264,6 +1241,114 @@ describe("ConfigDirectorClient", () => {
       await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(2), {
         timeout: 1_000,
       });
+    });
+
+    test("raises a polling interval below 30 seconds to 30 seconds and warns once per client", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      const connection = { mode: "polling" as const, pollingInterval: 10 };
+      client = createClient("sdk-key", { logger: warningLogger, connection });
+      await client.initialize();
+      await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
+
+      expect(connection.pollingInterval).toBe(10);
+      expect(warningLogger.warn).toHaveBeenCalledTimes(1);
+      expect(warningLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("pollingInterval of 10 seconds is below the minimum of 30 seconds"),
+      );
+      expect(await commands.mswGetPayloads()).toHaveLength(2);
+
+      await vi.advanceTimersByTimeAsync(29_000);
+      await sleep(100);
+      expect(await commands.mswGetPayloads()).toHaveLength(2);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(3), {
+        timeout: 1_000,
+      });
+    });
+
+    test("accepts a polling interval of exactly 30 seconds without a warning", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      client = createClient("sdk-key", {
+        logger: warningLogger,
+        connection: { mode: "polling", pollingInterval: 30 },
+      });
+      await client.initialize();
+
+      expect(warningLogger.warn).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(29_000);
+      await sleep(100);
+      expect(await commands.mswGetPayloads()).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(2), {
+        timeout: 1_000,
+      });
+    });
+
+    test("raises a polling interval of zero to 30 seconds", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      client = createClient("sdk-key", {
+        logger: warningLogger,
+        connection: { mode: "polling", pollingInterval: 0 },
+      });
+      await client.initialize();
+
+      expect(warningLogger.warn).toHaveBeenCalledTimes(1);
+      expect(warningLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("pollingInterval of 0 seconds is below the minimum of 30 seconds"),
+      );
+
+      await vi.advanceTimersByTimeAsync(29_000);
+      await sleep(100);
+      expect(await commands.mswGetPayloads()).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(2), {
+        timeout: 1_000,
+      });
+    });
+
+    test("raises a negative polling interval to 30 seconds", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      client = createClient("sdk-key", {
+        logger: warningLogger,
+        connection: { mode: "polling", pollingInterval: -5 },
+      });
+      await client.initialize();
+
+      expect(warningLogger.warn).toHaveBeenCalledTimes(1);
+      expect(warningLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("pollingInterval of -5 seconds is below the minimum of 30 seconds"),
+      );
+
+      await vi.advanceTimersByTimeAsync(29_000);
+      await sleep(100);
+      expect(await commands.mswGetPayloads()).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(2), {
+        timeout: 1_000,
+      });
+    });
+
+    test("does not warn about a low polling interval in streaming mode", () => {
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+      client = createClient("sdk-key", {
+        logger: warningLogger,
+        connection: { mode: "streaming", pollingInterval: 10 },
+      });
+
+      expect(warningLogger.warn).not.toHaveBeenCalled();
     });
 
     test("sends the lastUpdateTimestamp from the previous response on subsequent poll requests", async () => {

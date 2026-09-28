@@ -25,7 +25,12 @@ import { ConfigDirectorValidationError } from "./errors";
 import type { TelemetryClient } from "./telemetry";
 import { defaultUrlFactory } from "@shared/url";
 import type { UrlFactory, UrlLike } from "@shared/url";
-import { CLIENT_BASE_URL } from "@shared/constants";
+import {
+  CLIENT_BASE_URL,
+  CLIENT_DEFAULT_POLLING_INTERVAL_SECONDS,
+  CLIENT_MIN_POLLING_INTERVAL_SECONDS,
+} from "@shared/constants";
+import { resolvePollingInterval } from "@shared/transport/pollingInterval";
 import { resolveInstanceId } from "./instance-id";
 import { PollingTransport } from "./PollingTransport";
 import { readHost, readUserAgent } from "./browser-globals";
@@ -90,7 +95,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           const seconds = Math.pow(2, Math.min(attempt, MAX_EXPONENTIAL_DELAY));
           return seconds * 1_000;
         }),
-      pollingInterval: clientOptions?.connection?.pollingInterval,
+      pollingInterval: this.resolvePollingIntervalForMode(clientOptions?.connection?.pollingInterval),
     });
 
     this.transport.on("configSetReceived", (configSet: ConfigSet) => {
@@ -140,6 +145,20 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         this.on(event, h);
       }
     }
+  }
+
+  private resolvePollingIntervalForMode(configuredSeconds: number | undefined): number | undefined {
+    if (this.connectionMode !== "polling") {
+      return undefined;
+    }
+    const resolved = resolvePollingInterval(configuredSeconds, {
+      defaultSeconds: CLIENT_DEFAULT_POLLING_INTERVAL_SECONDS,
+      minimumSeconds: CLIENT_MIN_POLLING_INTERVAL_SECONDS,
+    });
+    if (resolved.warning) {
+      this.logger.warn(`[ConfigDirectorClient] ${resolved.warning}`);
+    }
+    return resolved.seconds;
   }
 
   private getTransportConstructor(connectionMode?: ConnectionMode) {

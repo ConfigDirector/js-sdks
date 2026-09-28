@@ -9,4 +9,5 @@ export type {
   ConfigDirectorContext,
   ConfigDirectorLogger,
   ConfigValueType,
+  ConnectionMode,
 } from "@js-browser-client/index";

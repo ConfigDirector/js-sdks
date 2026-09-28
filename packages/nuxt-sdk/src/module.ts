@@ -100,6 +100,32 @@ interface ConfigDirectorPublicRuntimeConfig {
    * Can be set via the NUXT_PUBLIC_CONFIGDIRECTOR_BASE_URL environment variable.
    */
   baseUrl?: string;
+  /**
+   * Connection options for the browser client used on the client side.
+   */
+  connection?: {
+    /**
+     * The connection mode, one of `streaming` (default) or `polling`. In `streaming` mode the
+     * connection stays open and receives config updates as they happen. In `polling` mode configs
+     * are fetched once during initialization and then again on every `pollingInterval`.
+     * Can be set via the NUXT_PUBLIC_CONFIGDIRECTOR_CONNECTION_MODE environment variable.
+     */
+    mode?: ConnectionMode;
+    /**
+     * The polling interval in seconds when `mode` is `polling`. Has no effect in `streaming` mode.
+     * When omitted (or `0`), it defaults to 60 seconds. A value below the minimum of 30 seconds is
+     * raised to 30 seconds and a warning is logged.
+     * Can be set via the NUXT_PUBLIC_CONFIGDIRECTOR_CONNECTION_POLLING_INTERVAL environment variable.
+     */
+    pollingInterval?: number;
+    /**
+     * How long, in milliseconds, the browser client waits for its initial config payload during
+     * initialization before the app renders with default values. When omitted (or `0`), it defaults
+     * to 2000 milliseconds.
+     * Can be set via the NUXT_PUBLIC_CONFIGDIRECTOR_CONNECTION_TIMEOUT environment variable.
+     */
+    timeout?: number;
+  };
 }
 
 declare module "nuxt/schema" {
@@ -152,11 +178,14 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.runtimeConfig.configdirector,
       options.logLevel !== undefined ? { ...serverDefaults, logLevel: options.logLevel } : serverDefaults,
     );
+    const publicDefaults: ConfigDirectorPublicRuntimeConfig = {
+      clientSdkKey: "",
+      baseUrl: "",
+      connection: { mode: "streaming", pollingInterval: 0, timeout: 0 },
+    };
     nuxt.options.runtimeConfig.public.configdirector = defu(
       nuxt.options.runtimeConfig.public.configdirector,
-      options.logLevel !== undefined
-        ? { clientSdkKey: "", logLevel: options.logLevel, baseUrl: "" }
-        : { clientSdkKey: "", baseUrl: "" },
+      options.logLevel !== undefined ? { ...publicDefaults, logLevel: options.logLevel } : publicDefaults,
     );
 
     logger.debug("ConfigDirector Nuxt module setup complete");

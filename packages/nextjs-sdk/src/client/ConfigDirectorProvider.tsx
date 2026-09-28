@@ -34,7 +34,12 @@ export class ConfigDirectorProvider extends Component<
       this.props.sdkKey,
       { sdkName: "nextjs-sdk", sdkVersion: "__VERSION__" },
       {
-        connection: { url: this.props.url, timeout: this.props.timeout },
+        connection: {
+          url: this.props.url,
+          timeout: this.props.timeout,
+          mode: this.props.mode,
+          pollingInterval: this.props.pollingInterval,
+        },
         metadata: { appName: this.props.appName, appVersion: this.props.appVersion },
         logger: createConsoleLogger(this.props.logLevel ?? "warn"),
         hooks: this.props.hooks,
