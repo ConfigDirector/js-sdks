@@ -196,7 +196,7 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
       expect(client.getStringValue("greeting", "default")).toBe("Updated");
     });
 
-    test("onContextChange notifies the OpenFeature client of PROVIDER_STALE before the reconciled PROVIDER_CONFIGURATION_CHANGED and PROVIDER_CONTEXT_CHANGED", async () => {
+    test("onContextChange puts the OpenFeature client in PROVIDER_RECONCILING, never PROVIDER_STALE, before the reconciled PROVIDER_CONFIGURATION_CHANGED and PROVIDER_CONTEXT_CHANGED", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [{ data: full(stringConfig("greeting", "Hello")) }],
         [{ data: full(stringConfig("greeting", "Bye")) }],
@@ -204,10 +204,11 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
 
       const client = OpenFeature.getClient();
       const order: string[] = [];
-      const staleEvents: unknown[] = [];
-      client.addHandler(ProviderEvents.Stale, (details: unknown) => {
-        staleEvents.push(details);
-        order.push("stale");
+      const statuses: string[] = [];
+      client.addHandler(ProviderEvents.Stale, () => order.push("stale"));
+      client.addHandler(ProviderEvents.Reconciling, () => {
+        statuses.push(client.providerStatus);
+        order.push("reconciling");
       });
       client.addHandler(ProviderEvents.ConfigurationChanged, () => order.push("configurationChanged"));
       client.addHandler(ProviderEvents.ContextChanged, () => order.push("contextChanged"));
@@ -215,12 +216,12 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
 
       await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
       order.length = 0;
-      staleEvents.length = 0;
 
       await OpenFeature.setContext({ targetingKey: "user-1" });
 
-      expect(staleEvents).toMatchObject([{ message: "Context Changed" }]);
-      expect(order).toEqual(["stale", "configurationChanged", "contextChanged"]);
+      expect(statuses).toEqual([ProviderStatus.RECONCILING]);
+      expect(order).toEqual(["reconciling", "configurationChanged", "contextChanged"]);
+      expect(client.providerStatus).toBe(ProviderStatus.READY);
       expect(client.getStringValue("greeting", "default")).toBe("Bye");
     });
   });

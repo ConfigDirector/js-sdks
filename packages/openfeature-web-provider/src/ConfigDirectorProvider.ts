@@ -57,7 +57,6 @@ export class ConfigDirectorProvider implements Provider {
 
   async onContextChange?(_oldContext: EvaluationContext, newContext: EvaluationContext): Promise<void> {
     this.awaitingRecovery = false;
-    this.events.emit(ProviderEvents.Stale, { message: "Context Changed" });
     await this.client.updateContext(this.mapContext(newContext));
     this.requireReady(
       "ConfigDirector did not become ready after the context changed. Flags resolve against the previous " +
