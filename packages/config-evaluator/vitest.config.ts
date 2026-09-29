@@ -12,6 +12,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["@jsonjoy.com/json-pointer", "rapidhash-js", "semver"],
+    include: ["rapidhash-js", "semver"],
   },
 });

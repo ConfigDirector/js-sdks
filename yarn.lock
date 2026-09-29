@@ -1786,7 +1786,6 @@ __metadata:
   resolution: "@configdirector/config-evaluator-internal@workspace:packages/config-evaluator"
   dependencies:
     "@eslint/js": "npm:^10.0.1"
-    "@jsonjoy.com/json-pointer": "npm:^18.1.0"
     "@rollup/plugin-replace": "npm:^6.0.3"
     "@stylistic/eslint-plugin": "npm:^5.10.0"
     "@types/luxon": "npm:^3"
@@ -1845,7 +1844,6 @@ __metadata:
   resolution: "@configdirector/nextjs-sdk@workspace:packages/nextjs-sdk"
   dependencies:
     "@eslint/js": "npm:^10.0.1"
-    "@jsonjoy.com/json-pointer": "npm:^18.1.0"
     "@rollup/plugin-replace": "npm:^6.0.3"
     "@stylistic/eslint-plugin": "npm:^5.10.0"
     "@testing-library/react": "npm:^16.3.3"
@@ -1879,7 +1877,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/nuxt-sdk@workspace:packages/nuxt-sdk"
   dependencies:
-    "@jsonjoy.com/json-pointer": "npm:^18.1.0"
     "@nuxt/devtools": "npm:^3.4.2"
     "@nuxt/eslint-config": "npm:^1.15.2"
     "@nuxt/kit": "npm:^3.7.0 || ^4.0.0"
@@ -2055,7 +2052,6 @@ __metadata:
   resolution: "@configdirector/server-sdk@workspace:packages/js-server-sdk"
   dependencies:
     "@eslint/js": "npm:^10.0.1"
-    "@jsonjoy.com/json-pointer": "npm:^18.1.0"
     "@stylistic/eslint-plugin": "npm:^5.10.0"
     "@types/luxon": "npm:^3"
     "@types/node": "npm:^24.13.3"
@@ -3902,59 +3898,6 @@ __metadata:
     "@jridgewell/resolve-uri": "npm:^3.1.0"
     "@jridgewell/sourcemap-codec": "npm:^1.4.14"
   checksum: 10c0/4b30ec8cd56c5fd9a661f088230af01e0c1a3888d11ffb6b47639700f71225be21d1f7e168048d6d4f9449207b978a235c07c8f15c07705685d16dc06280e9d9
-  languageName: node
-  linkType: hard
-
-"@jsonjoy.com/buffers@npm:18.1.0":
-  version: 18.1.0
-  resolution: "@jsonjoy.com/buffers@npm:18.1.0"
-  peerDependencies:
-    tslib: 2
-  checksum: 10c0/ce3c7358cf8d5cae3ae8b65ba9f9beb6e5f19e5f4b406349aa0239ede55298c49a31006a197fbfddb3796b63e69153d1c7a70ef5ef3c00f134761604573a9f04
-  languageName: node
-  linkType: hard
-
-"@jsonjoy.com/codegen@npm:18.1.0":
-  version: 18.1.0
-  resolution: "@jsonjoy.com/codegen@npm:18.1.0"
-  peerDependencies:
-    tslib: 2
-  checksum: 10c0/9e4c96655c6d96217dd7b9fce1078b5007f272480edd4c8308ef085ec7023c7936d8b8610bceefcd5507c2319655d2e380712162e3d936e5fa06382bed95ecf9
-  languageName: node
-  linkType: hard
-
-"@jsonjoy.com/json-equal@npm:18.1.0":
-  version: 18.1.0
-  resolution: "@jsonjoy.com/json-equal@npm:18.1.0"
-  dependencies:
-    "@jsonjoy.com/codegen": "npm:18.1.0"
-  peerDependencies:
-    tslib: "*"
-  checksum: 10c0/be1c44b3dd3798557b4e825ae360b87b62d12e80269cf17daf523c36bf1b52a63533365979ea00ea77c7a589718c4c4305fa5ff09cbd192e6c4ecd6e11b9b3ee
-  languageName: node
-  linkType: hard
-
-"@jsonjoy.com/json-pointer@npm:^18.1.0":
-  version: 18.1.0
-  resolution: "@jsonjoy.com/json-pointer@npm:18.1.0"
-  dependencies:
-    "@jsonjoy.com/util": "npm:18.1.0"
-  peerDependencies:
-    tslib: 2
-  checksum: 10c0/17314525305dee9dde4ef454fae3258e8eaccece8e48f877e7350e80f18a0a1dee3e537cf5beeeaaeff7a2eefce12ed9226abda6da6fe45f08fbdea7454de8b5
-  languageName: node
-  linkType: hard
-
-"@jsonjoy.com/util@npm:18.1.0":
-  version: 18.1.0
-  resolution: "@jsonjoy.com/util@npm:18.1.0"
-  dependencies:
-    "@jsonjoy.com/buffers": "npm:18.1.0"
-    "@jsonjoy.com/codegen": "npm:18.1.0"
-    "@jsonjoy.com/json-equal": "npm:18.1.0"
-  peerDependencies:
-    tslib: 2
-  checksum: 10c0/42f8fa09fdb7ee0df9fa7d1116ff59e36627fac9e564495556ba49a636596d6f5b4fbc863c5772b0305c79aafce4d26ec36a05f1da33034da4d2a890c18a3c14
   languageName: node
   linkType: hard
 

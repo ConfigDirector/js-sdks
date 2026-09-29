@@ -89,7 +89,6 @@
     "vitest": "^4.1.8"
   },
   "dependencies": {
-    "@jsonjoy.com/json-pointer": "^18.1.0",
     "rapidhash-js": "^3.0.0",
     "semver": "^7.7.4"
   }

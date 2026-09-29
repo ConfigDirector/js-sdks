@@ -232,6 +232,64 @@ describe("ConditionEvaluator", () => {
       expect(evaluator.evaluate(condition, { context: { traits: {} } })).toBe(false);
     });
 
+    test("evaluates a trait pointer without a leading slash as a missing trait", () => {
+      const condition: Condition = {
+        id: "a",
+        attribute: "traits",
+        trait: "xcity",
+        operator: "=",
+        targetType: "text",
+        targetValues: [""],
+      };
+
+      expect(evaluator.evaluate(condition, { context: { traits: { city: "Portland" } } })).toBe(true);
+    });
+
+    test("evaluates a trait pointer with an invalid escape as a missing trait", () => {
+      const condition: Condition = {
+        id: "a",
+        attribute: "traits",
+        trait: "/plan~2tier",
+        operator: "=",
+        targetType: "text",
+        targetValues: [""],
+      };
+
+      expect(evaluator.evaluate(condition, { context: { traits: { "plan~2tier": "gold" } } })).toBe(true);
+    });
+
+    test("evaluates escaped trait pointer tokens", () => {
+      const condition: Condition = {
+        id: "a",
+        attribute: "traits",
+        trait: "/plan~1tier/~0legacy",
+        operator: "=",
+        targetType: "text",
+        targetValues: ["gold"],
+      };
+
+      expect(
+        evaluator.evaluate(condition, { context: { traits: { "plan/tier": { "~legacy": "gold" } } } }),
+      ).toBe(true);
+    });
+
+    test("evaluates a trait pointer into an array by index", () => {
+      const condition: Condition = {
+        id: "a",
+        attribute: "traits",
+        trait: "/teams/1/name",
+        operator: "=",
+        targetType: "text",
+        targetValues: ["billing"],
+      };
+
+      const traits = { teams: [{ name: "search" }, { name: "billing" }] };
+      expect(evaluator.evaluate(condition, { context: { traits } })).toBe(true);
+      expect(evaluator.evaluate({ ...condition, trait: "/teams/01/name" }, { context: { traits } })).toBe(
+        false,
+      );
+    });
+
     test("evaluates a missing identifier as empty text", () => {
       const equalsEmpty: Condition = {
         id: "a",

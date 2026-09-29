@@ -1,5 +1,5 @@
 import type { Condition, ConditionCheck, EvaluationContext } from "./types";
-import { findByPointer } from "@jsonjoy.com/json-pointer";
+import { resolveJsonPointer } from "./json-pointer";
 import { compareText } from "./text-comparison";
 import { compareNumeric } from "./numeric-comparison";
 import { compareDate } from "./date-comparison";
@@ -67,17 +67,9 @@ export class ConditionEvaluator {
         if (!condition.trait) {
           return ABSENT;
         }
-        return orAbsent(this.findTraitValue(context?.context?.traits, condition.trait));
+        return orAbsent(resolveJsonPointer(condition.trait, context?.context?.traits));
       default:
         return UNKNOWN_ATTRIBUTE;
-    }
-  }
-
-  private findTraitValue(traits: Record<string, unknown> | undefined, path: string) {
-    try {
-      return findByPointer(path, traits).val;
-    } catch {
-      return undefined;
     }
   }
 }
