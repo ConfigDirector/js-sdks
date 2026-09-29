@@ -349,6 +349,31 @@ describe("ConditionEvaluator", () => {
 
       expect(evaluator.evaluate(condition, { context: { id: "abc" } })).toBe(false);
     });
+
+    test.each([
+      ["equals", "premium", false],
+      ["does NOT equal", "premium", true],
+      ["is one of", "premium", false],
+      ["is NOT one of", "premium", true],
+      ["starts with any of", "pre", false],
+      ["does NOT start with any of", "pre", true],
+      ["ends with any of", "IUM", false],
+      ["does NOT end with any of", "IUM", true],
+    ] as [Operator, string, boolean][])(
+      "compares case-sensitively (operator: %s, target: %s)",
+      (operator, target, expected) => {
+        const condition: Condition = {
+          id: "a",
+          attribute: "traits",
+          trait: "/plan",
+          operator,
+          targetType: "text",
+          targetValues: [target],
+        };
+
+        expect(evaluator.evaluate(condition, { context: { traits: { plan: "Premium" } } })).toBe(expected);
+      },
+    );
   });
 
   describe("number comparison conditions", () => {
@@ -944,6 +969,24 @@ describe("ConditionEvaluator", () => {
 
       expect(evaluator.evaluate(contains, context)).toBe(false);
       expect(evaluator.evaluate({ ...contains, operator: "does NOT contain any of" }, context)).toBe(true);
+    });
+
+    test.each([
+      ["contains any of", false],
+      ["does NOT contain any of", true],
+    ] as [Operator, boolean][])("compares elements case-sensitively (operator: %s)", (operator, expected) => {
+      const condition: Condition = {
+        id: "a",
+        attribute: "traits",
+        trait: "/tags",
+        operator,
+        targetType: "array",
+        targetValues: ["blue"],
+      };
+
+      expect(evaluator.evaluate(condition, { context: { traits: { tags: ["Blue", "RED"] } } })).toBe(
+        expected,
+      );
     });
 
     test("matches numeric and boolean elements against string target values", () => {
