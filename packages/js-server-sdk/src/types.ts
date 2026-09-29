@@ -132,7 +132,7 @@ export type ConfigDirectorClientOptions = {
 };
 
 export type ClientEvents = {
-  configsUpdated: { keys: string[] };
+  configsUpdated: { keys: string[]; removedKeys: string[] };
   clientReady: undefined;
   configEvaluated: { evaluation: ConfigEvaluation };
   connectionError: { error: Error };

@@ -4,7 +4,6 @@ import { getRequestedType, parseConfigValue } from "../../shared/src/value-parse
 import type {
   ConfigSet,
   ConfigState,
-  ConfigStateMap,
   ConfigDirectorContext,
   ConfigDirectorClientOptions,
   ConfigDirectorClient,
@@ -100,20 +99,19 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
 
     this.transport.on("configSetReceived", (configSet: ConfigSet) => {
       this.readyResolve?.();
-      const configKeys = Object.keys(configSet.configs);
+      const removedKeys = this.findKeysRemovedBy(configSet);
       if (!this.configSet || configSet.kind == "full") {
         this.configSet = configSet;
-        this.emit("configsUpdated", { keys: configKeys });
-        this.updateWatchers(configSet.configs);
       } else {
         this.configSet.configs = {
           ...this.configSet.configs,
           ...configSet.configs,
         };
-        this.emit("configsUpdated", { keys: configKeys });
-        this.updateWatchers(configSet.configs);
       }
-      this.logger.debug("[ConfigDirectorClient] ConfigSet updated from server:", { keys: configKeys });
+      const keys = Object.keys(configSet.configs);
+      this.emit("configsUpdated", { keys, removedKeys });
+      this.updateWatchers([...keys, ...removedKeys]);
+      this.logger.debug("[ConfigDirectorClient] ConfigSet updated from server:", { keys, removedKeys });
     });
 
     this.transport.on("connectionError", (error: Error) => {
@@ -228,13 +226,21 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     }
   }
 
-  private updateWatchers(configsMap: ConfigStateMap) {
-    Object.values(configsMap).forEach((v) => this.updateWatchersForConfig(v));
+  private findKeysRemovedBy(configSet: ConfigSet): string[] {
+    if (!this.configSet || configSet.kind != "full") {
+      return [];
+    }
+    return Object.keys(this.configSet.configs).filter((key) => !Object.prototype.hasOwnProperty.call(configSet.configs, key));
   }
 
-  private updateWatchersForConfig(configState: ConfigState) {
-    this.handlersMap.get(configState.key)?.forEach((h) => {
-      const value = this.getValueFromConfigState(configState.key, configState, h.defaultValue);
+  private updateWatchers(configKeys: string[]) {
+    configKeys.forEach((configKey) => this.updateWatchersForConfig(configKey));
+  }
+
+  private updateWatchersForConfig(configKey: string) {
+    const configState = this.configSet?.configs[configKey];
+    this.handlersMap.get(configKey)?.forEach((h) => {
+      const value = this.getValueFromConfigState(configKey, configState, h.defaultValue);
       h.handler(value);
     });
   }

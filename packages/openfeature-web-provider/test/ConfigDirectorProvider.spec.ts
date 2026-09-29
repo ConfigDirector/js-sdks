@@ -196,6 +196,27 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
       expect(client.getStringValue("greeting", "default")).toBe("Updated");
     });
 
+    test("lists a flag removed by a full config push in PROVIDER_CONFIGURATION_CHANGED", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          { data: full({ ...stringConfig("greeting", "Hello"), ...stringConfig("farewell", "Bye") }) },
+          { delay: 10, data: full(stringConfig("greeting", "Hello")) },
+        ],
+      ]);
+
+      const client = OpenFeature.getClient();
+      const flagsChanged: (readonly string[] | undefined)[] = [];
+      client.addHandler(ProviderEvents.ConfigurationChanged, (details: unknown) =>
+        flagsChanged.push((details as { flagsChanged?: string[] } | undefined)?.flagsChanged),
+      );
+
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      await vi.waitFor(() => expect(flagsChanged).toHaveLength(2), { timeout: 2_000 });
+      expect(flagsChanged[1]).toEqual(["greeting", "farewell"]);
+      expect(client.getStringValue("farewell", "default")).toBe("default");
+    });
+
     test("onContextChange puts the OpenFeature client in PROVIDER_RECONCILING, never PROVIDER_STALE, before the reconciled PROVIDER_CONFIGURATION_CHANGED and PROVIDER_CONTEXT_CHANGED", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [{ data: full(stringConfig("greeting", "Hello")) }],

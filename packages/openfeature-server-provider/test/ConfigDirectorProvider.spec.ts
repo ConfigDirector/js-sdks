@@ -236,5 +236,37 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
       await vi.waitFor(() => expect(flagsChanged).toEqual([["greeting"], ["greeting"]]));
       expect(await client.getStringValue("greeting", "default")).toBe("Updated");
     });
+
+    test("lists a flag removed by a full config push in PROVIDER_CONFIGURATION_CHANGED", async () => {
+      server.use(
+        sseHandler((controller) => {
+          controller.enqueue(
+            message(
+              fullBundle({
+                greeting: configWithValue("greeting", "string", "Hello"),
+                farewell: configWithValue("farewell", "string", "Bye"),
+              }),
+            ),
+          );
+          setTimeout(() => {
+            controller.enqueue(
+              message(fullBundle({ greeting: configWithValue("greeting", "string", "Hello") })),
+            );
+          }, 10);
+        }),
+      );
+
+      const client = OpenFeature.getClient();
+      const flagsChanged: (readonly string[] | undefined)[] = [];
+      client.addHandler(ProviderEvents.ConfigurationChanged, (details: unknown) =>
+        flagsChanged.push((details as { flagsChanged?: string[] } | undefined)?.flagsChanged),
+      );
+
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      await vi.waitFor(() => expect(flagsChanged).toHaveLength(2));
+      expect(flagsChanged[1]).toEqual(["greeting", "farewell"]);
+      expect(await client.getStringValue("farewell", "default")).toBe("default");
+    });
   });
 });

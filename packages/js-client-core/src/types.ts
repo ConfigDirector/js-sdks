@@ -126,7 +126,7 @@ export type ClientConnectAction = "initialization" | "context update" | "network
 export type HookHandler<TEvent extends keyof ClientEvents> = (payload: ClientEvents[TEvent]) => void;
 
 export type ClientEvents = {
-  configsUpdated: { keys: string[] };
+  configsUpdated: { keys: string[]; removedKeys: string[] };
   clientReady: { action: ClientConnectAction };
   contextUpdated: { context: ConfigDirectorContext | undefined };
   configEvaluated: { evaluation: ConfigEvaluation };

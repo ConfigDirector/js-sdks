@@ -1148,6 +1148,107 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("configs removed by a full update", () => {
+    const configA = {
+      id: "00000000-0000-0000-0000-000000000001",
+      key: "config-a",
+      type: "string",
+      value: "a-value",
+    };
+    const configB = {
+      id: "00000000-0000-0000-0000-000000000002",
+      key: "config-b",
+      type: "string",
+      value: "b-value",
+    };
+
+    test("calls the watchers of a removed key with the in-code default value", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          { data: full({ "config-a": configA, "config-b": configB }) },
+          { delay: 10, data: full({ "config-a": configA }) },
+        ],
+      ]);
+      const receivedValues: string[] = [];
+
+      client = createClient("sdk-key", { logger });
+      client.watch("config-b", "in-code-default", (value: string) => receivedValues.push(value));
+      await client.initialize();
+
+      await vi.waitFor(() => expect(receivedValues).toEqual(["b-value", "in-code-default"]), {
+        timeout: 2_000,
+      });
+      expect(client.getValue("config-b", "in-code-default")).toBe("in-code-default");
+    });
+
+    test("reports a removed key in 'removedKeys' of 'configsUpdated', not in 'keys'", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          { data: full({ "config-a": configA, "config-b": configB }) },
+          { delay: 10, data: full({ "config-a": configA }) },
+        ],
+      ]);
+      const updates: { keys: string[]; removedKeys: string[] }[] = [];
+
+      client = createClient("sdk-key", { logger });
+      client.on("configsUpdated", (update) => updates.push(update));
+      await client.initialize();
+
+      await vi.waitFor(() => expect(updates).toHaveLength(2), { timeout: 2_000 });
+      expect(updates[1]).toEqual({ keys: ["config-a"], removedKeys: ["config-b"] });
+    });
+
+    test("reports a removed key that shares its name with an object property", async () => {
+      const constructorConfig = { ...configB, key: "constructor" };
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          { data: full({ "config-a": configA, constructor: constructorConfig }) },
+          { delay: 10, data: full({ "config-a": configA }) },
+        ],
+      ]);
+      const updates: { keys: string[]; removedKeys: string[] }[] = [];
+
+      client = createClient("sdk-key", { logger });
+      client.on("configsUpdated", (update) => updates.push(update));
+      await client.initialize();
+
+      await vi.waitFor(() => expect(updates).toHaveLength(2), { timeout: 2_000 });
+      expect(updates[1]).toEqual({ keys: ["config-a"], removedKeys: ["constructor"] });
+    });
+
+    test("does not call the watchers of a key the client never held", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full({ "config-a": configA }) }]]);
+      const receivedValues: string[] = [];
+
+      client = createClient("sdk-key", { logger });
+      client.watch("config-b", "in-code-default", (value: string) => receivedValues.push(value));
+      await client.initialize();
+
+      expect(receivedValues).toEqual([]);
+    });
+
+    test("a delta update does not remove the keys it omits", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          { data: full({ "config-a": configA, "config-b": configB }) },
+          { delay: 10, data: delta({ "config-a": { ...configA, value: "a-updated" } }) },
+        ],
+      ]);
+      const updates: { keys: string[]; removedKeys: string[] }[] = [];
+      const receivedValues: string[] = [];
+
+      client = createClient("sdk-key", { logger });
+      client.on("configsUpdated", (update) => updates.push(update));
+      client.watch("config-b", "in-code-default", (value: string) => receivedValues.push(value));
+      await client.initialize();
+
+      await vi.waitFor(() => expect(updates).toHaveLength(2), { timeout: 2_000 });
+      expect(updates[1]).toEqual({ keys: ["config-a"], removedKeys: [] });
+      expect(receivedValues).toEqual(["b-value"]);
+      expect(client.getValue("config-b", "in-code-default")).toBe("b-value");
+    });
+  });
+
   describe("PollingTransport (connection.mode: 'polling')", () => {
     beforeAll(() => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });

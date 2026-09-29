@@ -761,6 +761,117 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("configs removed by a full update", () => {
+    const configWithValue = (key: string, value: string) => ({
+      id: "00000000-0000-0000-0000-000000000001",
+      key,
+      type: "string",
+      variations: [],
+      target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: value },
+    });
+
+    const bundle = (kind: "full" | "delta", configs: Record<string, unknown>) => ({
+      environmentId: "10000000-0000-0000-0000-000000000000",
+      projectId: "20000000-0000-0000-0000-000000000000",
+      kind,
+      configs,
+    });
+
+    const streamBundles = (firstBundle: unknown, secondBundle: unknown) => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(message(firstBundle));
+              setTimeout(() => controller.enqueue(message(secondBundle)), 10);
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+    };
+
+    test("calls the watchers of a removed key with the in-code default value", async () => {
+      streamBundles(
+        bundle("full", {
+          "config-a": configWithValue("config-a", "a-value"),
+          "config-b": configWithValue("config-b", "b-value"),
+        }),
+        bundle("full", { "config-a": configWithValue("config-a", "a-value") }),
+      );
+      const receivedValues: string[] = [];
+
+      const client = createClient("sdk-key", { logger });
+      client.watch("config-b", "in-code-default", (value: string) => receivedValues.push(value));
+      await client.initialize();
+
+      await vi.waitFor(() => expect(receivedValues).toEqual(["b-value", "in-code-default"]));
+      expect(client.getValue("config-b", "in-code-default")).toBe("in-code-default");
+      client.dispose();
+    });
+
+    test("reports a removed key in 'removedKeys' of 'configsUpdated', not in 'keys'", async () => {
+      streamBundles(
+        bundle("full", {
+          "config-a": configWithValue("config-a", "a-value"),
+          "config-b": configWithValue("config-b", "b-value"),
+        }),
+        bundle("full", { "config-a": configWithValue("config-a", "a-value") }),
+      );
+      const updates: { keys: string[]; removedKeys: string[] }[] = [];
+
+      const client = createClient("sdk-key", { logger });
+      client.on("configsUpdated", (update) => updates.push(update));
+      await client.initialize();
+
+      await vi.waitFor(() => expect(updates).toHaveLength(2));
+      expect(updates[1]).toEqual({ keys: ["config-a"], removedKeys: ["config-b"] });
+      client.dispose();
+    });
+
+    test("reports a removed key that shares its name with an object property", async () => {
+      streamBundles(
+        bundle("full", {
+          "config-a": configWithValue("config-a", "a-value"),
+          constructor: configWithValue("constructor", "constructor-value"),
+        }),
+        bundle("full", { "config-a": configWithValue("config-a", "a-value") }),
+      );
+      const updates: { keys: string[]; removedKeys: string[] }[] = [];
+
+      const client = createClient("sdk-key", { logger });
+      client.on("configsUpdated", (update) => updates.push(update));
+      await client.initialize();
+
+      await vi.waitFor(() => expect(updates).toHaveLength(2));
+      expect(updates[1]).toEqual({ keys: ["config-a"], removedKeys: ["constructor"] });
+      client.dispose();
+    });
+
+    test("a delta update does not remove the keys it omits", async () => {
+      streamBundles(
+        bundle("full", {
+          "config-a": configWithValue("config-a", "a-value"),
+          "config-b": configWithValue("config-b", "b-value"),
+        }),
+        bundle("delta", { "config-a": configWithValue("config-a", "a-updated") }),
+      );
+      const updates: { keys: string[]; removedKeys: string[] }[] = [];
+      const receivedValues: string[] = [];
+
+      const client = createClient("sdk-key", { logger });
+      client.on("configsUpdated", (update) => updates.push(update));
+      client.watch("config-b", "in-code-default", (value: string) => receivedValues.push(value));
+      await client.initialize();
+
+      await vi.waitFor(() => expect(updates).toHaveLength(2));
+      expect(updates[1]).toEqual({ keys: ["config-a"], removedKeys: [] });
+      expect(receivedValues).toEqual(["b-value"]);
+      expect(client.getValue("config-b", "in-code-default")).toBe("b-value");
+      client.dispose();
+    });
+  });
+
   describe("watch and unwatch", () => {
     const configWithValue = (key: string, value: string) => ({
       id: "00000000-0000-0000-0000-000000000001",

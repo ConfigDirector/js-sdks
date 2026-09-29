@@ -41,8 +41,8 @@ export class ConfigDirectorProvider implements Provider {
       this.awaitingRecovery = false;
       this.events.emit(ProviderEvents.Ready);
     });
-    this.client.on("configsUpdated", ({ keys }) => {
-      this.events.emit(ProviderEvents.ConfigurationChanged, { flagsChanged: keys });
+    this.client.on("configsUpdated", ({ keys, removedKeys }) => {
+      this.events.emit(ProviderEvents.ConfigurationChanged, { flagsChanged: [...keys, ...removedKeys] });
     });
   }
 
