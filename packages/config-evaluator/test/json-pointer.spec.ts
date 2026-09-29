@@ -220,8 +220,8 @@ describe("resolveJsonPointer", () => {
     });
 
     test("an index written with non-ASCII digits resolves to nothing", () => {
-      expect(resolveJsonPointer("/١", letters)).toBeUndefined();
-      expect(resolveJsonPointer("/１", letters)).toBeUndefined();
+      expect(resolveJsonPointer("/\u0661", letters)).toBeUndefined();
+      expect(resolveJsonPointer("/\uff11", letters)).toBeUndefined();
     });
 
     test("an empty token on an array resolves to nothing", () => {
@@ -313,10 +313,10 @@ describe("resolveJsonPointer", () => {
     });
 
     test("member names are compared without Unicode normalization", () => {
-      const document = { é: "composed" };
+      const document = { "\u00e9": "composed" };
 
-      expect(resolveJsonPointer("/é", document)).toBe("composed");
-      expect(resolveJsonPointer("/é", document)).toBeUndefined();
+      expect(resolveJsonPointer("/\u00e9", document)).toBe("composed");
+      expect(resolveJsonPointer("/e\u0301", document)).toBeUndefined();
     });
 
     test("member names outside the Basic Multilingual Plane resolve", () => {
