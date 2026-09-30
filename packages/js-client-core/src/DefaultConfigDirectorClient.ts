@@ -73,30 +73,10 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     const urlFactory: UrlFactory = internalClientOptions?.urlFactory ?? defaultUrlFactory;
     const baseUrl = this.parseUrl(clientOptions?.connection?.url, urlFactory) ?? CLIENT_BASE_URL;
     this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
-    const transportConstructor = this.getTransportConstructor(this.connectionMode);
     this.telemetryClient = telemetryClient;
-    this.transport = new transportConstructor({
-      instanceId: this.instanceId,
-      clientSdkKey,
-      baseUrl,
-      resolveUrl: urlFactory,
-      metaContext: {
-        ...clientOptions?.metadata,
-        sdkName: sdkOptions.sdkName,
-        sdkVersion: sdkOptions.sdkVersion,
-        userAgent: readUserAgent(),
-        host: readHost(),
-      },
-      logger: this.logger,
-      fetch: internalClientOptions?.fetch,
-      connectionRetryDelay:
-        internalClientOptions?.connectionRetryDelay ??
-        ((attempt: number) => {
-          const seconds = Math.pow(2, Math.min(attempt, MAX_EXPONENTIAL_DELAY));
-          return seconds * 1_000;
-        }),
-      pollingInterval: this.resolvePollingIntervalForMode(clientOptions?.connection?.pollingInterval),
-    });
+    this.transport =
+      internalClientOptions?.transport ??
+      this.buildTransport(clientSdkKey, sdkOptions, baseUrl, urlFactory, clientOptions, internalClientOptions);
 
     this.transport.on("configSetReceived", (configSet: ConfigSet) => {
       this.hasReceivedConfigSet = true;
@@ -162,6 +142,39 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     return resolved.seconds;
   }
 
+  private buildTransport(
+    clientSdkKey: string,
+    sdkOptions: IdentifyingSdkOptions,
+    baseUrl: UrlLike,
+    urlFactory: UrlFactory,
+    clientOptions: ConfigDirectorClientOptions | undefined,
+    internalClientOptions: InternalClientOptions | undefined,
+  ): Transport {
+    const transportConstructor = this.getTransportConstructor(this.connectionMode);
+    return new transportConstructor({
+      instanceId: this.instanceId,
+      clientSdkKey,
+      baseUrl,
+      resolveUrl: urlFactory,
+      metaContext: {
+        ...clientOptions?.metadata,
+        sdkName: sdkOptions.sdkName,
+        sdkVersion: sdkOptions.sdkVersion,
+        userAgent: readUserAgent(),
+        host: readHost(),
+      },
+      logger: this.logger,
+      fetch: internalClientOptions?.fetch,
+      connectionRetryDelay:
+        internalClientOptions?.connectionRetryDelay ??
+        ((attempt: number) => {
+          const seconds = Math.pow(2, Math.min(attempt, MAX_EXPONENTIAL_DELAY));
+          return seconds * 1_000;
+        }),
+      pollingInterval: this.resolvePollingIntervalForMode(clientOptions?.connection?.pollingInterval),
+    });
+  }
+
   private getTransportConstructor(connectionMode?: ConnectionMode) {
     switch (connectionMode) {
       case "polling":
@@ -201,7 +214,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         this.logger.debug("[ConfigDirectorClient] Received initial payload from the server, client is ready");
       });
       const startTime = new Date().getTime();
-      await this.transport.connect(context ?? {}, this.timeout);
+      await this.transport.connect(context ?? {}, this.timeout, caller);
       this.currentContext = context;
       this.telemetryClient.updateContext(context);
       this.emit("contextUpdated", { context });

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { packagingTests } from "../helpers/artifact-checks.mjs";
-import { EXPECTED_CLIENT_VALUES } from "../helpers/bundles.mjs";
+import { EXPECTED_CLIENT_VALUES, EXPECTED_TESTING_VALUES } from "../helpers/bundles.mjs";
 import { runBrowserSmoke } from "../helpers/browser.mjs";
 import { createFixtureProject } from "../helpers/fixture-project.mjs";
 import { startMockServer } from "../helpers/mock-server.mjs";
@@ -32,5 +32,15 @@ describe("@configdirector/client-sdk artifact", () => {
   test("serves config values over polling from the CJS entry in a browser", async () => {
     const result = await runBrowserSmoke({ project, server, entry: "main-require.cjs" });
     expect(result, result.error).toEqual({ ok: true, values: { ready: true, ...EXPECTED_CLIENT_VALUES } });
+  });
+
+  test("serves test client values from the ESM testing entry in a browser", async () => {
+    const result = await runBrowserSmoke({ project, server, entry: "testing.mjs" });
+    expect(result, result.error).toEqual({ ok: true, values: { ...EXPECTED_TESTING_VALUES } });
+  });
+
+  test("serves test client values from the CJS testing entry in a browser", async () => {
+    const result = await runBrowserSmoke({ project, server, entry: "testing-require.cjs" });
+    expect(result, result.error).toEqual({ ok: true, values: { ...EXPECTED_TESTING_VALUES } });
   });
 });

@@ -6,6 +6,7 @@ export default defineConfig([
   {
     entry: {
       "configdirector-server": "src/index.ts",
+      "configdirector-server-testing": "src/testing.ts",
     },
     minify: true,
     format: { "esm": { target: ["es2020"] }, "cjs": {} },

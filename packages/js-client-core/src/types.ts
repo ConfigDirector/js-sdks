@@ -34,6 +34,7 @@ export type InternalClientOptions = {
   fetch?: (url: string, init: RequestInit) => Promise<Response>;
   connectionRetryDelay?: ConnectionRetryDelayCalculator;
   urlFactory?: UrlFactory;
+  transport?: Transport;
 };
 
 /**
@@ -275,7 +276,7 @@ export type TransportEvents = {
 };
 
 export interface Transport extends EventProvider<TransportEvents> {
-  connect(context: ConfigDirectorContext, timeout: number): Promise<this>;
+  connect(context: ConfigDirectorContext, timeout: number, reason: ClientConnectAction): Promise<this>;
   close(): void;
   dispose(): void;
 }

@@ -6,6 +6,7 @@ import type {
   EventReporter,
   EventSnapshotPreprocessor,
   ReporterResponse,
+  ServerTelemetryClient,
   ServerTelemetryEventCollectorOptions,
 } from "./types";
 import { TelemetryEventCollector } from "@shared/telemetry/TelemetryEventCollector";
@@ -15,9 +16,10 @@ import { EvaluatedConfigEventPreprocessor } from "@shared/telemetry/EvaluatedCon
 
 const DEFAULT_CONTEXTS_LIMIT = 1_000;
 
-export class ServerTelemetryEventCollector extends TelemetryEventCollector<
-  EvaluatedConfigEvent<TelemetryValue>
-> {
+export class ServerTelemetryEventCollector
+  extends TelemetryEventCollector<EvaluatedConfigEvent<TelemetryValue>>
+  implements ServerTelemetryClient
+{
   protected override evaluationEventSnapshotPreprocessor: EventSnapshotPreprocessor<
     EvaluatedConfigEvent<TelemetryValue>
   >;

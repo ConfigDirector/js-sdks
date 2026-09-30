@@ -20,6 +20,14 @@ export type EventReport = {
   droppedEvents?: DroppedEvents;
 };
 
+export interface ServerTelemetryClient {
+  start(): void;
+
+  evaluatedConfig<T extends ConfigValueType>(payload: EvaluatedConfig<T>): void;
+
+  close(): Promise<void>;
+}
+
 export type EvaluatedConfig<T extends ConfigValueType> = {
   context?: ConfigDirectorContext | undefined | null;
   evaluation: {

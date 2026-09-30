@@ -2,8 +2,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { createClient } from "../src";
-import type { DefaultConfigDirectorClient } from "../src/DefaultConfigDirectorClient";
+import { DefaultConfigDirectorClient } from "../src/DefaultConfigDirectorClient";
 import { ServerTelemetryEventCollector } from "../src/telemetry";
+import type { ServerTelemetryClient } from "../src/telemetry";
+import type { ConfigBundle, Transport, TransportEvents } from "../src/types";
+import EventEmitter from "node:events";
 import { createStubbedLogger, sleep, SSE_URL, POLLING_URL, TELEMETRY_URL } from "./helpers";
 
 const buildResponse = (stream: ReadableStream) => {
@@ -1756,6 +1759,113 @@ describe("ConfigDirectorClient", () => {
         reason: "found-match",
         context,
       });
+    });
+  });
+
+  describe("injected transport and telemetry", () => {
+    class RecordingTransport implements Transport {
+      private emitter = new EventEmitter();
+      public connectTimeouts: number[] = [];
+      public closeCount = 0;
+      public bundleOnConnect: ConfigBundle | undefined;
+
+      async connect(timeout: number): Promise<this> {
+        this.connectTimeouts.push(timeout);
+        if (this.bundleOnConnect) {
+          this.emitter.emit("configBundleReceived", this.bundleOnConnect);
+        }
+        return this;
+      }
+
+      get isConnected() {
+        return this.connectTimeouts.length > 0;
+      }
+
+      on<TName extends keyof TransportEvents>(name: TName, handler: (payload: TransportEvents[TName]) => void) {
+        this.emitter.on(name, handler);
+      }
+
+      off<TName extends keyof TransportEvents>(name: TName, handler?: (payload: TransportEvents[TName]) => void) {
+        if (handler) {
+          this.emitter.off(name, handler);
+        } else {
+          this.emitter.removeAllListeners(name);
+        }
+      }
+
+      close() {
+        this.closeCount++;
+      }
+
+      dispose() {
+        this.close();
+      }
+    }
+
+    const fullBundle = (): ConfigBundle => ({
+      environmentId: "10000000-0000-0000-0000-000000000000",
+      projectId: "20000000-0000-0000-0000-000000000000",
+      kind: "full",
+      configs: {
+        "example-config": {
+          id: "00000000-0000-0000-0000-0000000003e8",
+          key: "example-config",
+          type: "string",
+          variations: [],
+          target: { environmentId: "10000000-0000-0000-0000-000000000000", rules: [], defaultValue: "Hello" },
+        } as any,
+      },
+    });
+
+    const createTelemetryClient = (): ServerTelemetryClient => ({
+      start: vi.fn(),
+      evaluatedConfig: vi.fn(),
+      close: vi.fn(async () => {}),
+    });
+
+    const createInjectedClient = (transport: Transport, telemetry: ServerTelemetryClient) =>
+      new DefaultConfigDirectorClient(
+        "sdk-key",
+        { sdkName: "js-server-sdk", sdkVersion: "0.0.0" },
+        { logger, connection: { timeout: 50 } },
+        { transport, telemetry },
+      );
+
+    test("connects through the injected transport instead of the network", async () => {
+      const transport = new RecordingTransport();
+      transport.bundleOnConnect = fullBundle();
+      const client = createInjectedClient(transport, createTelemetryClient());
+
+      await client.initialize();
+
+      expect(transport.connectTimeouts).toEqual([50]);
+      expect(client.isReady).toBe(true);
+      expect(client.getValue("example-config", "default")).toBe("Hello");
+      client.dispose();
+      expect(transport.closeCount).toBe(1);
+    });
+
+    test("reports through the injected telemetry client and builds no collector", async () => {
+      const collectorEvaluations = vi.spyOn(ServerTelemetryEventCollector.prototype, "evaluatedConfig");
+      const transport = new RecordingTransport();
+      transport.bundleOnConnect = fullBundle();
+      const telemetry = createTelemetryClient();
+      const client = createInjectedClient(transport, telemetry);
+
+      await client.initialize();
+      client.getValue("example-config", "default", { id: "user-1" });
+      client.dispose();
+
+      expect(telemetry.start).toHaveBeenCalledTimes(1);
+      expect(telemetry.evaluatedConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: { id: "user-1" },
+          evaluation: expect.objectContaining({ key: "example-config", evaluatedValue: "Hello" }),
+        }),
+      );
+      expect(telemetry.close).toHaveBeenCalledTimes(1);
+      expect(collectorEvaluations).not.toHaveBeenCalled();
+      collectorEvaluations.mockRestore();
     });
   });
 

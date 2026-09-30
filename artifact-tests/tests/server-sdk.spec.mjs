@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { packagingTests } from "../helpers/artifact-checks.mjs";
-import { EXPECTED_SERVER_VALUES } from "../helpers/bundles.mjs";
+import { EXPECTED_SERVER_VALUES, EXPECTED_TESTING_VALUES } from "../helpers/bundles.mjs";
 import { createFixtureProject, parseReport } from "../helpers/fixture-project.mjs";
 import { startMockServer } from "../helpers/mock-server.mjs";
 
@@ -39,5 +39,17 @@ describe("@configdirector/server-sdk artifact", () => {
     });
     expect(result.code, result.stderr).toBe(0);
     expect(parseReport(result.stdout)).toEqual({ ready: true, ...EXPECTED_SERVER_VALUES });
+  });
+
+  test("serves test client values from the ESM testing entry", async () => {
+    const result = await project.runNode("testing.mjs");
+    expect(result.code, result.stderr).toBe(0);
+    expect(parseReport(result.stdout)).toEqual({ ...EXPECTED_TESTING_VALUES, jsonData: { greeting: "hello", count: 3 } });
+  });
+
+  test("serves test client values from the CJS testing entry", async () => {
+    const result = await project.runNode("testing.cjs");
+    expect(result.code, result.stderr).toBe(0);
+    expect(parseReport(result.stdout)).toEqual({ ...EXPECTED_TESTING_VALUES, jsonData: { greeting: "hello", count: 3 } });
   });
 });

@@ -30,10 +30,27 @@
         "types": "./dist/configdirector-client.d.mts",
         "default": "./dist/configdirector-client.mjs"
       }
+    },
+    "./testing": {
+      "require": {
+        "types": "./dist/configdirector-client-testing.d.cts",
+        "default": "./dist/configdirector-client-testing.cjs"
+      },
+      "default": {
+        "types": "./dist/configdirector-client-testing.d.mts",
+        "default": "./dist/configdirector-client-testing.mjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "testing": [
+        "./dist/configdirector-client-testing.d.mts"
+      ]
     }
   },
   "files": [
-    "dist/*client.*"
+    "dist"
   ],
   "types": "dist/configdirector-client.d.mts",
   "browser": "dist/configdirector-client.mjs",

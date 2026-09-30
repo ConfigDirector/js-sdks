@@ -1,8 +1,18 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
-import type { ConfigDirectorClient, ConfigDirectorClientOptions } from "../src";
+import type {
+  ClientConnectAction,
+  ConfigDirectorClient,
+  ConfigDirectorClientOptions,
+  ConfigDirectorContext,
+  ConfigSet,
+  InternalClientOptions,
+  Transport,
+  TransportEvents,
+} from "../src";
 import { DefaultConfigDirectorClient } from "../src";
 import { type TelemetryClient } from "../src";
+import { Emitter } from "../src/Emitter";
 import { SSE_URL, POLL_URL, sleep, createStubbedLogger } from "./helpers";
 
 const logger = createStubbedLogger();
@@ -12,14 +22,44 @@ const telemetryClient: TelemetryClient = {
   close: vi.fn(),
 };
 
-const createClient = (clientSdkKey: string, clientOptions?: ConfigDirectorClientOptions | undefined) => {
+const createClient = (
+  clientSdkKey: string,
+  clientOptions?: ConfigDirectorClientOptions | undefined,
+  internalClientOptions?: InternalClientOptions,
+) => {
   return new DefaultConfigDirectorClient(
     telemetryClient,
     clientSdkKey,
     { sdkName: "test-sdk", sdkVersion: "1.2.0" },
     clientOptions,
+    internalClientOptions,
   );
 };
+
+type ConnectCall = { context: ConfigDirectorContext; timeout: number; reason: ClientConnectAction };
+
+class RecordingTransport implements Transport {
+  private emitter = new Emitter<TransportEvents>();
+  public connectCalls: ConnectCall[] = [];
+  public closeCount = 0;
+
+  async connect(context: ConfigDirectorContext, timeout: number, reason: ClientConnectAction): Promise<this> {
+    this.connectCalls.push({ context, timeout, reason });
+    return this;
+  }
+
+  deliver(configSet: ConfigSet) {
+    this.emitter.emit("configSetReceived", configSet);
+  }
+
+  on: Transport["on"] = (name, handler) => this.emitter.on(name, handler);
+  off: Transport["off"] = (name, handler) => this.emitter.off(name, handler);
+  clear = () => this.emitter.clear();
+  close = () => {
+    this.closeCount++;
+  };
+  dispose = () => this.close();
+}
 
 const buildPayload = (kind: "full" | "delta", configs: object = {}, lastUpdateTimestamp?: string) => ({
   environmentId: "10000000-0000-0000-0000-000000000000",
@@ -258,6 +298,53 @@ describe("ConfigDirectorClient", () => {
 
       expect(client.isInitializing).toBe(false);
       await resuming;
+    });
+  });
+
+  describe("injected transport", () => {
+    test("connects through the transport given in the internal options instead of building one", async () => {
+      await commands.mswUseHandlers({ url: SSE_URL });
+      const transport = new RecordingTransport();
+      client = createClient("sdk-key", { logger }, { transport });
+
+      const initialization = client.initialize();
+      transport.deliver(full() as ConfigSet);
+      await initialization;
+
+      expect(transport.connectCalls).toHaveLength(1);
+      expect(client.isReady).toBe(true);
+      expect(await commands.mswWasRequestReceived()).toBe(false);
+    });
+
+    test("tells the transport the reason for each connection attempt", async () => {
+      const transport = new RecordingTransport();
+      client = createClient("sdk-key", { logger, connection: { timeout: 50 } }, { transport });
+
+      await client.initialize({ id: "user-a" });
+      await client.updateContext({ id: "user-b" });
+      client.pauseNetwork();
+      await client.resumeNetwork();
+
+      expect(transport.connectCalls.map((call) => call.reason)).toEqual([
+        "initialization",
+        "context update",
+        "network resume",
+      ]);
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([
+        { id: "user-a" },
+        { id: "user-b" },
+        { id: "user-b" },
+      ]);
+      expect(transport.connectCalls.map((call) => call.timeout)).toEqual([50, 50, 50]);
+    });
+
+    test("closes the injected transport on dispose", async () => {
+      const transport = new RecordingTransport();
+      client = createClient("sdk-key", { logger }, { transport });
+
+      client.dispose();
+
+      expect(transport.closeCount).toBe(1);
     });
   });
 

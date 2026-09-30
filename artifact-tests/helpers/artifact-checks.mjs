@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { builtinModules, createRequire } from "node:module";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { expect, test } from "vitest";
 
 const IMPORT_PATTERN = /\b(?:from|import|require)\s*\(?\s*["'`]([^"'`\n]+)["'`]/g;
@@ -79,6 +79,36 @@ export const findUnresolvableImports = (packageDir, { allow = [] } = {}) => {
   return [...new Set(problems)];
 };
 
+const DECLARATION_FILE = /\.d\.(mts|cts|ts)$/;
+
+const declarationCandidates = (specifier) => {
+  const declared = specifier.replace(/\.mjs$/, ".d.mts").replace(/\.cjs$/, ".d.cts").replace(/\.js$/, ".d.ts");
+  return [...new Set([specifier, declared, `${specifier}.d.ts`, `${specifier}/index.d.ts`])];
+};
+
+const codeCandidates = (specifier) => [specifier, `${specifier}.js`, `${specifier}/index.js`];
+
+export const findUnresolvableRelativeImports = (packageDir) => {
+  const problems = [];
+  const distDir = join(packageDir, "dist");
+  const files = walkFiles(distDir).filter((file) => /\.(mjs|cjs|js|mts|cts|ts)$/.test(file));
+  for (const file of files) {
+    const source = readFileSync(file, "utf8");
+    const candidatesFor = DECLARATION_FILE.test(file) ? declarationCandidates : codeCandidates;
+    for (const match of source.matchAll(IMPORT_PATTERN)) {
+      const specifier = match[1];
+      if (!specifier.startsWith(".")) {
+        continue;
+      }
+      const resolved = candidatesFor(specifier).some((candidate) => existsSync(join(dirname(file), candidate)));
+      if (!resolved) {
+        problems.push(`${file.slice(packageDir.length + 1)} imports unresolvable "${specifier}"`);
+      }
+    }
+  }
+  return [...new Set(problems)];
+};
+
 export const packagingTests = (getProject, options = {}) => {
   test("packs every file referenced by the package entry points", () => {
     expect(findMissingEntryFiles(getProject().packageDir, options)).toEqual([]);
@@ -86,5 +116,9 @@ export const packagingTests = (getProject, options = {}) => {
 
   test("declares every dependency imported by the dist bundles", () => {
     expect(findUnresolvableImports(getProject().packageDir, options)).toEqual([]);
+  });
+
+  test("packs every relative import of the dist bundles and declaration files", () => {
+    expect(findUnresolvableRelativeImports(getProject().packageDir)).toEqual([]);
   });
 };

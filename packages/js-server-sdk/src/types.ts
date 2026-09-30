@@ -9,6 +9,7 @@ import type {
   ConfigEvaluation,
 } from "@shared/types";
 import type { Config } from "@config-evaluator/types";
+import type { ServerTelemetryClient } from "./telemetry/types";
 export type {
   ConfigDirectorLogger,
   ConfigDirectorContext,
@@ -251,6 +252,11 @@ export interface ConfigDirectorClient {
 export type TransportEvents = {
   configBundleReceived: ConfigBundle;
   connectionError: Error;
+};
+
+export type InternalClientOptions = {
+  transport?: Transport;
+  telemetry?: ServerTelemetryClient;
 };
 
 export type TransportOptions = {

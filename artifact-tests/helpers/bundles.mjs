@@ -91,3 +91,11 @@ export const EXPECTED_CLIENT_VALUES = {
   featureEnabled: true,
   itemCount: 7,
 };
+
+export const EXPECTED_TESTING_VALUES = {
+  ready: true,
+  welcomeMessage: "Hello from ConfigDirector!",
+  featureEnabled: true,
+  itemCount: 8,
+  rejected: true,
+};

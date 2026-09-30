@@ -30,10 +30,27 @@
         "types": "./dist/configdirector-server.d.mts",
         "default": "./dist/configdirector-server.mjs"
       }
+    },
+    "./testing": {
+      "require": {
+        "types": "./dist/configdirector-server-testing.d.cts",
+        "default": "./dist/configdirector-server-testing.cjs"
+      },
+      "default": {
+        "types": "./dist/configdirector-server-testing.d.mts",
+        "default": "./dist/configdirector-server-testing.mjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "testing": [
+        "./dist/configdirector-server-testing.d.mts"
+      ]
     }
   },
   "files": [
-    "dist/*server.*"
+    "dist"
   ],
   "types": "dist/configdirector-server.d.mts",
   "module": "dist/configdirector-server.mjs",

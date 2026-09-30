@@ -18,6 +18,7 @@ import type {
   ConnectionMode,
   ConfigEvaluation,
   HookHandler,
+  InternalClientOptions,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "@shared/errors";
@@ -29,7 +30,7 @@ import {
   SERVER_MIN_POLLING_INTERVAL_SECONDS,
 } from "@shared/constants";
 import { resolvePollingInterval } from "@shared/transport/pollingInterval";
-import { ServerTelemetryEventCollector } from "./telemetry";
+import { ServerTelemetryEventCollector, type ServerTelemetryClient } from "./telemetry";
 import { generateValueId } from "./telemetry/value-id-generator";
 
 const defaultBaseUrl = new URL("https://server-sdk-api.configdirector.com");
@@ -45,7 +46,7 @@ type WatchHandlerWithOptions<T extends ConfigValueType> = {
 
 export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private logger: ConfigDirectorLogger;
-  private usageEventCollector: ServerTelemetryEventCollector;
+  private usageEventCollector: ServerTelemetryClient;
   private configSet: ConfigBundle | undefined;
   private handlersMap: Map<string, WatchHandlerWithOptions<any>[]> = new Map();
   private transport: Transport;
@@ -63,6 +64,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     serverSdkKey: string,
     sdkOptions: IdentifyingSdkOptions,
     clientOptions?: ConfigDirectorClientOptions,
+    internalClientOptions?: InternalClientOptions,
   ) {
     this.logger = clientOptions?.logger ?? createDefaultLogger();
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
@@ -71,31 +73,10 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.configEvaluator = new ConfigEvaluator(this.logger);
     const baseUrl = this.parseUrl(clientOptions?.connection?.url) ?? defaultBaseUrl;
     this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
-    const transportConstructor = this.getTransportConstructor(this.connectionMode);
-    const queueLimit = clientOptions?.telemetry?.eventQueueLimit ?? DEFAULT_EVENT_QUEUE_LIMIT;
-    this.usageEventCollector = new ServerTelemetryEventCollector({
-      sdkKey: serverSdkKey,
-      sdkIdentity: sdkOptions,
-      metaContext: clientOptions?.metadata ?? {},
-      logger: this.logger,
-      baseUrl,
-      flushIntervalDelay: clientOptions?.telemetry?.flushInterval ?? DEFAULT_FLUSH_INTERVAL,
-      evaluationQueueLimit: Math.ceil(queueLimit * 0.7),
-      contextLimit: Math.floor(queueLimit * 0.3),
-      urlFactory: defaultUrlFactory,
-      valueIdGenerator: generateValueId,
-    });
-    this.transport = new transportConstructor({
-      serverSdkKey,
-      baseUrl,
-      metaContext: {
-        ...clientOptions?.metadata,
-        sdkName: sdkOptions.sdkName,
-        sdkVersion: sdkOptions.sdkVersion,
-      },
-      logger: this.logger,
-      pollingInterval: this.resolvePollingIntervalForMode(clientOptions?.connection?.pollingInterval),
-    });
+    this.usageEventCollector =
+      internalClientOptions?.telemetry ?? this.buildTelemetryCollector(serverSdkKey, sdkOptions, baseUrl, clientOptions);
+    this.transport =
+      internalClientOptions?.transport ?? this.buildTransport(serverSdkKey, sdkOptions, baseUrl, clientOptions);
 
     this.transport.on("configBundleReceived", (configBundle: ConfigBundle) => {
       this.readyResolve?.(false);
@@ -200,6 +181,47 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       this.logger.warn(`[ConfigDirectorClient] ${resolved.warning}`);
     }
     return resolved.seconds;
+  }
+
+  private buildTelemetryCollector(
+    serverSdkKey: string,
+    sdkOptions: IdentifyingSdkOptions,
+    baseUrl: URL,
+    clientOptions: ConfigDirectorClientOptions | undefined,
+  ): ServerTelemetryClient {
+    const queueLimit = clientOptions?.telemetry?.eventQueueLimit ?? DEFAULT_EVENT_QUEUE_LIMIT;
+    return new ServerTelemetryEventCollector({
+      sdkKey: serverSdkKey,
+      sdkIdentity: sdkOptions,
+      metaContext: clientOptions?.metadata ?? {},
+      logger: this.logger,
+      baseUrl,
+      flushIntervalDelay: clientOptions?.telemetry?.flushInterval ?? DEFAULT_FLUSH_INTERVAL,
+      evaluationQueueLimit: Math.ceil(queueLimit * 0.7),
+      contextLimit: Math.floor(queueLimit * 0.3),
+      urlFactory: defaultUrlFactory,
+      valueIdGenerator: generateValueId,
+    });
+  }
+
+  private buildTransport(
+    serverSdkKey: string,
+    sdkOptions: IdentifyingSdkOptions,
+    baseUrl: URL,
+    clientOptions: ConfigDirectorClientOptions | undefined,
+  ): Transport {
+    const transportConstructor = this.getTransportConstructor(this.connectionMode);
+    return new transportConstructor({
+      serverSdkKey,
+      baseUrl,
+      metaContext: {
+        ...clientOptions?.metadata,
+        sdkName: sdkOptions.sdkName,
+        sdkVersion: sdkOptions.sdkVersion,
+      },
+      logger: this.logger,
+      pollingInterval: this.resolvePollingIntervalForMode(clientOptions?.connection?.pollingInterval),
+    });
   }
 
   private getTransportConstructor(mode: ConnectionMode) {
