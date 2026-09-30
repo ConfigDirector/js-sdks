@@ -31,10 +31,27 @@
         "types": "./dist/configdirector-react-client.d.mts",
         "default": "./dist/configdirector-react-client.mjs"
       }
+    },
+    "./testing": {
+      "require": {
+        "types": "./dist/configdirector-react-client-testing.d.cts",
+        "default": "./dist/configdirector-react-client-testing.cjs"
+      },
+      "default": {
+        "types": "./dist/configdirector-react-client-testing.d.mts",
+        "default": "./dist/configdirector-react-client-testing.mjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "testing": [
+        "./dist/configdirector-react-client-testing.d.mts"
+      ]
     }
   },
   "files": [
-    "dist/*client.*"
+    "dist"
   ],
   "types": "dist/configdirector-react-client.d.mts",
   "browser": "dist/configdirector-react-client.mjs",

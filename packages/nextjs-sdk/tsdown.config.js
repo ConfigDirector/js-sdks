@@ -24,7 +24,7 @@ const versionReplace = replace({
 
 export default defineConfig([
   {
-    entry: { index: "src/server/index.ts" },
+    entry: { index: "src/server/index.ts", testing: "src/server/testing.ts" },
     outDir: "dist/server",
     format: { esm: { target: ["es2020"] }, cjs: {} },
     splitting: false,
@@ -46,7 +46,7 @@ export default defineConfig([
     ],
   },
   {
-    entry: { index: "src/client/index.ts" },
+    entry: { index: "src/client/index.ts", testing: "src/client/testing.ts" },
     outDir: "dist/client",
     format: { esm: { target: ["es2017"] }, cjs: {} },
     splitting: false,

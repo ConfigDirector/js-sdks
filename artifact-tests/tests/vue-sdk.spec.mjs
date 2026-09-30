@@ -38,4 +38,18 @@ describe("@configdirector/vue-sdk artifact", () => {
     });
     expect(result, result.error).toEqual({ ok: true, values: EXPECTED_CLIENT_VALUES });
   });
+
+  test("renders a test client's values through the plugin and composables in a browser", async () => {
+    const result = await runBrowserSmoke({
+      project,
+      server,
+      entry: "testing.mjs",
+      define: {
+        __VUE_OPTIONS_API__: "true",
+        __VUE_PROD_DEVTOOLS__: "false",
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false",
+      },
+    });
+    expect(result, result.error).toEqual({ ok: true, values: { ...EXPECTED_CLIENT_VALUES, itemCount: 8 } });
+  });
 });

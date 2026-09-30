@@ -33,6 +33,16 @@
         "default": "./dist/server/index.mjs"
       }
     },
+    "./server/testing": {
+      "require": {
+        "types": "./dist/server/testing.d.cts",
+        "default": "./dist/server/testing.cjs"
+      },
+      "default": {
+        "types": "./dist/server/testing.d.mts",
+        "default": "./dist/server/testing.mjs"
+      }
+    },
     "./client": {
       "require": {
         "types": "./dist/client/index.d.cts",
@@ -42,6 +52,32 @@
         "types": "./dist/client/index.d.mts",
         "default": "./dist/client/index.mjs"
       }
+    },
+    "./client/testing": {
+      "require": {
+        "types": "./dist/client/testing.d.cts",
+        "default": "./dist/client/testing.cjs"
+      },
+      "default": {
+        "types": "./dist/client/testing.d.mts",
+        "default": "./dist/client/testing.mjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "server": [
+        "./dist/server/index.d.mts"
+      ],
+      "client": [
+        "./dist/client/index.d.mts"
+      ],
+      "server/testing": [
+        "./dist/server/testing.d.mts"
+      ],
+      "client/testing": [
+        "./dist/client/testing.d.mts"
+      ]
     }
   },
   "files": [

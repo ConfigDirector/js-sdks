@@ -31,10 +31,27 @@
         "types": "./dist/configdirector-vue-client.d.mts",
         "default": "./dist/configdirector-vue-client.mjs"
       }
+    },
+    "./testing": {
+      "require": {
+        "types": "./dist/configdirector-vue-client-testing.d.cts",
+        "default": "./dist/configdirector-vue-client-testing.cjs"
+      },
+      "default": {
+        "types": "./dist/configdirector-vue-client-testing.d.mts",
+        "default": "./dist/configdirector-vue-client-testing.mjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "testing": [
+        "./dist/configdirector-vue-client-testing.d.mts"
+      ]
     }
   },
   "files": [
-    "dist/*client.*"
+    "dist"
   ],
   "types": "dist/configdirector-vue-client.d.mts",
   "browser": "dist/configdirector-vue-client.mjs",

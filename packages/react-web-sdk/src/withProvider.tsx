@@ -1,23 +1,25 @@
-import { createClient } from "./client";
 import { useEffect, useState, type ReactNode } from "react";
 import { reactContext } from "./context";
 import { createConsoleLogger } from "./logger";
+import { readInstalledTestClient } from "@js-client-core/installedTestClient";
+import { decideMountAction } from "@js-client-core/mountAction";
+import type { ConfigDirectorContext } from "@js-browser-client/index";
+import { buildClient } from "./clientSource";
 import type { ConfigDirectorProviderOptions, ConfigDirectorProviderState } from "./types";
 
 export const withProvider = async (options: ConfigDirectorProviderOptions) => {
-  const logger = options.logger ?? createConsoleLogger("debug");
-  const client = createClient(options.sdkKey, {
-    connection: {
-      url: options.url,
-      timeout: options.timeout,
-      mode: options.mode,
-      pollingInterval: options.pollingInterval,
-    },
-    metadata: { appName: options.appName, appVersion: options.appVersion },
-    logger: logger,
-    hooks: options.hooks,
-  });
-  await client.initialize(options.context);
+  const client =
+    readInstalledTestClient() ?? buildClient({ ...options, logger: options.logger ?? createConsoleLogger("debug") });
+  switch (decideMountAction(client, options.context)) {
+    case "initialize":
+      await client.initialize(options.context);
+      break;
+    case "updateContext":
+      await client.updateContext(options.context as ConfigDirectorContext);
+      break;
+    case "none":
+      break;
+  }
 
   const ConfigDirectorProvider = ({ children }: { children: ReactNode }) => {
     const [data, setData] = useState<ConfigDirectorProviderState>(() => ({

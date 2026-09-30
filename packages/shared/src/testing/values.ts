@@ -57,7 +57,7 @@ const toPlainDecimal = (value: number): string => {
     return text;
   }
   const sign = text.startsWith("-") ? "-" : "";
-  const [integerDigits, fractionDigits = ""] = text.slice(sign.length, exponentIndex).split(".");
+  const [integerDigits = "", fractionDigits = ""] = text.slice(sign.length, exponentIndex).split(".");
   const leadingZeros = Number(text.slice(exponentIndex + 2)) - integerDigits.length;
   return `${sign}0.${"0".repeat(leadingZeros)}${integerDigits}${fractionDigits}`;
 };

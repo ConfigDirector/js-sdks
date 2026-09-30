@@ -32,7 +32,20 @@
       "types": "./dist/configdirector-react-native.d.mts",
       "default": "./dist/configdirector-react-native.mjs"
     },
+    "./testing": {
+      "source": "./src/testing.ts",
+      "react-native": "./dist/configdirector-react-native-testing.mjs",
+      "types": "./dist/configdirector-react-native-testing.d.mts",
+      "default": "./dist/configdirector-react-native-testing.mjs"
+    },
     "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "testing": [
+        "./dist/configdirector-react-native-testing.d.mts"
+      ]
+    }
   },
   "files": [
     "dist"

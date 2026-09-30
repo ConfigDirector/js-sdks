@@ -47,4 +47,21 @@ describe("@configdirector/nextjs-sdk artifact", () => {
     const result = await runBrowserSmoke({ project, server, entry: "main.jsx" });
     expect(result, result.error).toEqual({ ok: true, values: EXPECTED_CLIENT_VALUES });
   });
+
+  test("renders an installed test client's values through the client provider in a browser", async () => {
+    const result = await runBrowserSmoke({ project, server, entry: "testing.jsx" });
+    expect(result, result.error).toEqual({ ok: true, values: { ...EXPECTED_CLIENT_VALUES, itemCount: 8 } });
+  });
+
+  test("serves a server test client's values from the server ESM testing entry", async () => {
+    const result = await project.runNode("server-testing.mjs", { NEXT_RUNTIME: "nodejs" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(parseReport(result.stdout)).toEqual({ ready: true, ...EXPECTED_SERVER_VALUES, itemCount: 8, ssrItemCount: "8" });
+  });
+
+  test("serves a server test client's values from the server CJS testing entry", async () => {
+    const result = await project.runNode("server-testing.cjs", { NEXT_RUNTIME: "nodejs" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(parseReport(result.stdout)).toEqual({ ready: true, ...EXPECTED_SERVER_VALUES, itemCount: 8, ssrItemCount: "8" });
+  });
 });

@@ -32,6 +32,44 @@ function Home() {
 
 Full details are in the [official documentation](https://docs.configdirector.com/sdks/mobile/react-native).
 
+## Test your code
+
+`@configdirector/react-native-sdk/testing` creates a real client connected to an in-memory server that
+your test controls. Render the production `ConfigDirectorProvider` with its `client` prop, or install
+the test client for components that render their own provider, such as `App`.
+
+```tsx
+import { act, render } from "@testing-library/react-native";
+import { ConfigDirectorProvider } from "@configdirector/react-native-sdk";
+import { createTestClient, installTestClient } from "@configdirector/react-native-sdk/testing";
+
+const testClient = createTestClient({ values: { "dark-mode": true } });
+
+const view = render(
+  <ConfigDirectorProvider client={testClient.client}>
+    <Home />
+  </ConfigDirectorProvider>,
+);
+await view.findByText("dark-mode: true");
+
+act(() => testClient.setValue("dark-mode", false));
+view.getByText("dark-mode: false");
+
+const uninstall = installTestClient(testClient);
+render(<App />);
+uninstall();
+```
+
+The provider renders its children before initialization completes, so the first assertion uses
+`findBy…`. Wrap `setValue`, `removeValue`, and `replaceValues` in `act()`. The test client also holds
+or fails `initialize` and `updateContext`, and records every context in `contextUpdates`. A provider
+never disposes a client it was given, removes its handlers and its `AppState` and NetInfo
+subscriptions when it unmounts, and does not initialize a client that is ready or initializing.
+Under the React Native Jest preset, `AppState.addEventListener` never calls its listener, so the
+provider never pauses on its own; a test that calls the listener runs the production pause and
+resume against the test client. The package and its dependency `@noble/hashes` are ESM, so a Jest
+setup must transform both through `transformIgnorePatterns`.
+
 ## Documentation
 
 Refer to the [official documentation for the React Native SDK](https://docs.configdirector.com/sdks/mobile/react-native).

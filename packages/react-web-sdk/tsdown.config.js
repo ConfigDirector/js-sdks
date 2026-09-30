@@ -7,6 +7,7 @@ export default defineConfig([
   {
     entry: {
       "configdirector-react-client": "src/index.ts",
+      "configdirector-react-client-testing": "src/testing.ts",
     },
     minify: true,
     format: { "esm": { target: ["es2017"] }, "cjs": {} },

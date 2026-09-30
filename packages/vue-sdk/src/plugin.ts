@@ -2,7 +2,6 @@ import { readonly, ref, type InjectionKey, type Ref, type App } from "vue";
 import type { ClientStatus, ConfigDirectorPluginOptions } from "./types";
 import { createClientFromPluginOptions } from "./client";
 import type { ConfigDirectorClient, ConfigDirectorContext } from "@js-client-core/types";
-import { DefaultConfigDirectorClient } from "@js-client-core/DefaultConfigDirectorClient";
 import { ConfigDirectorInitializationError } from "@shared/errors";
 
 export const ConfigDirectorClientKey: InjectionKey<ConfigDirectorClient> = Symbol("ConfigDirector.Client");
@@ -51,8 +50,14 @@ export const ConfigDirectorPlugin = {
   },
 };
 
-const isClientObject = (options: ConfigDirectorPluginOptions | ConfigDirectorClient) => {
-  return options instanceof DefaultConfigDirectorClient;
+const isClientObject = (options: ConfigDirectorPluginOptions | ConfigDirectorClient): options is ConfigDirectorClient => {
+  const candidate = options as Partial<ConfigDirectorClient>;
+  return (
+    typeof candidate.initialize === "function" &&
+    typeof candidate.getValue === "function" &&
+    typeof candidate.watch === "function" &&
+    typeof candidate.on === "function"
+  );
 };
 
 const isOptionsObject = (options: ConfigDirectorPluginOptions | ConfigDirectorClient) => {

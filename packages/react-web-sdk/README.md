@@ -30,6 +30,40 @@ function App() {
 
 Full details are in the [official documentation](https://docs.configdirector.com/sdks/browser/react).
 
+## Test your code
+
+`@configdirector/react-web-sdk/testing` creates a real client connected to an in-memory server that
+your test controls. Render the production `ConfigDirectorProvider` with its `client` prop, or install
+the test client for components that render their own provider.
+
+```tsx
+import { act, render, screen } from "@testing-library/react";
+import { ConfigDirectorProvider } from "@configdirector/react-web-sdk";
+import { createTestClient, installTestClient } from "@configdirector/react-web-sdk/testing";
+
+const testClient = createTestClient({ values: { "dark-mode": true } });
+
+render(
+  <ConfigDirectorProvider client={testClient.client}>
+    <App />
+  </ConfigDirectorProvider>,
+);
+expect(await screen.findByText("dark-mode: true")).toBeInTheDocument();
+
+act(() => testClient.setValue("dark-mode", false));
+expect(screen.getByText("dark-mode: false")).toBeInTheDocument();
+
+const uninstall = installTestClient(testClient);
+render(<AppWithItsOwnProvider />);
+uninstall();
+```
+
+The provider renders its children before initialization completes, so the first assertion uses
+`findBy…`. Wrap `setValue`, `removeValue`, and `replaceValues` in `act()`. The test client also holds
+or fails `initialize` and `updateContext`, and records every context in `contextUpdates`. A provider
+never disposes a client it was given, removes its handlers when it unmounts, and does not initialize
+a client that is ready or initializing.
+
 ## Documentation
 
 Refer to the [official documentation for the React SDK](https://docs.configdirector.com/sdks/browser/react).

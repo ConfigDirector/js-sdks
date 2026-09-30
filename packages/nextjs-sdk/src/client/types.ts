@@ -69,3 +69,33 @@ export type ConfigDirectorProviderOptions = {
    */
   initialConfigs?: Record<string, ConfigState>;
 };
+
+/**
+ * Props of a client `ConfigDirectorProvider` given an existing client instead of the options to
+ * build one, for example a test client's `client`.
+ */
+export type ConfigDirectorClientProviderClientProps = {
+  /**
+   * The client to provide. The provider never disposes it. If the client is not ready and not
+   * initializing, the provider initializes it with `context`; if it is ready and `context` is given
+   * and differs from the client's context, the provider updates the context; otherwise it leaves the
+   * client as it is and reports ready as soon as the client is.
+   */
+  client: ConfigDirectorClient;
+  context?: ConfigDirectorContext;
+  /**
+   * Event handlers registered on the client while the provider is mounted, and removed when it
+   * unmounts.
+   */
+  hooks?: ClientHooks;
+  /**
+   * Pre-evaluated config states shown by the hooks until the client is ready.
+   */
+  initialConfigs?: Record<string, ConfigState>;
+};
+
+/**
+ * Props of the client `ConfigDirectorProvider`: either the options to build a client from, or an
+ * existing client.
+ */
+export type ConfigDirectorClientProviderProps = ConfigDirectorProviderOptions | ConfigDirectorClientProviderClientProps;

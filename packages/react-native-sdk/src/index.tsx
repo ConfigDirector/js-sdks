@@ -4,6 +4,8 @@ export { createClient } from "./client";
 export type {
   NetInfoSubscribe,
   ConfigDirectorProviderOptions,
+  ConfigDirectorProviderClientProps,
+  ConfigDirectorProviderProps,
   ClientStatus,
 } from "./types";
 export { ConfigDirectorReactContextError } from "./errors";

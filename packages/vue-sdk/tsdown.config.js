@@ -7,6 +7,7 @@ export default defineConfig([
   {
     entry: {
       "configdirector-vue-client": "src/index.ts",
+      "configdirector-vue-client-testing": "src/testing.ts",
     },
     minify: true,
     format: { "esm": { target: ["es2017"] }, "cjs": {} },

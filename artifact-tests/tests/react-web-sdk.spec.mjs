@@ -29,4 +29,9 @@ describe("@configdirector/react-web-sdk artifact", () => {
     const result = await runBrowserSmoke({ project, server, entry: "main.jsx" });
     expect(result, result.error).toEqual({ ok: true, values: EXPECTED_CLIENT_VALUES });
   });
+
+  test("renders an installed test client's values through a provider given only an sdkKey", async () => {
+    const result = await runBrowserSmoke({ project, server, entry: "testing.jsx" });
+    expect(result, result.error).toEqual({ ok: true, values: { ...EXPECTED_CLIENT_VALUES, itemCount: 8 } });
+  });
 });

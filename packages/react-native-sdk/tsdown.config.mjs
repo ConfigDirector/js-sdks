@@ -5,7 +5,10 @@ import { readFileSync } from "fs";
 const { version } = JSON.parse(readFileSync("package.json", "utf8"));
 
 export default defineConfig({
-  entry: { "configdirector-react-native": "src/index.tsx" },
+  entry: {
+    "configdirector-react-native": "src/index.tsx",
+    "configdirector-react-native-testing": "src/testing.ts",
+  },
   format: { esm: { target: ["es2019"] } },
   splitting: false,
   sourcemap: false,
