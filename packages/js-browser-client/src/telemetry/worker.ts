@@ -58,6 +58,7 @@ addEventListener("message", (message: MessageEvent<TelemetryWorkerEvent>) => {
         valueIdGenerator: generateValueId,
         logger: loggerProxy,
       });
+      collector.start();
       break;
     case "EvaluatedConfigEvent":
       collector?.evaluatedConfig(event.payload);

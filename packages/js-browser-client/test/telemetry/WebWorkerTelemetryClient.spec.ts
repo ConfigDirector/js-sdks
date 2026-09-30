@@ -14,7 +14,7 @@ const logger = createStubbedLogger();
 const INITIAL_FLUSH_DELAY = 200;
 const FLUSH_DELAY = 800;
 const IMMEDIATE_FLUSH_THRESHOLD = 200;
-const createClient = (options: Record<string, unknown> = {}) =>
+const createIdleClient = (options: Record<string, unknown> = {}) =>
   new WebWorkerTelemetryClient({
     sdkKey: "sdk-key",
     sdkIdentity: {
@@ -33,6 +33,27 @@ const createClient = (options: Record<string, unknown> = {}) =>
     valueIdGenerator: generateValueId,
     ...options,
   });
+
+const createClient = (options: Record<string, unknown> = {}) => {
+  const client = createIdleClient(options);
+  void client.updateContext(undefined);
+  return client;
+};
+
+const countingWorkerConstructions = () => {
+  const RealWorker = globalThis.Worker;
+  const created = { count: 0 };
+  vi.stubGlobal(
+    "Worker",
+    class extends RealWorker {
+      constructor(...args: ConstructorParameters<typeof Worker>) {
+        super(...args);
+        created.count++;
+      }
+    },
+  );
+  return created;
+};
 
 const baseEvent = {
   contextId: "user-id",
@@ -338,6 +359,44 @@ describe("TelemetryClient", () => {
       }
 
       expect(capturingLogger.warn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("worker start", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    test("creates no worker until the first context update", async () => {
+      const created = countingWorkerConstructions();
+      client = createIdleClient();
+      expect(created.count).toBe(0);
+
+      await client.updateContext(undefined);
+
+      expect(created.count).toBe(1);
+    });
+
+    test("sends the evaluations recorded before the first context update once the worker starts", async () => {
+      client = createIdleClient();
+      client.evaluatedConfig(baseEvent);
+      await sleep(INITIAL_FLUSH_DELAY * 2);
+      expect(await commands.mswGetPayloads()).toHaveLength(0);
+
+      await client.updateContext(undefined);
+
+      await waitForPayloadCount(1);
+      const payloads = (await commands.mswGetPayloads()) as EventReport[];
+      expect(payloads[0].aggregatedEvents["evaluatedConfig"][0].event).toMatchObject({ key: "my-config" });
+    });
+
+    test("closes without ever creating a worker when no context update happened", async () => {
+      const created = countingWorkerConstructions();
+      client = createIdleClient();
+
+      await client.close();
+
+      expect(created.count).toBe(0);
     });
   });
 

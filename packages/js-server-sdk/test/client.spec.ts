@@ -1254,6 +1254,66 @@ describe("ConfigDirectorClient", () => {
       expect(vi.getTimerCount()).toBe(0);
     });
 
+    test("starts no timer when it is only constructed", () => {
+      vi.useFakeTimers();
+      const client = createClient("sdk-key", { logger });
+
+      expect(vi.getTimerCount()).toBe(0);
+      client.dispose();
+    });
+
+    test("leaves only the heartbeat and telemetry timers running once initialize has resolved", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      vi.useFakeTimers();
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      expect(client.isReady).toBe(true);
+      expect(vi.getTimerCount()).toBe(2);
+      client.dispose();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    test("dispose() ends a pending initialize without marking the client ready", async () => {
+      server.use(http.post(SSE_URL, () => buildResponse(new ReadableStream({ start() {} }))));
+
+      vi.useFakeTimers();
+      const client = createClient("sdk-key", { logger, connection: { timeout: 60_000 } });
+      const readyEvents: unknown[] = [];
+      client.on("clientReady", (event) => readyEvents.push(event));
+      let settled = false;
+      const initialization = client.initialize().then(() => {
+        settled = true;
+      });
+      await vi.waitFor(() => expect((client as DefaultConfigDirectorClient)["transport"].isConnected).toBe(true));
+
+      client.dispose();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(settled).toBe(true);
+      expect(client.isReady).toBe(false);
+      expect(readyEvents).toHaveLength(0);
+      expect(vi.getTimerCount()).toBe(0);
+      await initialization;
+    });
+
     test("dispose() flushes pending telemetry events", async () => {
       const telemetryRequests: any[] = [];
       server.use(
@@ -1588,7 +1648,7 @@ describe("ConfigDirectorClient", () => {
       });
     });
 
-    test("emits with reason 'found-match' when the config has an empty string value", async () => {
+    test("emits with reason 'value-missing' when the config has an empty string value", async () => {
       server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string", "") }));
       const client = createClient("sdk-key", { logger });
       await client.initialize();
@@ -1600,9 +1660,9 @@ describe("ConfigDirectorClient", () => {
       await vi.waitFor(() => expect(events).toHaveLength(1));
       expect(events[0].evaluation).toEqual({
         key: "my-config",
-        value: "",
-        isDefaultValue: false,
-        reason: "found-match",
+        value: "default",
+        isDefaultValue: true,
+        reason: "value-missing",
       });
     });
 

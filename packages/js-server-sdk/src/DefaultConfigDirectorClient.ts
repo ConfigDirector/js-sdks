@@ -53,7 +53,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private timeout: number;
   private ready = false;
   private readyPromise: Promise<void> | undefined;
-  private readyResolve: (() => void) | undefined;
+  private readyResolve: ((cancelled: boolean) => void) | undefined;
+  private readyTimer: ReturnType<typeof setTimeout> | undefined;
   private connectionMode: ConnectionMode;
   private configEvaluator: ConfigEvaluator;
   private metaContext: ConfigDirectorMetaContext;
@@ -97,7 +98,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     });
 
     this.transport.on("configBundleReceived", (configBundle: ConfigBundle) => {
-      this.readyResolve?.();
+      this.readyResolve?.(false);
       const removedKeys = this.findKeysRemovedBy(configBundle);
       if (!this.configSet || configBundle.kind == "full") {
         this.configSet = configBundle;
@@ -149,13 +150,17 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   public async initialize() {
     try {
       this.ready = false;
-      this.readyPromise = new Promise<void>((resolve) => {
+      this.readyPromise = new Promise<boolean>((resolve) => {
         this.readyResolve = resolve;
-      }).then(() => {
+      }).then((cancelled) => {
+        if (cancelled) {
+          return;
+        }
         this.ready = true;
         this.eventEmitter.emit("clientReady");
         this.logger.debug("[ConfigDirectorClient] Received initial payload from the server, client is ready");
       });
+      this.usageEventCollector.start();
       const startTime = new Date().getTime();
       await this.transport.connect(this.timeout);
       const elapsedTime = new Date().getTime() - startTime;
@@ -164,9 +169,10 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         await Promise.race([
           this.readyPromise,
           new Promise<void>((resolve) => {
-            setTimeout(() => resolve(), remainingTimeout);
+            this.readyTimer = setTimeout(() => resolve(), remainingTimeout);
           }),
         ]);
+        this.clearReadyTimer();
       }
       if (!this.ready) {
         const warningDetails =
@@ -430,9 +436,16 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.ready = false;
   }
 
+  private clearReadyTimer() {
+    clearTimeout(this.readyTimer);
+    this.readyTimer = undefined;
+  }
+
   public dispose() {
     this.removeAllObservers();
     this.closeConnection();
+    this.readyResolve?.(true);
+    this.clearReadyTimer();
     void this.usageEventCollector.close().catch((error) => {
       this.logger.warn("[ConfigDirectorClient] Error flushing telemetry while disposing the client: ", error);
     });

@@ -35,10 +35,6 @@ class TestCollector extends TelemetryEventCollector<ReportableEvent> {
     return this.flushAndScheduleNext();
   }
 
-  public cancelInitialFlush(): void {
-    this.cancelScheduledFlush();
-  }
-
   public get isCollecting(): boolean {
     return this.collectEvents;
   }
@@ -66,9 +62,41 @@ describe("TelemetryEventCollector flush loop", () => {
     vi.useRealTimers();
   });
 
+  test("schedules no flush until it is started", () => {
+    vi.useFakeTimers();
+    collector = createCollector();
+
+    expect(vi.getTimerCount()).toBe(0);
+
+    collector.start();
+
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  test("starting twice schedules one flush", () => {
+    vi.useFakeTimers();
+    collector = createCollector();
+
+    collector.start();
+    collector.start();
+
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  test("starting after close schedules nothing", async () => {
+    vi.useFakeTimers();
+    collector = createCollector();
+    await collector.close();
+
+    collector.start();
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   test("keeps the flush loop alive when a flush throws", async () => {
     vi.useFakeTimers();
     collector = createCollector();
+    collector.start();
     let calls = 0;
     collector.flushImpl = async () => {
       calls++;
@@ -88,6 +116,7 @@ describe("TelemetryEventCollector flush loop", () => {
   test("does not schedule another flush after close", async () => {
     vi.useFakeTimers();
     collector = createCollector();
+    collector.start();
     const resolvers: ((response: ReporterResponse) => void)[] = [];
     collector.flushImpl = () => new Promise<ReporterResponse>((resolve) => resolvers.push(resolve));
 
@@ -105,7 +134,6 @@ describe("TelemetryEventCollector flush loop", () => {
   test("does not stack multiple flush loops from concurrent triggers", async () => {
     vi.useFakeTimers();
     collector = createCollector();
-    collector.cancelInitialFlush();
     expect(vi.getTimerCount()).toBe(0);
 
     const resolvers: ((response: ReporterResponse) => void)[] = [];
@@ -133,6 +161,7 @@ describe("TelemetryEventCollector flush loop", () => {
   test("stops collecting and does not reschedule after a fatal response", async () => {
     vi.useFakeTimers();
     collector = createCollector();
+    collector.start();
     collector.flushImpl = async () => fatalResponse;
 
     await vi.advanceTimersByTimeAsync(100);

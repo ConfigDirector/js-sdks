@@ -8,10 +8,15 @@ export class ConfigDirectorProvider extends Component<
   PropsWithChildren<ConfigDirectorProviderOptions>,
   ConfigDirectorProviderState
 > {
+  private disposedOwnClient = false;
+
   constructor(props: ConfigDirectorProviderOptions) {
     super(props);
+    this.state = { client: this.buildClient(props), status: "loading" };
+  }
 
-    const client = createClient(props.sdkKey, {
+  private buildClient(props: ConfigDirectorProviderOptions) {
+    return createClient(props.sdkKey, {
       connection: {
         url: props.url,
         timeout: props.timeout,
@@ -22,19 +27,23 @@ export class ConfigDirectorProvider extends Component<
       logger: props.logger ?? createConsoleLogger("warn"),
       hooks: props.hooks,
     });
-
-    this.state = { client, status: "loading" };
   }
 
   override async componentDidMount(): Promise<void> {
-    this.state.client?.on("configsUpdated", () => {
+    let client = this.state.client;
+    if (!client || this.disposedOwnClient) {
+      client = this.buildClient(this.props);
+      this.disposedOwnClient = false;
+      this.setState({ client, status: "loading" });
+    }
+    client.on("configsUpdated", () => {
       this.setState({ updatedAt: new Date() });
     });
-    this.state.client?.on("clientReady", () => {
+    client.on("clientReady", () => {
       this.setState({ status: "ready" });
     });
-    await this.state.client?.initialize(this.props.context);
-    if (!this.state.client?.isReady) {
+    await client.initialize(this.props.context);
+    if (!client.isReady) {
       this.setState({ status: "default" });
     }
   }
@@ -53,6 +62,7 @@ export class ConfigDirectorProvider extends Component<
 
   override componentWillUnmount(): void {
     this.state.client?.dispose();
+    this.disposedOwnClient = true;
   }
 
   override render() {

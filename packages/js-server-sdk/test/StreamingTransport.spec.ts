@@ -253,6 +253,42 @@ describe("StreamingTransport", () => {
       expect(callCount).toBe(2);
     });
 
+    test("clears the connect timeout once the connection is established", async () => {
+      server.use(
+        http.post(SSE_URL, () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                message({
+                  environmentId: "10000000-0000-0000-0000-000000000000",
+                  projectId: "20000000-0000-0000-0000-000000000000",
+                  kind: "full",
+                  configs: {},
+                }),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+
+      vi.useFakeTimers();
+      await transport.connect(5000);
+
+      expect(vi.getTimerCount()).toBe(1);
+      transport.dispose();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    test("stops the heartbeat and the connect timeout when the connection fails fatally", async () => {
+      server.use(http.post(SSE_URL, () => HttpResponse.text("Unauthorized", { status: 401 })));
+
+      vi.useFakeTimers();
+      await expect(transport.connect(5000)).rejects.toThrow(/401/);
+
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
     test("closes an existing connection before reconnecting", async () => {
       server.use(
         http.post(SSE_URL, () => {

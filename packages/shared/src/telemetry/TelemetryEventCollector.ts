@@ -23,8 +23,10 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
   protected readonly evaluationEventQueue: EventQueue<T>;
   protected readonly aggregator: EventAggregator = new EventAggregator();
   protected flushIntervalDelay: number;
-  protected flushTimeout: ReturnType<typeof setTimeout>;
+  protected flushTimeout: ReturnType<typeof setTimeout> | undefined;
   protected collectEvents = true;
+  private readonly initialFlushIntervalDelay: number;
+  private started = false;
   protected abstract _context?: ConfigDirectorContext;
   protected abstract evaluationEventSnapshotPreprocessor: EventSnapshotPreprocessor<T>;
 
@@ -32,8 +34,15 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
     this.logger = options.logger;
     this.evaluationEventQueue = new EventQueue(options.evaluationQueueLimit ?? 1_000);
     this.flushIntervalDelay = options.flushIntervalDelay ?? 30_000;
-    const initialDelay = options.initialFlushIntervalDelay ?? 5_000;
-    this.flushTimeout = setTimeout(() => this.flushAndScheduleNext(), initialDelay);
+    this.initialFlushIntervalDelay = options.initialFlushIntervalDelay ?? 5_000;
+  }
+
+  public start() {
+    if (this.started || !this.collectEvents) {
+      return;
+    }
+    this.started = true;
+    this.flushTimeout = setTimeout(() => this.flushAndScheduleNext(), this.initialFlushIntervalDelay);
   }
 
   protected abstract flush(): Promise<ReporterResponse>;

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, test, expect, vi } from "vitest";
 import { commands } from "vitest/browser";
 import { render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { ConfigDirectorProvider } from "../src/provider";
 import { useConfigValue } from "../src";
 import { SSE_URL, createStubbedLogger } from "./helpers";
@@ -37,6 +38,50 @@ describe("ConfigDirectorProvider hooks", () => {
     await vi.waitFor(() => {
       expect(clientReadyHook).toHaveBeenCalledOnce();
     });
+  });
+
+  test("keeps its hooks and serves values when StrictMode remounts the provider", async () => {
+    const clientReadyHook = vi.fn();
+    await commands.mswUseSseHandler(SSE_URL, [
+      [
+        {
+          data: full({
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Hello",
+            },
+          }),
+        },
+      ],
+      [
+        {
+          data: full({
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Hello",
+            },
+          }),
+        },
+      ],
+    ]);
+    const Value = () => <div data-testid="value">{useConfigValue("example-config", "default").value}</div>;
+
+    render(
+      <StrictMode>
+        <ConfigDirectorProvider sdkKey="dummy-key" logger={logger} hooks={{ clientReady: clientReadyHook }}>
+          <Value />
+        </ConfigDirectorProvider>
+      </StrictMode>,
+    );
+
+    await vi.waitFor(() => {
+      expect(screen.getByTestId("value")).toHaveTextContent("Hello");
+    });
+    expect(clientReadyHook).toHaveBeenCalled();
   });
 
   test("calls the configsUpdated hook when configs are received", async () => {

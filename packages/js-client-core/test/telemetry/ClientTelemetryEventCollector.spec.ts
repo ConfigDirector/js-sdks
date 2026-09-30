@@ -9,7 +9,7 @@ import type { TelemetryValue } from "@shared/telemetry/utils";
 
 const logger = createStubbedLogger();
 
-const createCollector = (options: Record<string, unknown> = {}) =>
+const createIdleCollector = (options: Record<string, unknown> = {}) =>
   new ClientTelemetryEventCollector({
     sdkKey: "sdk-key",
     sdkIdentity: {
@@ -26,6 +26,12 @@ const createCollector = (options: Record<string, unknown> = {}) =>
     urlFactory: defaultUrlFactory,
     ...options,
   });
+
+const createCollector = (options: Record<string, unknown> = {}) => {
+  const collector = createIdleCollector(options);
+  collector.start();
+  return collector;
+};
 
 const baseEvent: EvaluatedConfigEvent<TelemetryValue> = {
   contextId: "user-id",
@@ -252,6 +258,16 @@ describe("ClientTelemetryEventCollector", () => {
   });
 
   describe("flush interval", () => {
+    test("schedules no flush until it is started", () => {
+      collector = createIdleCollector();
+
+      expect(vi.getTimerCount()).toBe(0);
+
+      collector.start();
+
+      expect(vi.getTimerCount()).toBe(1);
+    });
+
     test("re-schedules flushing after each interval", async () => {
       collector = createCollector({ flushIntervalDelay: 10_000, initialFlushIntervalDelay: 5_000 });
 

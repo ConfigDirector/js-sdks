@@ -13,6 +13,7 @@ import { generateValueId } from "../src/value-id-generator";
 const MockCollector = jest.mocked(ClientTelemetryEventCollector);
 
 type CollectorMock = {
+  start: jest.Mock;
   evaluatedConfig: jest.Mock;
   updateContext: jest.Mock;
   close: jest.Mock;
@@ -26,6 +27,7 @@ let collectorMock: CollectorMock;
 
 beforeEach(() => {
   collectorMock = {
+    start: jest.fn(),
     evaluatedConfig: jest.fn(),
     updateContext: jest.fn().mockImplementation(() => Promise.resolve()),
     close: jest.fn().mockImplementation(() => Promise.resolve()),
@@ -64,6 +66,17 @@ describe("ReactNativeTelemetryClient", () => {
           metaContext: { appName: "test-app", appVersion: "4.3.2" },
         }),
       );
+    });
+  });
+
+  describe("start", () => {
+    test("starts the collector on the first context update, not on construction", async () => {
+      const client = makeClient();
+      expect(collectorMock.start).not.toHaveBeenCalled();
+
+      await client.updateContext({ id: "user-1" });
+
+      expect(collectorMock.start).toHaveBeenCalled();
     });
   });
 

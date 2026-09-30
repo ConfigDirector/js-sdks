@@ -8,8 +8,8 @@ import { generateValueId } from "../../src/telemetry/value-id-generator";
 
 const logger = createStubbedLogger();
 
-const createCollector = (options: Record<string, unknown> = {}) =>
-  new ServerTelemetryEventCollector({
+const createCollector = (options: Record<string, unknown> = {}) => {
+  const collector = new ServerTelemetryEventCollector({
     sdkKey: "sdk-key",
     sdkIdentity: {
       sdkName: "tests",
@@ -25,6 +25,9 @@ const createCollector = (options: Record<string, unknown> = {}) =>
     valueIdGenerator: generateValueId,
     ...options,
   });
+  collector.start();
+  return collector;
+};
 
 const baseEvaluation = {
   key: "my-config",

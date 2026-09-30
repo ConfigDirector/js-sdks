@@ -34,6 +34,7 @@ export class ReactNativeTelemetryClient implements TelemetryClient {
   }
 
   public async updateContext(value: ConfigDirectorContext | undefined): Promise<void> {
+    this.collector.start();
     return await this.collector.updateContext(value);
   }
 

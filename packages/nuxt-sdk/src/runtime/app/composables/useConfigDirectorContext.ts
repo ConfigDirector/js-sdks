@@ -24,12 +24,18 @@ export const useConfigDirectorContext = (): {
     state.value = rawContext;
     if (oldContext != newContext) {
       const timeout = getEffectiveTimeout(options?.timeoutMilliseconds);
-      await Promise.race([
-        client.updateContext(rawContext),
-        new Promise<void>((resolve) => {
-          setTimeout(() => resolve(), timeout);
-        }),
-      ]);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          client.updateContext(rawContext),
+          new Promise<void>((resolve) => {
+            timer = setTimeout(() => resolve(), timeout);
+          }),
+        ]);
+      }
+      finally {
+        clearTimeout(timer);
+      }
     }
   };
 

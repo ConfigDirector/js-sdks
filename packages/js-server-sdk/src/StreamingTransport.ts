@@ -54,6 +54,7 @@ export class StreamingTransport implements Transport {
         shouldReconnect: (state) => {
           const reconnect = !this.isStatusFatal(state.status);
           if (!reconnect) {
+            this.stopHeartbeat();
             const error = this.prepareFatalError(state.status, state.error);
             this.eventEmitter.emit("connectionError", error);
             reject(error);
@@ -78,12 +79,17 @@ export class StreamingTransport implements Transport {
       this.eventSource.connect();
     });
     this.heartbeatTimer = setInterval(() => this.sendHeartbeat(), HEARTBEAT_INTERVAL_MS);
-    return Promise.race([
-      eventSourcePromise,
-      new Promise<this>((resolve) => {
-        setTimeout(() => resolve(this), timeout);
-      }),
-    ]);
+    let connectTimer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        eventSourcePromise,
+        new Promise<this>((resolve) => {
+          connectTimer = setTimeout(() => resolve(this), timeout);
+        }),
+      ]);
+    } finally {
+      clearTimeout(connectTimer);
+    }
   }
 
   public get sessionId(): string | undefined {
@@ -176,9 +182,13 @@ export class StreamingTransport implements Transport {
     this.eventEmitter.removeAllListeners();
   }
 
-  public close() {
+  private stopHeartbeat() {
     clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = undefined;
+  }
+
+  public close() {
+    this.stopHeartbeat();
     this.eventSource?.close();
   }
 

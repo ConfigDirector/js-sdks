@@ -45,13 +45,13 @@ describe("value parser", () => {
       });
     });
 
-    test("returns an empty string value as-is", () => {
+    test("returns the default value when the config value is an empty string", () => {
       expect(parseConfigValue(configState("string", ""), "Default")).toMatchObject({
-        parsedValue: "",
-        parsedValueId: testValueId,
-        reason: "found-match",
+        parsedValue: "Default",
+        parsedValueId: undefined,
+        reason: "value-missing",
         requestedType: "string",
-        usedDefault: false,
+        usedDefault: true,
       });
     });
 
@@ -102,7 +102,7 @@ describe("value parser", () => {
       expect(parseConfigValue(configState("integer", ""), 10)).toMatchObject({
         parsedValue: 10,
         parsedValueId: undefined,
-        reason: "invalid-number",
+        reason: "value-missing",
         requestedType: "number",
         usedDefault: true,
       });
@@ -184,7 +184,7 @@ describe("value parser", () => {
       expect(parseConfigValue(configState("float", ""), 10.2)).toMatchObject({
         parsedValue: 10.2,
         parsedValueId: undefined,
-        reason: "invalid-number",
+        reason: "value-missing",
         requestedType: "number",
         usedDefault: true,
       });
@@ -273,7 +273,7 @@ describe("value parser", () => {
       expect(parseConfigValue(configState("boolean", ""), true)).toMatchObject({
         parsedValue: true,
         parsedValueId: undefined,
-        reason: "invalid-boolean",
+        reason: "value-missing",
         requestedType: "boolean",
         usedDefault: true,
       });
@@ -295,6 +295,16 @@ describe("value parser", () => {
   });
 
   describe("enum", () => {
+    test("returns the default value when the config value is an empty string", () => {
+      expect(parseConfigValue<StringBasedEnum>(configState("enum", ""), StringBasedEnum.Two)).toMatchObject({
+        parsedValue: StringBasedEnum.Two,
+        parsedValueId: undefined,
+        reason: "value-missing",
+        requestedType: "string",
+        usedDefault: true,
+      });
+    });
+
     test("returns the value as enum when the config value is enum and the generic type is string", () => {
       expect(
         parseConfigValue<StringBasedEnum>(configState("enum", "one"), StringBasedEnum.Two),
@@ -485,23 +495,23 @@ describe("value parser", () => {
       });
     });
 
-    test("treats an empty string as invalid JSON when the generic type is object", () => {
+    test("treats an empty string as a missing value when the generic type is object", () => {
       expect(parseConfigValue(configState("json", ""), { otherData: "bye" })).toMatchObject({
         parsedValue: { otherData: "bye" },
         parsedValueId: undefined,
-        reason: "invalid-json",
+        reason: "value-missing",
         requestedType: "Object",
         usedDefault: true,
       });
     });
 
-    test("returns an empty string value as-is when the generic type is string", () => {
+    test("treats an empty string as a missing value when the generic type is string", () => {
       expect(parseConfigValue(configState("json", ""), "default")).toMatchObject({
-        parsedValue: "",
-        parsedValueId: testValueId,
-        reason: "found-match",
+        parsedValue: "default",
+        parsedValueId: undefined,
+        reason: "value-missing",
         requestedType: "string",
-        usedDefault: false,
+        usedDefault: true,
       });
     });
   });

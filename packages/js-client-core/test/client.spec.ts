@@ -203,6 +203,64 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("isInitializing", () => {
+    test("is false again after a fatal connection error", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [{ status: 401 }]);
+      client = createClient("sdk-key", { logger, connection: { timeout: 100 } });
+
+      await client.initialize();
+
+      expect(client.isReady).toBe(false);
+      expect(client.isInitializing).toBe(false);
+    });
+
+    test("stays true while the client keeps retrying for its first payload after a timeout", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[]]);
+      client = createClient("sdk-key", { logger, connection: { timeout: 100 } });
+
+      await client.initialize();
+
+      expect(client.isReady).toBe(false);
+      expect(client.isInitializing).toBe(true);
+    });
+
+    test("is not set by a second initialize once a payload has been received", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      expect(client.isInitializing).toBe(false);
+
+      const second = client.initialize();
+
+      expect(client.isInitializing).toBe(false);
+      await second;
+      expect(client.isReady).toBe(true);
+    });
+
+    test("is not set by updateContext", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const updating = client.updateContext({ id: "user-1" });
+
+      expect(client.isInitializing).toBe(false);
+      await updating;
+    });
+
+    test("is not set by resumeNetwork", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      client.pauseNetwork();
+
+      const resuming = client.resumeNetwork();
+
+      expect(client.isInitializing).toBe(false);
+      await resuming;
+    });
+  });
+
   describe("constructor", () => {
     test("throws on an invalid connection URL", () => {
       expect(() => createClient("sdk-key", { connection: { url: "not-a-url" } })).toThrow("Invalid base URL");
@@ -675,7 +733,7 @@ describe("ConfigDirectorClient", () => {
       });
     });
 
-    test("emits with reason 'found-match' when the config state has an empty string value", async () => {
+    test("emits with reason 'value-missing' when the config state has an empty string value", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
           {
@@ -699,9 +757,9 @@ describe("ConfigDirectorClient", () => {
       await vi.waitFor(() => expect(events).toHaveLength(1));
       expect(events[0].evaluation).toEqual({
         key: "my-config",
-        value: "",
-        isDefaultValue: false,
-        reason: "found-match",
+        value: "default",
+        isDefaultValue: true,
+        reason: "value-missing",
       });
     });
 

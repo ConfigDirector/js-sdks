@@ -186,8 +186,11 @@ export interface ConfigDirectorClient extends EventProvider<ClientEvents> {
   get isReady(): boolean;
 
   /**
-   * Returns whether or not the client is currently initializing. Upon client creation, it is `false`.
-   * It is `true` after calling `initialize` and becomes `false` again once initialization is completed.
+   * Whether the client is trying to get its very first payload from the server. Upon client creation,
+   * it is `false`. It becomes `true` when `initialize` is called on a client that has never received a
+   * payload, stays `true` through timeouts and retries, and becomes `false` when the first payload
+   * arrives, when a fatal connection error stops the retries, or on `close`. `updateContext` and
+   * `resumeNetwork` never set it, and once a payload has been received it is never `true` again.
    */
   get isInitializing(): boolean;
 

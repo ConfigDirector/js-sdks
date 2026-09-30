@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, beforeAll, afterAll, describe, expect, test, jest } from "@jest/globals";
-import { act, renderHook, waitFor } from "@testing-library/react-native";
+import { act, render, renderHook, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { AppState } from "react-native";
 import { ConfigDirectorProvider } from "../src/provider";
@@ -202,6 +202,66 @@ describe("ConfigDirectorProvider", () => {
       });
 
       expect(netInfoUnsubscribe).toHaveBeenCalled();
+    });
+  });
+
+  describe("remount after unmount", () => {
+    test("builds a new client with its hooks when remounted after it disposed its own client", async () => {
+      const clientReadyHook = jest.fn();
+      mockFetchWith(async () =>
+        buildResponse(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(message(full()));
+            },
+          }),
+        ),
+      );
+      const providerRef = React.createRef<ConfigDirectorProvider>();
+      render(
+        <ConfigDirectorProvider
+          ref={providerRef}
+          sdkKey="dummy-key"
+          logger={logger}
+          hooks={{ clientReady: clientReadyHook }}>
+          <></>
+        </ConfigDirectorProvider>,
+      );
+      await waitFor(() => expect(clientReadyHook).toHaveBeenCalledTimes(1));
+      const firstClient = providerRef.current?.state.client;
+
+      await act(async () => {
+        providerRef.current?.componentWillUnmount();
+        await providerRef.current?.componentDidMount();
+      });
+
+      await waitFor(() => expect(clientReadyHook).toHaveBeenCalledTimes(2));
+      expect(providerRef.current?.state.client).not.toBe(firstClient);
+    });
+  });
+
+  describe("subscriptions on an early unmount", () => {
+    test("removes the AppState and NetInfo subscriptions when unmounted before initialize resolves", () => {
+      const removeAppStateListener = jest.fn();
+      const addEventListenerSpy = jest
+        .spyOn(AppState, "addEventListener")
+        .mockReturnValue({ remove: removeAppStateListener } as any);
+      const netInfoUnsubscribe = jest.fn();
+      const netInfoSubscribe = jest.fn(() => netInfoUnsubscribe);
+      mockFetchWith(() => new Promise<Response>(() => {}));
+
+      const { unmount } = renderHook(() => useConfigValue("key", "default"), {
+        wrapper: wrapper({ sdkKey: "dummy-key", timeout: 100, netInfoSubscribe }),
+      });
+      act(() => {
+        unmount();
+      });
+
+      expect(netInfoSubscribe).toHaveBeenCalledTimes(1);
+      expect(netInfoUnsubscribe).toHaveBeenCalledTimes(1);
+      expect(addEventListenerSpy).toHaveBeenCalledTimes(1);
+      expect(removeAppStateListener).toHaveBeenCalledTimes(1);
+      addEventListenerSpy.mockRestore();
     });
   });
 

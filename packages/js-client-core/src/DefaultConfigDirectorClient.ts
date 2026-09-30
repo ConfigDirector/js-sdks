@@ -52,6 +52,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private timeoutTimer: ReturnType<typeof setTimeout> | undefined;
   private ready = false;
   private initializing = false;
+  private hasReceivedConfigSet = false;
   private readyPromise: Promise<void> | undefined;
   private readyResolve: ((cancelled?: boolean) => void) | undefined;
   private currentContext?: ConfigDirectorContext;
@@ -98,6 +99,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     });
 
     this.transport.on("configSetReceived", (configSet: ConfigSet) => {
+      this.hasReceivedConfigSet = true;
       this.readyResolve?.();
       const removedKeys = this.findKeysRemovedBy(configSet);
       if (!this.configSet || configSet.kind == "full") {
@@ -115,6 +117,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     });
 
     this.transport.on("connectionError", (error: Error) => {
+      this.initializing = false;
       this.logger.error(
         "[ConfigDirectorClient] The connection encountered an unrecoverable error and will not be retried. Configs will no longer receive updates.",
         error,
@@ -169,7 +172,9 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   }
 
   public async initialize(context?: ConfigDirectorContext) {
-    this.initializing = true;
+    if (!this.hasReceivedConfigSet) {
+      this.initializing = true;
+    }
     await this.connectToTransport(context, "initialization");
   }
 

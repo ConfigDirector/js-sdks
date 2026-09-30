@@ -20,7 +20,10 @@ export type WebWorkerTelemetryClientOptions = TelemetryEventCollectorOptions & {
 
 export class WebWorkerTelemetryClient implements TelemetryClient {
   private readonly logger: ConfigDirectorLogger;
-  private worker: Worker;
+  private readonly initializeMessage: TelemetryInitializeEvent;
+  private worker: Worker | undefined;
+  private readonly pendingEvaluations: TelemetryEvaluatedConfigEvent[] = [];
+  private readonly pendingEvaluationLimit: number;
   private closePromise: Promise<void> | undefined;
   private closeResolve: (() => void) | undefined;
   private closeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -30,45 +33,63 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
   constructor(options: WebWorkerTelemetryClientOptions) {
     this.logger = options.logger;
     this.workerCloseTimeout = options.workerCloseTimeout ?? DEFAULT_WORKER_CLOSE_TIMEOUT;
+    this.pendingEvaluationLimit = options.evaluationQueueLimit ?? 1_000;
 
-    const initializeMessage: TelemetryInitializeEvent = {
+    this.initializeMessage = {
       type: "Initialize",
       payload: {
         sdkKey: options.sdkKey,
         sdkIdentity: options.sdkIdentity,
         metaContext: options.metaContext,
         baseUrl: options.baseUrl.toString(),
-        evaluationQueueLimit: options.evaluationQueueLimit ?? 1_000,
+        evaluationQueueLimit: this.pendingEvaluationLimit,
         initialFlushIntervalDelay: options.initialFlushIntervalDelay ?? 5_000,
         flushIntervalDelay: options.flushIntervalDelay ?? 30_000,
       },
     };
-    this.worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-    this.worker.onmessage = (message: MessageEvent<TelemetryWorkerResponseEvent>) => {
-      this.handleWorkerEvent(message.data);
-    };
-    this.worker.postMessage(initializeMessage);
 
     this.visibilityHandler = () => {
       if (document.visibilityState === "hidden") {
         this.flush();
       }
     };
+  }
+
+  private startWorker(): Worker {
+    if (this.worker) {
+      return this.worker;
+    }
+    const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+    worker.onmessage = (message: MessageEvent<TelemetryWorkerResponseEvent>) => {
+      this.handleWorkerEvent(message.data);
+    };
+    worker.postMessage(this.initializeMessage);
+    this.worker = worker;
+
     try {
       document.addEventListener("visibilitychange", this.visibilityHandler);
     } catch (error) {
       this.logger.warn("[TelemetryEventCollector] Could not configure 'visibilitychange' listener: ", error);
     }
+
+    for (const evaluation of this.pendingEvaluations) {
+      worker.postMessage(evaluation);
+    }
+    this.pendingEvaluations.length = 0;
+    return worker;
   }
 
   public async updateContext(value: ConfigDirectorContext | undefined) {
+    if (this.closePromise) {
+      return;
+    }
     const updateContextMessage: TelemetryUpdateContextEvent = {
       type: "UpdateContext",
       payload: {
         context: value,
       },
     };
-    this.worker.postMessage(updateContextMessage);
+    this.startWorker().postMessage(updateContextMessage);
   }
 
   public evaluatedConfig<T extends ConfigValueType>(event: EvaluatedConfigEvent<T>): void {
@@ -76,7 +97,14 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
       type: "EvaluatedConfigEvent",
       payload: this.sanitizeEvaluatedConfigEvent(event),
     };
-    this.worker.postMessage(evaluatedConfigMessage);
+    if (this.worker) {
+      this.worker.postMessage(evaluatedConfigMessage);
+      return;
+    }
+    if (this.pendingEvaluations.length >= this.pendingEvaluationLimit) {
+      this.pendingEvaluations.shift();
+    }
+    this.pendingEvaluations.push(evaluatedConfigMessage);
   }
 
   private sanitizeEvaluatedConfigEvent<T extends ConfigValueType>(
@@ -123,7 +151,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
     const flushMessage: TelemetryFlushEvent = {
       type: "Flush",
     };
-    this.worker.postMessage(flushMessage);
+    this.worker?.postMessage(flushMessage);
   }
 
   public close(): Promise<void> {
@@ -135,6 +163,12 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
   }
 
   private performClose(): Promise<void> {
+    const worker = this.worker;
+    if (!worker) {
+      this.pendingEvaluations.length = 0;
+      this.closePromise = Promise.resolve();
+      return this.closePromise;
+    }
     try {
       document.removeEventListener("visibilitychange", this.visibilityHandler);
     } catch (error) {
@@ -149,7 +183,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
         this.finishClose();
       }, this.workerCloseTimeout);
       const closeMessage: TelemetryCloseEvent = { type: "Close" };
-      this.worker.postMessage(closeMessage);
+      worker.postMessage(closeMessage);
     });
     return this.closePromise;
   }
@@ -157,7 +191,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
   private finishClose() {
     clearTimeout(this.closeTimer);
     this.closeTimer = undefined;
-    this.worker.terminate();
+    this.worker?.terminate();
     this.closeResolve?.();
   }
 }
