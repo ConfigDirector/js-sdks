@@ -1,11 +1,15 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import type { NuxtApp } from "#app";
+import type { ConfigDirectorContext } from "@js-client-core/types";
 import plugin from "../src/runtime/plugin.client";
+import { createTestClient, installTestClient } from "../src/testing";
+import type { TestClient } from "../src/testing";
 
-const { runtimeConfig, createBrowserClient, initialize } = vi.hoisted(() => ({
+const { runtimeConfig, createBrowserClient, initialize, appContext } = vi.hoisted(() => ({
   runtimeConfig: { public: { configdirector: {} as Record<string, unknown> } },
   createBrowserClient: vi.fn(),
   initialize: vi.fn(),
+  appContext: { value: undefined as ConfigDirectorContext | undefined },
 }));
 
 vi.mock("#app", () => ({
@@ -21,13 +25,25 @@ vi.mock("@js-browser-client/index", () => ({
 }));
 
 vi.mock("../src/runtime/app/composables/useConfigDirectorContext", () => ({
-  useConfigDirectorContext: () => ({ context: { value: undefined } }),
+  useConfigDirectorContext: () => ({ context: appContext }),
 }));
 
-const runPlugin = (configdirector: Record<string, unknown>) => {
+type ProvidedByPlugin = {
+  provide: { configDirectorClient: unknown; configDirectorClientReadyStatus: { value: string } };
+};
+
+const createNuxtApp = () => ({ hooks: { hook: vi.fn() } }) as unknown as NuxtApp;
+
+const runPlugin = (configdirector: Record<string, unknown>, nuxtApp = createNuxtApp()) => {
   runtimeConfig.public.configdirector = configdirector;
-  const nuxtApp = { hooks: { hook: vi.fn() } } as unknown as NuxtApp;
   return (plugin as unknown as (nuxtApp: NuxtApp) => unknown)(nuxtApp);
+};
+
+const runAppCreatedHook = async (nuxtApp: NuxtApp): Promise<void> => {
+  const hook = nuxtApp.hooks.hook as unknown as ReturnType<typeof vi.fn>;
+  const [hookName, callback] = hook.mock.calls[0] as [string, () => Promise<void>];
+  expect(hookName).toBe("app:created");
+  await callback();
 };
 
 const clientOptions = () => createBrowserClient.mock.calls[0]![2] as { connection: Record<string, unknown> };
@@ -72,11 +88,82 @@ describe("ConfigDirector client plugin", () => {
   });
 
   test("provides the client and its ready status", () => {
-    const provided = runPlugin({ clientSdkKey: "client-key", baseUrl: "" }) as {
-      provide: { configDirectorClient: unknown; configDirectorClientReadyStatus: { value: string } };
-    };
+    const provided = runPlugin({ clientSdkKey: "client-key", baseUrl: "" }) as ProvidedByPlugin;
 
     expect(provided.provide.configDirectorClient).toBeDefined();
     expect(provided.provide.configDirectorClientReadyStatus.value).toBe("loading");
+  });
+
+  describe("with an installed test client", () => {
+    let testClient: TestClient;
+    let uninstallTestClient: () => void;
+
+    beforeEach(() => {
+      appContext.value = undefined;
+      testClient = createTestClient({ values: { "welcome-message": "Hello from the test client" }, timeout: 50 });
+      uninstallTestClient = installTestClient(testClient);
+    });
+
+    afterEach(() => {
+      uninstallTestClient();
+      testClient.client.dispose();
+    });
+
+    test("provides the installed client instead of building one, and needs no clientSdkKey", () => {
+      const provided = runPlugin({ clientSdkKey: "", baseUrl: "" }) as ProvidedByPlugin;
+
+      expect(createBrowserClient).not.toHaveBeenCalled();
+      expect(provided.provide.configDirectorClient).toBe(testClient.client);
+      expect(provided.provide.configDirectorClientReadyStatus.value).toBe("loading");
+    });
+
+    test("initializes the installed client with the app context when the app is created", async () => {
+      appContext.value = { id: "user-1" };
+      const nuxtApp = createNuxtApp();
+      const provided = runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
+
+      await runAppCreatedHook(nuxtApp);
+
+      expect(testClient.client.isReady).toBe(true);
+      expect(testClient.client.getValue("welcome-message", "fallback")).toBe("Hello from the test client");
+      expect(testClient.contextUpdates).toEqual([{ id: "user-1" }]);
+      expect(provided.provide.configDirectorClientReadyStatus.value).toBe("ready");
+    });
+
+    test("does not initialize an installed client that is already ready with the same context", async () => {
+      appContext.value = { id: "user-1" };
+      await testClient.client.initialize({ id: "user-1" });
+      const nuxtApp = createNuxtApp();
+      const provided = runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
+
+      expect(provided.provide.configDirectorClientReadyStatus.value).toBe("ready");
+      await runAppCreatedHook(nuxtApp);
+
+      expect(testClient.contextUpdates).toEqual([{ id: "user-1" }]);
+    });
+
+    test("updates the context of a ready installed client when the app context differs", async () => {
+      appContext.value = { id: "user-2" };
+      await testClient.client.initialize({ id: "user-1" });
+      const initializeSpy = vi.spyOn(testClient.client, "initialize");
+      const nuxtApp = createNuxtApp();
+      runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp);
+
+      await runAppCreatedHook(nuxtApp);
+
+      expect(initializeSpy).not.toHaveBeenCalled();
+      expect(testClient.contextUpdates).toEqual([{ id: "user-1" }, { id: "user-2" }]);
+    });
+
+    test("reports the default status when the installed client's initialization times out", async () => {
+      testClient.holdInitialization();
+      const nuxtApp = createNuxtApp();
+      const provided = runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
+
+      await runAppCreatedHook(nuxtApp);
+
+      expect(testClient.client.isReady).toBe(false);
+      expect(provided.provide.configDirectorClientReadyStatus.value).toBe("default");
+    });
   });
 });

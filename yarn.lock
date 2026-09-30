@@ -1887,6 +1887,7 @@ __metadata:
     consola: "npm:^3.4.2"
     defu: "npm:^6.1.7"
     eslint: "npm:^10.7.0"
+    jsdom: "npm:^30.0.1"
     nuxt: "npm:^4.5.2"
     playwright: "npm:^1.60.0"
     rapidhash-js: "npm:^3.0.0"

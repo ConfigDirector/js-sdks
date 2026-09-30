@@ -31,6 +31,38 @@ const { value: darkMode } = useConfigDirectorValue("dark-mode", false);
 
 Full details are in the [official documentation](https://docs.configdirector.com/sdks/meta/nuxt).
 
+## Test your code
+
+`@configdirector/nuxt-sdk/testing` creates a real client connected to an in-memory server that your
+test controls. Install it before the Nuxt app is created, at the top level of a test file or a
+vitest setup file, and the ConfigDirector plugin provides it to the app instead of building a
+client. Tests run in the `nuxt` environment of `@nuxt/test-utils`.
+
+```ts
+import { nextTick } from "vue";
+import { mountSuspended } from "@nuxt/test-utils/runtime";
+import { createTestClient, installTestClient } from "@configdirector/nuxt-sdk/testing";
+import Checkout from "~/components/Checkout.vue";
+
+const testClient = createTestClient({ values: { "dark-mode": true } });
+installTestClient(testClient);
+
+test("renders the dark mode", async () => {
+  const component = await mountSuspended(Checkout);
+  expect(component.text()).toContain("dark-mode: true");
+
+  testClient.setValue("dark-mode", false);
+  await nextTick();
+  expect(component.text()).toContain("dark-mode: false");
+});
+```
+
+The `nuxt` environment creates the app once per test file, inside a `beforeAll` hook, so install at
+module level rather than in a hook, and reset the values between tests with `replaceValues`. While
+installed, the plugin needs no `clientSdkKey`. Await `nextTick()` after `setValue`, `removeValue`,
+and `replaceValues`. The test client also holds or fails `initialize` and `updateContext`, and
+records every context in `contextUpdates`.
+
 ## Documentation
 
 Refer to the [official documentation for the Nuxt SDK](https://docs.configdirector.com/sdks/meta/nuxt).

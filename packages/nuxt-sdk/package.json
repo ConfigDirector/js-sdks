@@ -25,6 +25,10 @@
     ".": {
       "types": "./dist/module.d.mts",
       "import": "./dist/module.mjs"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.mts",
+      "import": "./dist/testing.mjs"
     }
   },
   "main": "./dist/module.mjs",
@@ -32,6 +36,9 @@
     "*": {
       ".": [
         "./dist/module.d.mts"
+      ],
+      "testing": [
+        "./dist/testing.d.mts"
       ]
     }
   },
@@ -39,9 +46,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "nuxt prepare && tsdown",
+    "build": "nuxt prepare && tsdown && tsdown --config tsdown.testing.config.js",
     "verify:dist": "node ../../scripts/verify-dist-version.mjs",
-    "prepack": "nuxt prepare && tsdown",
+    "prepack": "nuxt prepare && tsdown && tsdown --config tsdown.testing.config.js",
     "release": "nuxt prepare && yarn lint && yarn ci:test && yarn build && yarn verify:dist && npm publish --access public",
     "lint": "eslint .",
     "ci:test": "vitest run",
@@ -64,6 +71,7 @@
     "@types/node": "^24.13.3",
     "changelogen": "^0.6.2",
     "eslint": "^10.7.0",
+    "jsdom": "^30.0.1",
     "nuxt": "^4.5.2",
     "playwright": "^1.60.0",
     "rimraf": "^6.1.3",

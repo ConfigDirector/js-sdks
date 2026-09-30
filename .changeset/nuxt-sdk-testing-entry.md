@@ -1,0 +1,5 @@
+---
+"@configdirector/nuxt-sdk": minor
+---
+
+Added the `@configdirector/nuxt-sdk/testing` entry point with `createTestClient({ values })`, whose `client` is a real `ConfigDirectorClient` connected to an in-memory server that the test controls, and `installTestClient(testClient)`, which makes the ConfigDirector plugin provide that client to the Nuxt app instead of building one, for tests in the `nuxt` vitest environment. While a test client is installed, the plugin does not require a `clientSdkKey` and ignores the public `configdirector` runtime config. The plugin now initializes the client only when it is neither ready nor initializing, and updates its context instead when the client is ready and the app's context differs. The entry also exports `ConfigDirectorValidationError` and `ConfigDirectorConnectionError` at runtime, and the package has a `typesVersions` mapping for the new subpath.
