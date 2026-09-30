@@ -36,7 +36,7 @@ Full details are in the [official documentation](https://docs.configdirector.com
 `@configdirector/nuxt-sdk/testing` creates a real client connected to an in-memory server that your
 test controls. Install it before the Nuxt app is created, at the top level of a test file or a
 vitest setup file, and the ConfigDirector plugin provides it to the app instead of building a
-client. Tests run in the `nuxt` environment of `@nuxt/test-utils`.
+client. Tests run in the `nuxt` environment of `@nuxt/test-utils` 4 (which needs vitest 4).
 
 ```ts
 import { nextTick } from "vue";
@@ -57,8 +57,10 @@ test("renders the dark mode", async () => {
 });
 ```
 
-The `nuxt` environment creates the app once per test file, inside a `beforeAll` hook, so install at
-module level rather than in a hook, and reset the values between tests with `replaceValues`. While
+`@nuxt/test-utils` 4 creates the app once per test file, inside a `beforeAll` hook, so install at
+module level rather than in a hook, and reset the values between tests with `replaceValues`.
+`@nuxt/test-utils` 3 creates the app before the test file loads, so the plugin cannot see a test
+client installed there; upgrade to use the testing entry. While
 installed, the plugin needs no `clientSdkKey`. Await `nextTick()` after `setValue`, `removeValue`,
 and `replaceValues`. The test client also holds or fails `initialize` and `updateContext`, and
 records every context in `contextUpdates`.
