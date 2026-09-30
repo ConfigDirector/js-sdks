@@ -25,6 +25,29 @@ const newCheckout = await client.getBooleanValue("new-checkout", false);
 
 Full details are in the [official documentation](https://docs.configdirector.com/sdks/server/openfeature-node).
 
+## Test your code
+
+Tests of code that reads flags through OpenFeature swap the provider for the in-memory one the OpenFeature Node.js SDK ships, `TypedInMemoryProvider` (`@openfeature/server-sdk` 1.21 and newer), so the test controls the values and nothing from ConfigDirector is involved:
+
+```ts
+import { OpenFeature, TypedInMemoryProvider } from "@openfeature/server-sdk";
+
+const provider = new TypedInMemoryProvider({
+  "new-checkout": { variants: { on: true, off: false }, defaultVariant: "on" },
+});
+await OpenFeature.setProviderAndWait(provider);
+const client = OpenFeature.getClient();
+
+expect(await client.getBooleanValue("new-checkout", false)).toBe(true);
+
+provider.putConfiguration({
+  "new-checkout": { variants: { on: true, off: false }, defaultVariant: "off" },
+});
+expect(await client.getBooleanValue("new-checkout", true)).toBe(false);
+```
+
+Full details are in the [testing section of the official documentation](https://docs.configdirector.com/sdks/openfeature/node-js#test-your-code).
+
 ## Documentation
 
 Refer to the [official documentation for the OpenFeature Node.js provider](https://docs.configdirector.com/sdks/server/openfeature-node).
