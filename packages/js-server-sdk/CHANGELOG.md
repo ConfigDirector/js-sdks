@@ -1,5 +1,19 @@
 # @configdirector/server-sdk
 
+## 1.8.0
+
+### Minor Changes
+
+- eeef332: A config whose served value is an empty string now evaluates to the default value with the `value-missing` reason, for every config type and every requested type, as the other ConfigDirector SDKs already do. Previously a string, JSON, or enum config holding an empty string was served as `""` when read as a string, and other reads reported `invalid-number`, `invalid-boolean`, or `invalid-json`. An application that relied on receiving `""` should read the config with `""` as its default value.
+- 67cdcf6: The client now reports configs that a full update from the server no longer includes. The `configsUpdated` event has a new `removedKeys` property listing them, and `keys` still lists only the configs the update included. The `watch` callbacks of a removed config are called with their default value. Previously a removed config silently stopped being served, and its watchers kept acting on the last value they were sent. The OpenFeature providers include removed keys in the `flagsChanged` list of `PROVIDER_CONFIGURATION_CHANGED`.
+- 0cd0087: The server-side polling interval for `connection.mode: "polling"` keeps its default of 300 seconds (5 minutes) and now has a minimum of 60 seconds. A configured `pollingInterval` below the minimum is raised to the minimum and a single warning is logged when the client is created; the interval is never rejected. In `streaming` mode the interval has no effect and nothing is logged. The `pollingInterval` option documentation, which wrongly stated a default of 60 seconds, now states the actual default and the minimum.
+- a787a58: Added the `@configdirector/server-sdk/testing` entry point. `createTestClient({ values })` returns a `TestClient` whose `client` is a real `ConfigDirectorClient` connected to an in-memory server that the test controls: `setValue`, `removeValue`, and `replaceValues` deliver updates through the production code paths, and `holdInitialization`, `completeInitialization`, and `failInitialization` drive `initialize`. The test client opens no network connection, sends no telemetry, and leaves nothing running after `dispose`. The entry also exports `ConfigDirectorValidationError` and `ConfigDirectorConnectionError` at runtime, and the package now ships every file under `dist` with a `typesVersions` mapping for the new subpath.
+
+### Patch Changes
+
+- 3794556: Trait pointers in targeting rules now follow RFC 6901 exactly. A pointer that does not start with `/` no longer resolves by dropping its first character, and a pointer with an escape other than `~0` or `~1` no longer resolves to a member named with the literal text; both now resolve to a missing trait. The SDKs no longer depend on `@jsonjoy.com/json-pointer`, whose packages require `tslib` without declaring it as a dependency, so the SDKs failed to load with `Cannot find module 'tslib'` in Yarn projects that did not otherwise install it.
+- eeef332: The Node.js server SDK no longer keeps the event loop alive after it has stopped mattering. The timers that bound `initialize` and the streaming connection are cleared as soon as they settle, the telemetry flush timer starts with the first `initialize` instead of when the client is constructed, and the streaming heartbeat stops after a fatal connection error. `dispose()` now also ends a pending `initialize`, which resolves promptly without marking the client ready or emitting `clientReady`. The Nuxt module's `useConfigDirectorContext` clears the timer that bounds `updateContext` the same way.
+
 ## 1.7.0
 
 ### Minor Changes

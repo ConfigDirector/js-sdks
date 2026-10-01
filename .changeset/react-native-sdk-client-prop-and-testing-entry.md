@@ -1,7 +1,0 @@
----
-"@configdirector/react-native-sdk": minor
----
-
-`ConfigDirectorProvider` accepts a `client` prop, an existing `ConfigDirectorClient` to provide instead of building one from `sdkKey`; its props are now `ConfigDirectorProviderProps`, the union of `ConfigDirectorProviderOptions` and `ConfigDirectorProviderClientProps` (which also takes `netInfoSubscribe`), and the package exports these types. A provider never disposes a client it was given, only one it built. It does not initialize a given client that is ready or initializing, updates the context only when the `context` prop is given and differs from the client's context, and reports the ready status on its first render when the client is already ready. `hooks` given with a `client` are registered on it while the provider is mounted. Every handler the provider registers is removed when it unmounts. The `context` prop is compared by deep equality, so a new object with the same contents no longer reconnects. A changed `client` prop after mount is ignored with a warning.
-
-Added the `@configdirector/react-native-sdk/testing` entry point with `createTestClient({ values })` and `installTestClient(testClient)`, which makes every provider mounted without a `client` prop use the test client's client until it is uninstalled. The entry also exports `ConfigDirectorValidationError` and `ConfigDirectorConnectionError` at runtime, with a `typesVersions` mapping for the new subpath.
