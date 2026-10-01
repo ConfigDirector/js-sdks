@@ -5,7 +5,7 @@ type ConfigDef<T extends ConfigValueType> = { key: string; label: string; defaul
 const CONFIGS: ConfigDef<ConfigValueType>[] = [
   { key: "temporary-feature-flag", label: "temporary-feature-flag", defaultValue: true },
   { key: "permanent-kill-switch", label: "permanent-kill-switch", defaultValue: false },
-  { key: "integer-config", label: "integer-config", defaultValue: "10" },
+  { key: "integer-config", label: "integer-config", defaultValue: 10 },
   { key: "day-of-the-week-config", label: "day-of-the-week-config", defaultValue: "Friday" },
   { key: "json-value-config", label: "json-value-config", defaultValue: {} },
 ];

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start --port 3500",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "sdk:local": "node ../scripts/use-sdks.mjs local",
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
@@ -17,10 +18,17 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/jsdom": "^30",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.9.0"
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.1.1",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.3"
   },
   "packageManager": "yarn@4.13.0",
   "configdirector": {

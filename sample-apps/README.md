@@ -30,6 +30,26 @@ Each sample app can install the ConfigDirector SDKs from two sources:
 After changing SDK code, re-run `yarn pack:local` and `yarn sdk:local` to pick up fresh
 tarballs.
 
+## Tests
+
+Each sample app has tests that run with `yarn test`, without a network connection or an SDK key:
+
+- `js-client`, `nextjs`, and `react-native` test their screens and routes with the SDK's testing
+  entry point (`@configdirector/client-sdk/testing`, `@configdirector/nextjs-sdk/client/testing`
+  and `/server/testing`, `@configdirector/react-native-sdk/testing`), which gives the code under
+  test a real client connected to an in-memory server.
+- `openfeature-web` and `openfeature-server` test against OpenFeature's `TypedInMemoryProvider`,
+  since code that uses a provider talks to the OpenFeature API.
+
+`js-client` and `openfeature-web` run under vitest with jsdom against the markup in `index.html`.
+`nextjs` renders its pages with React Testing Library and calls its route handler directly.
+`openfeature-server` starts the server from `src/app.ts` on a free port. `react-native` runs under
+`jest-expo` and also renders the whole app through `renderRouter` with an installed test client;
+its `jest.config.js` shows the transform the SDK's `.mjs` files need.
+
+Run the tests against the local artifacts (`yarn sdk:local`) until the SDK release that ships the
+testing entry points; the published versions in `configdirector.npmDependencies` do not have them yet.
+
 ## Switching back to npm
 
 ```bash

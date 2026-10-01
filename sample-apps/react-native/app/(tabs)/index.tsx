@@ -12,7 +12,7 @@ export default function FlagsScreen() {
 
   const temporaryFeatureFlag = useConfigValue("temporary-feature-flag", true);
   const permanentKillSwitch = useConfigValue("permanent-kill-switch", false);
-  const integerConfig = useConfigValue("integer-config", "10");
+  const integerConfig = useConfigValue("integer-config", 10);
   const dayOfTheWeekConfig = useConfigValue("day-of-the-week-config", "Friday");
   const jsonValueConfig = useConfigValue("json-value-config", {});
 
@@ -38,7 +38,7 @@ export default function FlagsScreen() {
           </View>
           <View
             style={[styles.badge, { backgroundColor: temporaryFeatureFlag.value ? "#4caf50" : "#9e9e9e" }]}>
-            <ThemedText style={styles.badgeText}>{temporaryFeatureFlag.value ? "ON" : "OFF"}</ThemedText>
+            <ThemedText testID="temporary-feature-flag-value" style={styles.badgeText}>{temporaryFeatureFlag.value ? "ON" : "OFF"}</ThemedText>
           </View>
         </View>
 
@@ -49,7 +49,7 @@ export default function FlagsScreen() {
           </View>
           <View
             style={[styles.badge, { backgroundColor: permanentKillSwitch.value ? "#4caf50" : "#9e9e9e" }]}>
-            <ThemedText style={styles.badgeText}>{permanentKillSwitch.value ? "ON" : "OFF"}</ThemedText>
+            <ThemedText testID="permanent-kill-switch-value" style={styles.badgeText}>{permanentKillSwitch.value ? "ON" : "OFF"}</ThemedText>
           </View>
         </View>
 
@@ -59,7 +59,7 @@ export default function FlagsScreen() {
             <ThemedText style={[styles.flagKey, { color: colors.icon }]}>integer-config</ThemedText>
           </View>
           <View style={[styles.badge, { backgroundColor: colors.tint }]}>
-            <ThemedText style={styles.badgeText}>{integerConfig.value}</ThemedText>
+            <ThemedText testID="integer-config-value" style={styles.badgeText}>{integerConfig.value}</ThemedText>
           </View>
         </View>
 
@@ -69,7 +69,7 @@ export default function FlagsScreen() {
             <ThemedText style={[styles.flagKey, { color: colors.icon }]}>day-of-the-week-config</ThemedText>
           </View>
           <View style={[styles.badge, { backgroundColor: colors.tint }]}>
-            <ThemedText style={styles.badgeText}>{dayOfTheWeekConfig.value}</ThemedText>
+            <ThemedText testID="day-of-the-week-config-value" style={styles.badgeText}>{dayOfTheWeekConfig.value}</ThemedText>
           </View>
         </View>
 
@@ -79,6 +79,7 @@ export default function FlagsScreen() {
             <ThemedText style={[styles.flagKey, { color: colors.icon }]}>json-value-config</ThemedText>
           </View>
           <ThemedText
+            testID="json-value-config-value"
             style={[styles.jsonValue, { borderColor: colors.icon + "30", color: colors.icon }]}>
             {JSON.stringify(jsonValueConfig.value, null, 2)}
           </ThemedText>

@@ -7,6 +7,7 @@
     "local": "vite --mode local",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test": "vitest run",
     "sdk:local": "node ../scripts/use-sdks.mjs local",
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
@@ -16,8 +17,11 @@
     "@openfeature/web-sdk": "^1.9.0"
   },
   "devDependencies": {
+    "@types/jsdom": "^30",
+    "jsdom": "^30.1.1",
     "typescript": "~5.9.2",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^5.0.3"
   },
   "packageManager": "yarn@4.13.0",
   "configdirector": {

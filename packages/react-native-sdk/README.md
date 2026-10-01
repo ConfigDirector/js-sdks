@@ -45,30 +45,34 @@ import { createTestClient, installTestClient } from "@configdirector/react-nativ
 
 const testClient = createTestClient({ values: { "dark-mode": true } });
 
-const view = render(
+const view = await render(
   <ConfigDirectorProvider client={testClient.client}>
     <Home />
   </ConfigDirectorProvider>,
 );
 await view.findByText("dark-mode: true");
 
-act(() => testClient.setValue("dark-mode", false));
+await act(() => testClient.setValue("dark-mode", false));
 view.getByText("dark-mode: false");
 
 const uninstall = installTestClient(testClient);
-render(<App />);
+await render(<App />);
 uninstall();
 ```
 
 The provider renders its children before initialization completes, so the first assertion uses
-`findBy…`. Wrap `setValue`, `removeValue`, and `replaceValues` in `act()`. The test client also holds
+`findBy…`. Wrap `setValue`, `removeValue`, and `replaceValues` in `act()`. React Native Testing
+Library 14 made `render`, `fireEvent`, and `act` asynchronous, so the example awaits them; the same
+code works with version 13. The test client also holds
 or fails `initialize` and `updateContext`, and records every context in `contextUpdates`. A provider
 never disposes a client it was given, removes its handlers and its `AppState` and NetInfo
 subscriptions when it unmounts, and does not initialize a client that is ready or initializing.
 Under the React Native Jest preset, `AppState.addEventListener` never calls its listener, so the
 provider never pauses on its own; a test that calls the listener runs the production pause and
-resume against the test client. The package and its dependency `@noble/hashes` are ESM, so a Jest
-setup must transform both through `transformIgnorePatterns`.
+resume against the test client. The package and its dependency `@noble/hashes` are ESM, and the
+package's files are `.mjs` files, which the `jest-expo` and `react-native` presets do not transform,
+so a Jest setup must let `transformIgnorePatterns` transform both packages and add a `transform`
+entry for `.mjs` files; the documentation shows the configuration for both presets.
 
 ## Documentation
 

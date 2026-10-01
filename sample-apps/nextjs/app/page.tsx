@@ -21,7 +21,7 @@ function ConfigCard({ configKey, defaultValue }: { configKey: string; defaultVal
   const { value } = useConfigValue(configKey, defaultValue);
   const json = isJsonValue(value);
   return (
-    <div className={json ? "config-card config-card-json" : "config-card"}>
+    <div className={json ? "config-card config-card-json" : "config-card"} data-config-key={configKey}>
       <div className="config-info">
         <div className="config-name">{configKey}</div>
         <div className="config-key">{configKey}</div>

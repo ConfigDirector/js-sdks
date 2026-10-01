@@ -7,6 +7,7 @@
     "dev": "node --watch --env-file=.env.local src/server.ts",
     "start": "node --env-file=.env.local src/server.ts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "sdk:local": "node ../scripts/use-sdks.mjs local",
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
@@ -17,7 +18,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^5.0.3"
   },
   "packageManager": "yarn@4.13.0",
   "configdirector": {
