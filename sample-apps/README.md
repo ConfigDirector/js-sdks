@@ -47,8 +47,9 @@ Each sample app has tests that run with `yarn test`, without a network connectio
 `jest-expo` and also renders the whole app through `renderRouter` with an installed test client;
 its `jest.config.js` shows the transform the SDK's `.mjs` files need.
 
-Run the tests against the local artifacts (`yarn sdk:local`) until the SDK release that ships the
-testing entry points; the published versions in `configdirector.npmDependencies` do not have them yet.
+The tests run against whichever source is installed: the published packages by default, or the
+packed tarballs after `yarn sdk:local`, which is how an unreleased SDK change gets checked against
+the samples before a release.
 
 ## Switching back to npm
 

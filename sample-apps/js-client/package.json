@@ -12,7 +12,7 @@
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
   "dependencies": {
-    "@configdirector/client-sdk": "^1.5.1"
+    "@configdirector/client-sdk": "^1.6.0"
   },
   "devDependencies": {
     "@types/jsdom": "^30",
@@ -24,7 +24,7 @@
   "packageManager": "yarn@4.13.0",
   "configdirector": {
     "npmDependencies": {
-      "@configdirector/client-sdk": "^1.5.1"
+      "@configdirector/client-sdk": "^1.6.0"
     }
   }
 }
