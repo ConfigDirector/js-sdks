@@ -70,9 +70,10 @@ subscriptions when it unmounts, and does not initialize a client that is ready o
 Under the React Native Jest preset, `AppState.addEventListener` never calls its listener, so the
 provider never pauses on its own; a test that calls the listener runs the production pause and
 resume against the test client. The package and its dependency `@noble/hashes` are ESM, and the
-package's files are `.mjs` files, which the `jest-expo` and `react-native` presets do not transform,
-so a Jest setup must let `transformIgnorePatterns` transform both packages and add a `transform`
-entry for `.mjs` files; the documentation shows the configuration for both presets.
+package's files are `.mjs` files, which the `jest-expo` and `@react-native/jest-preset` presets do not
+transform, so a Jest setup must let `transformIgnorePatterns` transform both packages and add a
+`transform` entry for `.mjs` files; the documentation shows the configuration for both presets.
+`jest-expo` requires `@react-native/jest-preset` as a peer dependency, so install it in either case.
 
 ## Documentation
 
