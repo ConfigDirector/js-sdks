@@ -132,6 +132,9 @@ jobs:
           yarn workspace @configdirector/nuxt-sdk add "@nuxt/kit@^3"
           yarn workspace @configdirector/nuxt-sdk add --dev "nuxt@^3" "@nuxt/schema@^3" "@nuxt/test-utils@^3"
 
+      - name: Keep vitest-environment-nuxt on the Nuxt 3 test utils instead of a nested newest 4.x
+        run: yarn set resolution "@nuxt/test-utils@npm:>=3.13.1" "npm:^3"
+
       - name: Generate Nuxt types
         run: yarn workspace @configdirector/nuxt-sdk exec nuxt prepare
 
