@@ -940,4 +940,68 @@ describe("ConfigEvaluator", () => {
       expect(evaluator.evaluate(config, { context: { id: "10" } }).value).toEqual("second-rule");
     });
   });
+
+  describe("server payload fields the evaluator does not read", () => {
+    const serverPayload = JSON.parse(`{
+      "payloadVersion": 1,
+      "kind": "full",
+      "environmentId": "10000000-0000-0000-0000-000000000000",
+      "projectId": "20000000-0000-0000-0000-000000000000",
+      "configs": {
+        "greeting": {
+          "id": "${CONFIG_ID}",
+          "key": "greeting",
+          "type": "string",
+          "variations": [],
+          "target": {
+            "environmentId": "10000000-0000-0000-0000-000000000000",
+            "defaultValue": "hello",
+            "defaultValueId": "value-id-1",
+            "rules": [
+              {
+                "id": "33333333-3333-4333-8333-333333333333",
+                "order": 0,
+                "type": "conditional",
+                "target": "value",
+                "value": "bonjour",
+                "valueId": "value-id-2",
+                "conditions": [
+                  {
+                    "id": "44444444-4444-4444-8444-444444444444",
+                    "kind": "attribute",
+                    "attribute": "identifier",
+                    "trait": null,
+                    "operator": "=",
+                    "targetType": "text",
+                    "targetValues": ["10"]
+                  },
+                  {
+                    "id": "55555555-5555-4555-8555-555555555555",
+                    "kind": "attribute",
+                    "attribute": "traits",
+                    "trait": "/plan",
+                    "operator": "is one of",
+                    "targetType": "text",
+                    "targetValues": ["pro", "enterprise"]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }`);
+
+    test("evaluates a config whose conditions carry kind and whose set carries payloadVersion as before", () => {
+      const config: Config = serverPayload.configs.greeting;
+
+      const matched = evaluator.explain(config, { context: { id: "10", traits: { plan: "pro" } } });
+      expect(matched.value).toEqual("bonjour");
+      expect(matched.servedBy).toEqual({ kind: "rule", ruleId: "33333333-3333-4333-8333-333333333333" });
+
+      const unmatched = evaluator.explain(config, { context: { id: "10", traits: { plan: "free" } } });
+      expect(unmatched.value).toEqual("hello");
+      expect(unmatched.servedBy).toEqual({ kind: "default" });
+    });
+  });
 });

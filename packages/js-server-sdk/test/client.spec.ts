@@ -1994,4 +1994,83 @@ describe("ConfigDirectorClient", () => {
       );
     });
   });
+
+  describe("server payload fields the SDK does not read", () => {
+    const greeting = (servedValue: string) => ({
+      id: "00000000-0000-0000-0000-0000000000aa",
+      key: "greeting",
+      type: "string",
+      variations: [],
+      target: {
+        environmentId: "10000000-0000-0000-0000-000000000000",
+        defaultValue: "hello",
+        defaultValueId: "value-id-1",
+        rules: [
+          {
+            id: "33333333-3333-4333-8333-333333333333",
+            order: 0,
+            type: "conditional",
+            target: "value",
+            value: servedValue,
+            valueId: "value-id-2",
+            conditions: [
+              {
+                id: "44444444-4444-4444-8444-444444444444",
+                kind: "attribute",
+                attribute: "identifier",
+                trait: null,
+                operator: "=",
+                targetType: "text",
+                targetValues: ["10"],
+              },
+              {
+                id: "55555555-5555-4555-8555-555555555555",
+                kind: "attribute",
+                attribute: "traits",
+                trait: "/plan",
+                operator: "is one of",
+                targetType: "text",
+                targetValues: ["pro", "enterprise"],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const set = (kind: "full" | "delta", servedValue: string) => ({
+      payloadVersion: 1,
+      kind,
+      environmentId: "10000000-0000-0000-0000-000000000000",
+      projectId: "20000000-0000-0000-0000-000000000000",
+      configs: { greeting: greeting(servedValue) },
+    });
+
+    test("evaluates a full set and a delta whose conditions carry kind and whose set carries payloadVersion as before", async () => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(message(set("full", "bonjour")));
+              setTimeout(() => controller.enqueue(message(set("delta", "salut"))), 10);
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+      const receivedValues: string[] = [];
+
+      const client = createClient("sdk-key", { logger });
+      client.watch("greeting", "in-code-default", (value: string) => receivedValues.push(value), {
+        id: "10",
+        traits: { plan: "pro" },
+      });
+      await client.initialize();
+
+      await vi.waitFor(() => expect(receivedValues).toEqual(["bonjour", "salut"]));
+      expect(client.getValue("greeting", "in-code-default", { id: "10", traits: { plan: "free" } })).toBe("hello");
+      expect(client.getValue("greeting", "in-code-default", { id: "20", traits: { plan: "pro" } })).toBe("hello");
+      client.dispose();
+    });
+  });
 });
