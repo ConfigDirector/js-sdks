@@ -1,6 +1,9 @@
 import { ConditionEvaluator } from "./ConditionEvaluator";
+import { SegmentEvaluator } from "./SegmentEvaluator";
 import { assignPercentage, PERCENTAGE_WITHOUT_IDENTIFIER } from "./percent-hashing";
 import type {
+  Condition,
+  ConditionExplanation,
   ConditionalRule,
   Config,
   EvaluationContext,
@@ -10,6 +13,7 @@ import type {
   ConfigDirectorLogger,
   EvaluationExplanation,
   RuleExplanation,
+  Segments,
   Share,
 } from "./types";
 
@@ -20,6 +24,7 @@ type RuleResult = {
 
 export class ConfigEvaluator {
   private readonly conditionEvaluator = new ConditionEvaluator();
+  private readonly segmentEvaluator = new SegmentEvaluator(this.conditionEvaluator);
 
   constructor(private readonly logger: ConfigDirectorLogger) {
     if (!logger || !logger.warn || !logger.error || !logger.info) {
@@ -29,12 +34,12 @@ export class ConfigEvaluator {
     this.logger = logger;
   }
 
-  public evaluate(config: Config, context?: EvaluationContext): ConfigState {
+  public evaluate(config: Config, context?: EvaluationContext, segments?: Segments): ConfigState {
     return {
       id: config.id,
       key: config.key,
       type: config.type,
-      value: this.explain(config, context).value,
+      value: this.explain(config, context, segments).value,
     };
   }
 
@@ -42,9 +47,10 @@ export class ConfigEvaluator {
    * Evaluate a config for a context and record how the value was reached: every rule in the
    * order it was walked with its outcome, the conditions that were checked with what they
    * resolved to, and the share a rollout assigned the context to. `evaluate` is this walk with
-   * only the value kept, so the two cannot disagree.
+   * only the value kept, so the two cannot disagree. `segments` is the payload's segments map,
+   * which a segment condition looks its segment up in; a segment it does not hold never matches.
    */
-  public explain(config: Config, context?: EvaluationContext): EvaluationExplanation {
+  public explain(config: Config, context?: EvaluationContext, segments?: Segments): EvaluationExplanation {
     const rules = [...(config.target?.rules ?? [])].sort(
       (a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER),
     );
@@ -55,7 +61,7 @@ export class ConfigEvaluator {
         explanations.push({ ruleId: rule.id, outcome: "not-evaluated", conditions: [], bucket: undefined });
         continue;
       }
-      const result = this.explainRule(rule, config, context);
+      const result = this.explainRule(rule, config, context, segments);
       explanations.push(result.explanation);
       if (result.value !== undefined) {
         served = { ruleId: rule.id, value: result.value };
@@ -68,7 +74,12 @@ export class ConfigEvaluator {
     };
   }
 
-  private explainRule(rule: Rule, config: Config, context?: EvaluationContext): RuleResult {
+  private explainRule(
+    rule: Rule,
+    config: Config,
+    context: EvaluationContext | undefined,
+    segments: Segments | undefined,
+  ): RuleResult {
     const explanation: RuleExplanation = {
       ruleId: rule.id,
       outcome: "not-matched",
@@ -80,7 +91,7 @@ export class ConfigEvaluator {
       if (rule.type == "percentage") {
         value = this.explainPercentage(rule.percentages ?? [], config, context, explanation);
       } else if (rule.type == "conditional") {
-        value = this.explainConditionalRule(rule, config, context, explanation);
+        value = this.explainConditionalRule(rule, config, context, segments, explanation);
       }
       if (value !== undefined) {
         explanation.outcome = "matched";
@@ -142,6 +153,7 @@ export class ConfigEvaluator {
     rule: ConditionalRule,
     config: Config,
     context: EvaluationContext | undefined,
+    segments: Segments | undefined,
     explanation: RuleExplanation,
   ): string | undefined {
     let failed = false;
@@ -150,14 +162,9 @@ export class ConfigEvaluator {
         explanation.conditions.push({ conditionId: condition.id, outcome: "not-evaluated" });
         continue;
       }
-      const check = this.conditionEvaluator.explain(condition, context);
-      explanation.conditions.push({
-        conditionId: condition.id,
-        outcome: check.matched ? "matched" : "not-matched",
-        resolvedValue: check.resolvedValue,
-        resolvedType: check.resolvedType,
-      });
-      failed = !check.matched;
+      const checked = this.explainCondition(condition, context, segments);
+      explanation.conditions.push(checked);
+      failed = checked.outcome !== "matched";
     }
 
     if (failed) {
@@ -170,5 +177,31 @@ export class ConfigEvaluator {
       return this.explainPercentage(rule.percentages ?? [], config, context, explanation);
     }
     return undefined;
+  }
+
+  private explainCondition(
+    condition: Condition,
+    context: EvaluationContext | undefined,
+    segments: Segments | undefined,
+  ): ConditionExplanation {
+    if (condition.kind === "segment") {
+      const check = this.segmentEvaluator.explain(condition, segments, context);
+      return {
+        conditionId: condition.id,
+        kind: "segment",
+        outcome: check.matched ? "matched" : "not-matched",
+        segmentId: condition.segmentId,
+        segmentFound: check.segmentFound,
+        matchedGroupIndex: check.matchedGroupIndex,
+      };
+    }
+    const check = this.conditionEvaluator.explain(condition, context);
+    return {
+      conditionId: condition.id,
+      kind: "attribute",
+      outcome: check.matched ? "matched" : "not-matched",
+      resolvedValue: check.resolvedValue,
+      resolvedType: check.resolvedType,
+    };
   }
 }

@@ -1,4 +1,4 @@
-import type { Condition, ConditionCheck, EvaluationContext } from "./types";
+import type { AttributeCondition, ConditionCheck, EvaluationContext } from "./types";
 import { resolveJsonPointer } from "./json-pointer";
 import { compareText } from "./text-comparison";
 import { compareNumeric } from "./numeric-comparison";
@@ -15,7 +15,7 @@ export class ConditionEvaluator {
    * An attribute the context does not carry is not an error: it resolves to the empty string, so
    * a condition can still match or not match on its own terms.
    */
-  public evaluate(condition: Condition, context?: EvaluationContext): boolean {
+  public evaluate(condition: AttributeCondition, context?: EvaluationContext): boolean {
     return this.explain(condition, context).matched;
   }
 
@@ -23,7 +23,7 @@ export class ConditionEvaluator {
    * Decide whether a condition holds for a context, and say what the condition was compared
    * against: the raw resolved value and its shape.
    */
-  public explain(condition: Condition, context?: EvaluationContext): ConditionCheck {
+  public explain(condition: AttributeCondition, context?: EvaluationContext): ConditionCheck {
     const value = this.resolve(condition, context);
     const resolvedType = resolvedTypeOf(value);
     const resolvedValue = value === ABSENT || value === UNKNOWN_ATTRIBUTE ? undefined : value;
@@ -33,7 +33,7 @@ export class ConditionEvaluator {
     return { matched: this.compare(condition, value), resolvedValue, resolvedType };
   }
 
-  private compare(condition: Condition, value: Resolved): boolean {
+  private compare(condition: AttributeCondition, value: Resolved): boolean {
     const targetValues = condition.targetValues ?? [];
 
     switch (condition.targetType) {
@@ -53,7 +53,7 @@ export class ConditionEvaluator {
   }
 
   /** The raw value a condition targets, or one of the two sentinels. */
-  private resolve(condition: Condition, context?: EvaluationContext): Resolved {
+  private resolve(condition: AttributeCondition, context?: EvaluationContext): Resolved {
     switch (condition.attribute) {
       case "identifier":
         return orAbsent(context?.context?.id);

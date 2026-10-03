@@ -68,12 +68,9 @@ describe("ConfigDirectorClient", () => {
   });
 
   describe("constructor", () => {
-    test.each([null, undefined, "", "   "])(
-      "throws when the server SDK key is %p",
-      (invalidSdkKey) => {
-        expect(() => createClient(invalidSdkKey as any)).toThrow("No server SDK key was provided");
-      },
-    );
+    test.each([null, undefined, "", "   "])("throws when the server SDK key is %p", (invalidSdkKey) => {
+      expect(() => createClient(invalidSdkKey as any)).toThrow("No server SDK key was provided");
+    });
 
     test.each(["sdk-key", "a", "  sdk-key  "])(
       "does not throw when the server SDK key is %p",
@@ -1305,7 +1302,9 @@ describe("ConfigDirectorClient", () => {
       const initialization = client.initialize().then(() => {
         settled = true;
       });
-      await vi.waitFor(() => expect((client as DefaultConfigDirectorClient)["transport"].isConnected).toBe(true));
+      await vi.waitFor(() =>
+        expect((client as DefaultConfigDirectorClient)["transport"].isConnected).toBe(true),
+      );
 
       client.dispose();
       await vi.advanceTimersByTimeAsync(0);
@@ -1781,11 +1780,17 @@ describe("ConfigDirectorClient", () => {
         return this.connectTimeouts.length > 0;
       }
 
-      on<TName extends keyof TransportEvents>(name: TName, handler: (payload: TransportEvents[TName]) => void) {
+      on<TName extends keyof TransportEvents>(
+        name: TName,
+        handler: (payload: TransportEvents[TName]) => void,
+      ) {
         this.emitter.on(name, handler);
       }
 
-      off<TName extends keyof TransportEvents>(name: TName, handler?: (payload: TransportEvents[TName]) => void) {
+      off<TName extends keyof TransportEvents>(
+        name: TName,
+        handler?: (payload: TransportEvents[TName]) => void,
+      ) {
         if (handler) {
           this.emitter.off(name, handler);
         } else {
@@ -2068,8 +2073,182 @@ describe("ConfigDirectorClient", () => {
       await client.initialize();
 
       await vi.waitFor(() => expect(receivedValues).toEqual(["bonjour", "salut"]));
-      expect(client.getValue("greeting", "in-code-default", { id: "10", traits: { plan: "free" } })).toBe("hello");
-      expect(client.getValue("greeting", "in-code-default", { id: "20", traits: { plan: "pro" } })).toBe("hello");
+      expect(client.getValue("greeting", "in-code-default", { id: "10", traits: { plan: "free" } })).toBe(
+        "hello",
+      );
+      expect(client.getValue("greeting", "in-code-default", { id: "20", traits: { plan: "pro" } })).toBe(
+        "hello",
+      );
+      client.dispose();
+    });
+  });
+
+  describe("segments", () => {
+    const ACME = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const acmeMembers = {
+      [ACME]: {
+        groups: [
+          [
+            {
+              id: "g0c0",
+              kind: "attribute",
+              attribute: "traits",
+              trait: "/email",
+              operator: "ends with any of",
+              targetType: "text",
+              targetValues: ["@acme.com"],
+            },
+          ],
+        ],
+      },
+    };
+    const greetingForMembers = (servedValue: string) => ({
+      id: "00000000-0000-0000-0000-0000000000bb",
+      key: "greeting",
+      type: "string",
+      variations: [],
+      target: {
+        environmentId: "10000000-0000-0000-0000-000000000000",
+        defaultValue: "hello",
+        defaultValueId: "value-id-1",
+        rules: [
+          {
+            id: "33333333-3333-4333-8333-333333333333",
+            order: 0,
+            type: "conditional",
+            target: "value",
+            value: servedValue,
+            valueId: "value-id-2",
+            conditions: [
+              {
+                id: "44444444-4444-4444-8444-444444444444",
+                kind: "segment",
+                operator: "in",
+                segmentId: ACME,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const set = (kind: "full" | "delta", servedValue: string, segments: object | undefined) => ({
+      payloadVersion: 1,
+      kind,
+      environmentId: "10000000-0000-0000-0000-000000000000",
+      projectId: "20000000-0000-0000-0000-000000000000",
+      configs: { greeting: greetingForMembers(servedValue) },
+      ...(segments === undefined ? {} : { segments }),
+    });
+    const streaming = (...sets: object[]) => {
+      server.use(
+        http.post(SSE_URL, async () => {
+          const stream = new ReadableStream({
+            start(controller) {
+              sets.forEach((payload, index) =>
+                setTimeout(() => controller.enqueue(message(payload)), index * 10),
+              );
+            },
+          });
+          return buildResponse(stream);
+        }),
+      );
+    };
+    const member = { id: "10", traits: { email: "ann@acme.com" } };
+    const outsider = { id: "20", traits: { email: "bob@other.com" } };
+
+    test("evaluates a segment condition against the segments a full set carries", async () => {
+      streaming(set("full", "bonjour", acmeMembers));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      expect(client.getValue("greeting", "in-code-default", member)).toBe("bonjour");
+      expect(client.getValue("greeting", "in-code-default", outsider)).toBe("hello");
+      expect(client.getAllConfigs({ context: member })["greeting"]?.value).toBe("bonjour");
+      client.dispose();
+    });
+
+    test("keeps the segments it holds across a delta that carries none of them", async () => {
+      streaming(set("full", "bonjour", acmeMembers), set("delta", "salut", {}));
+      const receivedValues: string[] = [];
+      const client = createClient("sdk-key", { logger });
+      client.watch("greeting", "in-code-default", (value: string) => receivedValues.push(value), member);
+      await client.initialize();
+
+      await vi.waitFor(() => expect(receivedValues).toEqual(["bonjour", "salut"]));
+      expect(client.getValue("greeting", "in-code-default", member)).toBe("salut");
+      client.dispose();
+    });
+
+    test("adds the segments a delta carries to the ones it holds", async () => {
+      const BETA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+      const betaMembers = {
+        [BETA]: {
+          groups: [
+            [
+              {
+                id: "g0c0",
+                kind: "attribute",
+                attribute: "traits",
+                trait: "/email",
+                operator: "ends with any of",
+                targetType: "text",
+                targetValues: ["@beta.com"],
+              },
+            ],
+          ],
+        },
+      };
+      const betaRule = {
+        ...greetingForMembers("ciao"),
+        key: "farewell",
+        id: "00000000-0000-0000-0000-0000000000cc",
+        target: {
+          ...greetingForMembers("ciao").target,
+          rules: [
+            {
+              id: "66666666-6666-4666-8666-666666666666",
+              order: 0,
+              type: "conditional",
+              target: "value",
+              value: "ciao",
+              valueId: "value-id-3",
+              conditions: [
+                {
+                  id: "77777777-7777-4777-8777-777777777777",
+                  kind: "segment",
+                  operator: "in",
+                  segmentId: BETA,
+                },
+              ],
+            },
+          ],
+        },
+      };
+      streaming(set("full", "bonjour", acmeMembers), {
+        ...set("delta", "bonjour", betaMembers),
+        configs: { farewell: betaRule },
+      });
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      await vi.waitFor(() =>
+        expect(
+          client.getValue("farewell", "in-code-default", { id: "30", traits: { email: "cat@beta.com" } }),
+        ).toBe("ciao"),
+      );
+      expect(client.getValue("greeting", "in-code-default", member)).toBe("bonjour");
+      client.dispose();
+    });
+
+    test("drops the segments a full set no longer carries", async () => {
+      streaming(set("full", "bonjour", acmeMembers), set("full", "salut", undefined));
+      const receivedValues: string[] = [];
+      const client = createClient("sdk-key", { logger });
+      client.watch("greeting", "in-code-default", (value: string) => receivedValues.push(value), member);
+      await client.initialize();
+
+      await vi.waitFor(() => expect(receivedValues).toEqual(["bonjour", "hello"]));
+      expect(client.getValue("greeting", "in-code-default", member)).toBe("hello");
       client.dispose();
     });
   });

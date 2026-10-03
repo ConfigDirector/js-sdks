@@ -8,7 +8,7 @@ import type {
   ConnectionMode,
   ConfigEvaluation,
 } from "@shared/types";
-import type { Config } from "@config-evaluator/types";
+import type { Config, Segments } from "@config-evaluator/types";
 import type { ServerTelemetryClient } from "./telemetry/types";
 export type {
   ConfigDirectorLogger,
@@ -285,6 +285,7 @@ export interface Transport {
 export type ConfigDefinition = Config;
 export type ConfigBundle = {
   configs: Record<string, ConfigDefinition>;
+  segments?: Segments | undefined;
   environmentId: string;
   projectId: string;
   kind: "full" | "delta";

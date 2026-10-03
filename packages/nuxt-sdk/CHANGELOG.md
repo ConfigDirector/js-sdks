@@ -1,5 +1,11 @@
 # @configdirector/nuxt-sdk
 
+## 1.9.0
+
+### Minor Changes
+
+- Targeting rules can now use segments. The server-side client reads the `segments` section of the server payload and evaluates segment conditions (`in` / `not in` a segment) locally, combined by AND with the rule's other conditions as every condition already is. Segments received in a full update replace the ones held, and a delta adds to them. ConfigDirector only sends rules with segment conditions to SDK versions that evaluate them, so upgrading is what makes rules that use segments apply to this application.
+
 ## 1.8.0
 
 ### Minor Changes

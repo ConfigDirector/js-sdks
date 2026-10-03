@@ -1,5 +1,11 @@
 # @configdirector/config-evaluator-internal
 
+## 0.3.0
+
+### Minor Changes
+
+- Added segment evaluation. `ConfigEvaluator.evaluate` and `ConfigEvaluator.explain` take the payload's `segments` map as a third argument, and a rule's conditions may now be segment conditions (`kind: "segment"`, operator `in` or `not in`, `segmentId`) beside attribute conditions, which carry `kind: "attribute"` or no `kind`. A context is in a segment when any of its condition groups matches, a group matches when every condition in it matches, and a segment the map does not hold matches nothing for either operator. The condition explanation now carries its `kind`: a segment condition's explanation says whether the segment was found and which group matched. New types: `AttributeCondition`, `SegmentCondition`, `SegmentOperator`, `ConditionGroup`, `Segment`, `Segments`, and the `SegmentOperatorList` constant.
+
 ## 0.2.1
 
 ### Patch Changes

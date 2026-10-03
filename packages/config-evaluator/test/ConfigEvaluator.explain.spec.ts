@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import type { Condition, Config, Rule } from "../src/types";
+import type { AttributeCondition, Condition, Config, Rule } from "../src/types";
 import { ConfigEvaluator } from "../src/ConfigEvaluator";
 import { createStubbedLogger } from "./helpers";
 
@@ -76,9 +76,16 @@ describe("ConfigEvaluator.explain", () => {
         ruleId: RULE_A,
         outcome: "matched",
         conditions: [
-          { conditionId: CONDITION_PLAN, outcome: "matched", resolvedValue: "pro", resolvedType: "scalar" },
+          {
+            conditionId: CONDITION_PLAN,
+            kind: "attribute",
+            outcome: "matched",
+            resolvedValue: "pro",
+            resolvedType: "scalar",
+          },
           {
             conditionId: CONDITION_VERSION,
+            kind: "attribute",
             outcome: "matched",
             resolvedValue: "3.4.0",
             resolvedType: "scalar",
@@ -110,7 +117,13 @@ describe("ConfigEvaluator.explain", () => {
     expect(explanation.servedBy).toEqual({ kind: "default" });
     expect(explanation.rules[0]?.outcome).toEqual("not-matched");
     expect(explanation.rules[0]?.conditions).toEqual([
-      { conditionId: CONDITION_PLAN, outcome: "not-matched", resolvedValue: "free", resolvedType: "scalar" },
+      {
+        conditionId: CONDITION_PLAN,
+        kind: "attribute",
+        outcome: "not-matched",
+        resolvedValue: "free",
+        resolvedType: "scalar",
+      },
       { conditionId: CONDITION_VERSION, outcome: "not-evaluated" },
     ]);
     expect(
@@ -132,9 +145,16 @@ describe("ConfigEvaluator.explain", () => {
     });
 
     expect(explanation.rules[0]?.conditions).toEqual([
-      { conditionId: CONDITION_PLAN, outcome: "matched", resolvedValue: "pro", resolvedType: "scalar" },
+      {
+        conditionId: CONDITION_PLAN,
+        kind: "attribute",
+        outcome: "matched",
+        resolvedValue: "pro",
+        resolvedType: "scalar",
+      },
       {
         conditionId: CONDITION_VERSION,
+        kind: "attribute",
         outcome: "not-matched",
         resolvedValue: undefined,
         resolvedType: "absent",
@@ -158,12 +178,14 @@ describe("ConfigEvaluator.explain", () => {
 
     expect(asArray.rules[0]?.conditions[0]).toEqual({
       conditionId: CONDITION_PLAN,
+      kind: "attribute",
       outcome: "matched",
       resolvedValue: ["beta", "eu"],
       resolvedType: "array",
     });
     expect(asObject.rules[0]?.conditions[0]).toEqual({
       conditionId: CONDITION_PLAN,
+      kind: "attribute",
       outcome: "not-matched",
       resolvedValue: { beta: true },
       resolvedType: "object",
@@ -186,6 +208,7 @@ describe("ConfigEvaluator.explain", () => {
     expect(explanation.value).toEqual("Disabled");
     expect(explanation.rules[0]?.conditions[0]).toEqual({
       conditionId: CONDITION_PLAN,
+      kind: "attribute",
       outcome: "not-matched",
       resolvedValue: undefined,
       resolvedType: "unknown-attribute",
@@ -288,7 +311,7 @@ describe("ConfigEvaluator.explain", () => {
       id: CONDITION_PLAN,
       attribute: "identifier",
       trait: undefined,
-      operator: undefined as unknown as Condition["operator"],
+      operator: undefined as unknown as AttributeCondition["operator"],
       targetType: "text",
       targetValues: ["abc"],
     };
@@ -325,6 +348,7 @@ describe("ConfigEvaluator.explain", () => {
           conditions: [
             {
               conditionId: CONDITION_PLAN,
+              kind: "attribute",
               outcome: "not-matched",
               resolvedValue: "free",
               resolvedType: "scalar",

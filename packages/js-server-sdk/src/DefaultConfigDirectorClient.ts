@@ -74,9 +74,11 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     const baseUrl = this.parseUrl(clientOptions?.connection?.url) ?? defaultBaseUrl;
     this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
     this.usageEventCollector =
-      internalClientOptions?.telemetry ?? this.buildTelemetryCollector(serverSdkKey, sdkOptions, baseUrl, clientOptions);
+      internalClientOptions?.telemetry ??
+      this.buildTelemetryCollector(serverSdkKey, sdkOptions, baseUrl, clientOptions);
     this.transport =
-      internalClientOptions?.transport ?? this.buildTransport(serverSdkKey, sdkOptions, baseUrl, clientOptions);
+      internalClientOptions?.transport ??
+      this.buildTransport(serverSdkKey, sdkOptions, baseUrl, clientOptions);
 
     this.transport.on("configBundleReceived", (configBundle: ConfigBundle) => {
       this.readyResolve?.(false);
@@ -87,6 +89,10 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         this.configSet.configs = {
           ...this.configSet.configs,
           ...configBundle.configs,
+        };
+        this.configSet.segments = {
+          ...this.configSet.segments,
+          ...configBundle.segments,
         };
       }
       const keys = Object.keys(configBundle.configs);
@@ -312,10 +318,11 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     context?: ConfigDirectorContext,
   ): T {
     if (configDefinition) {
-      const configState = this.configEvaluator.evaluate(configDefinition, {
-        context,
-        metadata: this.metaContext,
-      });
+      const configState = this.configEvaluator.evaluate(
+        configDefinition,
+        { context, metadata: this.metaContext },
+        this.configSet?.segments,
+      );
       const parseResult = parseConfigValue<T>(configState, defaultValue);
       this.usageEventCollector.evaluatedConfig({
         context,
@@ -445,7 +452,11 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     return Object.fromEntries(
       filtered.map(([key, config]) => [
         key,
-        this.configEvaluator.evaluate(config, { context: options?.context, metadata: this.metaContext }),
+        this.configEvaluator.evaluate(
+          config,
+          { context: options?.context, metadata: this.metaContext },
+          this.configSet?.segments,
+        ),
       ]),
     );
   }

@@ -29,14 +29,31 @@ export type Target = "value" | "percentage";
 export const TargetTypeList = ["text", "number", "semver", "datetime", "array"] as const;
 export type TargetType = (typeof TargetTypeList)[number];
 
-export type Condition = {
+export const SegmentOperatorList = ["in", "not in"] as const;
+export type SegmentOperator = (typeof SegmentOperatorList)[number];
+
+export type AttributeCondition = {
   id: string;
+  kind?: "attribute" | undefined;
   attribute: string;
   trait?: string | undefined;
   operator: Operator;
   targetType: TargetType;
   targetValues: string[];
 };
+export type SegmentCondition = {
+  id: string;
+  kind: "segment";
+  operator: SegmentOperator;
+  segmentId: string;
+};
+export type Condition = AttributeCondition | SegmentCondition;
+
+export type ConditionGroup = AttributeCondition[];
+export type Segment = {
+  groups: ConditionGroup[];
+};
+export type Segments = Record<string, Segment>;
 export type ConditionalRule = {
   id: string;
   type: "conditional";
@@ -113,13 +130,28 @@ export type ConditionCheck = {
   resolvedType: ResolvedType;
 };
 
+export type SegmentCheck = {
+  matched: boolean;
+  segmentFound: boolean;
+  matchedGroupIndex: number | undefined;
+};
+
 export type ConditionExplanation =
   | { conditionId: string; outcome: "not-evaluated" }
   | {
       conditionId: string;
+      kind: "attribute";
       outcome: "matched" | "not-matched";
       resolvedValue: unknown;
       resolvedType: ResolvedType;
+    }
+  | {
+      conditionId: string;
+      kind: "segment";
+      outcome: "matched" | "not-matched";
+      segmentId: string;
+      segmentFound: boolean;
+      matchedGroupIndex: number | undefined;
     };
 
 export type Share = {
