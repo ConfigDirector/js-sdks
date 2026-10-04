@@ -1,5 +1,11 @@
 # @configdirector/react-native-sdk
 
+## 1.6.1
+
+### Patch Changes
+
+- 11bd406: A telemetry failure while recording a context update or while closing the client is now logged as a warning instead of surfacing as an unhandled promise rejection.
+
 ## 1.6.0
 
 ### Minor Changes

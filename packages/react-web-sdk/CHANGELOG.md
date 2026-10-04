@@ -1,5 +1,12 @@
 # @configdirector/react-web-sdk
 
+## 1.6.1
+
+### Patch Changes
+
+- 11bd406: A telemetry failure while recording a context update or while closing the client is now logged as a warning instead of surfacing as an unhandled promise rejection.
+- 11bd406: When Web Workers are unavailable, the browser client now turns telemetry off and logs a single warning saying why, instead of leaving an unhandled promise rejection (`ReferenceError: Worker is not defined`) after its first successful connection. This happens in DOM test environments such as jsdom and happy-dom, where the rejection failed Vitest runs even when every test passed, and wherever constructing the worker throws. The client otherwise behaves as before: `initialize` resolves, the client becomes ready, and configs are served normally.
+
 ## 1.6.0
 
 ### Minor Changes

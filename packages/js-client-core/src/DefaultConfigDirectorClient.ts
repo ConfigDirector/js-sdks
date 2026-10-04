@@ -216,7 +216,11 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       const startTime = new Date().getTime();
       await this.transport.connect(context ?? {}, this.timeout, caller);
       this.currentContext = context;
-      this.telemetryClient.updateContext(context);
+      this.telemetryClient
+        .updateContext(context)
+        .catch((error) =>
+          this.logger.warn("[ConfigDirectorClient] Telemetry could not update the context: ", error),
+        );
       this.emit("contextUpdated", { context });
 
       const elapsedTime = new Date().getTime() - startTime;
@@ -441,7 +445,9 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.logger.debug("[ConfigDirectorClient] close() has been called, closing connection to server");
     clearTimeout(this.timeoutTimer);
     this.readyResolve?.(true);
-    this.telemetryClient.close();
+    this.telemetryClient
+      .close()
+      .catch((error) => this.logger.warn("[ConfigDirectorClient] Telemetry could not close: ", error));
     this.transport.close();
     this.ready = false;
     this.initializing = false;

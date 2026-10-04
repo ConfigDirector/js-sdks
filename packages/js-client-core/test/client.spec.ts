@@ -13,13 +13,20 @@ import type {
 import { DefaultConfigDirectorClient } from "../src";
 import { type TelemetryClient } from "../src";
 import { Emitter } from "../src/Emitter";
-import { SSE_URL, POLL_URL, sleep, createStubbedLogger } from "./helpers";
+import {
+  SSE_URL,
+  POLL_URL,
+  sleep,
+  captureUnhandledRejections,
+  createCapturingLogger,
+  createStubbedLogger,
+} from "./helpers";
 
 const logger = createStubbedLogger();
 const telemetryClient: TelemetryClient = {
-  updateContext: vi.fn(),
+  updateContext: vi.fn(async () => {}),
   evaluatedConfig: vi.fn(),
-  close: vi.fn(),
+  close: vi.fn(async () => {}),
 };
 
 const createClient = (
@@ -436,6 +443,72 @@ describe("ConfigDirectorClient", () => {
       expect(telemetryClient.evaluatedConfig).toHaveBeenCalledWith(
         expect.objectContaining({ type: "string" }),
       );
+    });
+
+    describe("when the telemetry client rejects", () => {
+      const rejectingTelemetryClient: TelemetryClient = {
+        updateContext: () => Promise.reject(new Error("telemetry is unavailable")),
+        evaluatedConfig: () => {},
+        close: () => Promise.reject(new Error("telemetry is unavailable")),
+      };
+
+      const createClientWithRejectingTelemetry = (transport: Transport, clientLogger = logger) =>
+        new DefaultConfigDirectorClient(
+          rejectingTelemetryClient,
+          "sdk-key",
+          { sdkName: "test-sdk", sdkVersion: "1.2.0" },
+          { logger: clientLogger },
+          { transport },
+        );
+
+      test("initialize makes the client ready without leaving the rejection unhandled", async () => {
+        const unhandledRejections = captureUnhandledRejections();
+        const transport = new RecordingTransport();
+        const rejectingClient = createClientWithRejectingTelemetry(transport);
+        client = rejectingClient;
+        const contextUpdates: unknown[] = [];
+        rejectingClient.on("contextUpdated", (event) => contextUpdates.push(event));
+
+        const initialization = rejectingClient.initialize({ id: "user-1" });
+        transport.deliver(full() as ConfigSet);
+        await initialization;
+        await sleep(50);
+        unhandledRejections.stop();
+
+        expect(rejectingClient.isReady).toBe(true);
+        expect(contextUpdates).toEqual([{ context: { id: "user-1" } }]);
+        expect(unhandledRejections.reasons).toEqual([]);
+      });
+
+      test("logs the rejection as a warning", async () => {
+        const capturingLogger = createCapturingLogger();
+        const transport = new RecordingTransport();
+        const rejectingClient = createClientWithRejectingTelemetry(transport, capturingLogger);
+        client = rejectingClient;
+
+        const initialization = rejectingClient.initialize();
+        transport.deliver(full() as ConfigSet);
+        await initialization;
+
+        await vi.waitFor(() =>
+          expect(capturingLogger.warn).toHaveBeenCalledWith(
+            expect.stringContaining("Telemetry could not update the context"),
+            expect.objectContaining({ message: "telemetry is unavailable" }),
+          ),
+        );
+      });
+
+      test("close does not leave the rejection unhandled", async () => {
+        const unhandledRejections = captureUnhandledRejections();
+        const rejectingClient = createClientWithRejectingTelemetry(new RecordingTransport());
+        client = rejectingClient;
+
+        await rejectingClient.close();
+        await sleep(50);
+        unhandledRejections.stop();
+
+        expect(unhandledRejections.reasons).toEqual([]);
+      });
     });
   });
 

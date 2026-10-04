@@ -2,7 +2,16 @@ import { afterAll, beforeAll, afterEach, beforeEach, describe, expect, test, vi 
 import { commands } from "vitest/browser";
 import { WebWorkerTelemetryClient } from "../../src/telemetry/WebWorkerTelemetryClient";
 import type { EventReport } from "@js-client-core/telemetry/types";
-import { BASE_URL, TELEMETRY_URL, createStubbedLogger, sleep } from "../helpers";
+import {
+  BASE_URL,
+  TELEMETRY_URL,
+  createCapturingLogger,
+  createStubbedLogger,
+  hidePageFor,
+  removeWorker,
+  sleep,
+  throwOnWorkerConstruction,
+} from "../helpers";
 import type { ConfigType, ConfigValueType } from "@shared/types";
 import { defaultUrlFactory } from "@shared/url";
 import { generateValueId } from "../../src/telemetry/value-id-generator";
@@ -390,6 +399,17 @@ describe("TelemetryClient", () => {
       expect(payloads[0].aggregatedEvents["evaluatedConfig"][0].event).toMatchObject({ key: "my-config" });
     });
 
+    test("does not retry creating a worker whose construction threw", async () => {
+      const attempts = { count: 0 };
+      throwOnWorkerConstruction(attempts);
+      client = createIdleClient();
+
+      await client.updateContext(undefined);
+      await client.updateContext({ id: "user-1" });
+
+      expect(attempts.count).toBe(1);
+    });
+
     test("closes without ever creating a worker when no context update happened", async () => {
       const created = countingWorkerConstructions();
       client = createIdleClient();
@@ -397,6 +417,72 @@ describe("TelemetryClient", () => {
       await client.close();
 
       expect(created.count).toBe(0);
+    });
+  });
+
+  describe.each([
+    {
+      scenario: "Worker is not defined",
+      makeWorkerUnavailable: removeWorker,
+      warning: [expect.stringMatching(/Telemetry is off.*Web Workers are not available/)],
+    },
+    {
+      scenario: "constructing a Worker throws",
+      makeWorkerUnavailable: throwOnWorkerConstruction,
+      warning: [
+        expect.stringMatching(/Telemetry is off.*could not be created/),
+        expect.objectContaining({ name: "SecurityError" }),
+      ],
+    },
+  ])("when $scenario", ({ makeWorkerUnavailable, warning }) => {
+    let restoreWorker: () => void;
+
+    beforeEach(() => {
+      restoreWorker = makeWorkerUnavailable();
+    });
+
+    afterEach(() => {
+      restoreWorker();
+    });
+
+    test("updateContext resolves instead of rejecting", async () => {
+      client = createIdleClient();
+
+      await expect(client.updateContext(undefined)).resolves.toBeUndefined();
+    });
+
+    test("logs one warning saying telemetry is off and why, across context updates", async () => {
+      const capturingLogger = createCapturingLogger();
+      client = createIdleClient({ logger: capturingLogger });
+
+      await client.updateContext(undefined);
+      await client.updateContext({ id: "user-1" });
+
+      expect(capturingLogger.warn).toHaveBeenCalledExactlyOnceWith(...warning);
+    });
+
+    test("never sends evaluations recorded before or after the first context update", async () => {
+      client = createIdleClient();
+
+      client.evaluatedConfig(baseEvent);
+      await client.updateContext(undefined);
+      client.evaluatedConfig(baseEvent);
+      await hidePageFor(INITIAL_FLUSH_DELAY * 2);
+
+      expect(await commands.mswWasRequestReceived()).toBe(false);
+    });
+
+    test("close resolves promptly", async () => {
+      client = createIdleClient();
+      client.evaluatedConfig(baseEvent);
+      await client.updateContext(undefined);
+
+      const result = await Promise.race([
+        client.close().then(() => "closed"),
+        sleep(100).then(() => "timed-out"),
+      ]);
+
+      expect(result).toBe("closed");
     });
   });
 

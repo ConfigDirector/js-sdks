@@ -22,6 +22,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
   private readonly logger: ConfigDirectorLogger;
   private readonly initializeMessage: TelemetryInitializeEvent;
   private worker: Worker | undefined;
+  private turnedOff = false;
   private readonly pendingEvaluations: TelemetryEvaluatedConfigEvent[] = [];
   private readonly pendingEvaluationLimit: number;
   private closePromise: Promise<void> | undefined;
@@ -55,11 +56,38 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
     };
   }
 
-  private startWorker(): Worker {
-    if (this.worker) {
+  private createWorkerOrTurnOff(): Worker | undefined {
+    if (typeof Worker === "undefined") {
+      this.turnOff(
+        "[WebWorkerTelemetryClient] Telemetry is off because Web Workers are not available in this environment.",
+      );
+      return undefined;
+    }
+    try {
+      return new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+    } catch (error) {
+      this.turnOff(
+        "[WebWorkerTelemetryClient] Telemetry is off because the telemetry Web Worker could not be created: ",
+        error,
+      );
+      return undefined;
+    }
+  }
+
+  private turnOff(warning: string, ...details: unknown[]) {
+    this.turnedOff = true;
+    this.pendingEvaluations.length = 0;
+    this.logger.warn(warning, ...details);
+  }
+
+  private startWorker(): Worker | undefined {
+    if (this.worker || this.turnedOff) {
       return this.worker;
     }
-    const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+    const worker = this.createWorkerOrTurnOff();
+    if (!worker) {
+      return undefined;
+    }
     worker.onmessage = (message: MessageEvent<TelemetryWorkerResponseEvent>) => {
       this.handleWorkerEvent(message.data);
     };
@@ -89,10 +117,13 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
         context: value,
       },
     };
-    this.startWorker().postMessage(updateContextMessage);
+    this.startWorker()?.postMessage(updateContextMessage);
   }
 
   public evaluatedConfig<T extends ConfigValueType>(event: EvaluatedConfigEvent<T>): void {
+    if (this.turnedOff) {
+      return;
+    }
     const evaluatedConfigMessage: TelemetryEvaluatedConfigEvent = {
       type: "EvaluatedConfigEvent",
       payload: this.sanitizeEvaluatedConfigEvent(event),

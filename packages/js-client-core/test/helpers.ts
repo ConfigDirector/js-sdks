@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { ConfigDirectorLogger } from "@shared/types";
 
 export const sleep = async (time: number) => await new Promise<void>((r) => setTimeout(() => r(), time));
@@ -14,5 +15,17 @@ export const createStubbedLogger = (): ConfigDirectorLogger => {
     info: function (): void {},
     warn: function (): void {},
     error: function (): void {},
+  };
+};
+
+export const createCapturingLogger = () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() });
+
+export const captureUnhandledRejections = () => {
+  const reasons: unknown[] = [];
+  const listener = (event: PromiseRejectionEvent) => reasons.push(event.reason);
+  window.addEventListener("unhandledrejection", listener);
+  return {
+    reasons,
+    stop: () => window.removeEventListener("unhandledrejection", listener),
   };
 };

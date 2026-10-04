@@ -1,8 +1,19 @@
-import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
 import type { ConfigDirectorClient, ConfigDirectorClientOptions } from "../src";
 import { createBrowserClient } from "../src";
-import { SSE_URL, POLLING_URL, TELEMETRY_URL, createStubbedLogger } from "./helpers";
+import {
+  SSE_URL,
+  POLLING_URL,
+  TELEMETRY_URL,
+  captureUnhandledRejections,
+  createCapturingLogger,
+  createStubbedLogger,
+  hidePageFor,
+  removeWorker,
+  sleep,
+  throwOnWorkerConstruction,
+} from "./helpers";
 
 const logger = createStubbedLogger();
 
@@ -86,6 +97,68 @@ describe("ConfigDirectorClient", () => {
     } finally {
       visibilityState.mockRestore();
     }
+  });
+
+  describe.each([
+    { scenario: "Worker is not defined", makeWorkerUnavailable: removeWorker },
+    { scenario: "constructing a Worker throws", makeWorkerUnavailable: throwOnWorkerConstruction },
+  ])("when $scenario", ({ makeWorkerUnavailable }) => {
+    let restoreWorker: () => void;
+    let unhandledRejections: ReturnType<typeof captureUnhandledRejections>;
+    let capturingLogger: ReturnType<typeof createCapturingLogger>;
+
+    beforeEach(async () => {
+      restoreWorker = makeWorkerUnavailable();
+      unhandledRejections = captureUnhandledRejections();
+      capturingLogger = createCapturingLogger();
+      await commands.mswUseHandlers(
+        {
+          url: POLLING_URL,
+          responseBody: full({
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "Bye",
+            },
+          }),
+        },
+        { url: TELEMETRY_URL, status: 202 },
+      );
+      client = createClient("sdk-key", { logger: capturingLogger, connection: { mode: "polling" } });
+    });
+
+    afterEach(() => {
+      client.dispose();
+      unhandledRejections.stop();
+      restoreWorker();
+    });
+
+    test("initializes ready with the payload's values and no unhandled rejection", async () => {
+      const events: string[] = [];
+      client.on("clientReady", () => events.push("clientReady"));
+      client.on("contextUpdated", () => events.push("contextUpdated"));
+
+      await client.initialize({ id: "user-1" });
+      await sleep(50);
+
+      expect(client.isReady).toBe(true);
+      expect(client.getValue("example-config", "Hello")).toBe("Bye");
+      expect(events).toEqual(expect.arrayContaining(["clientReady", "contextUpdated"]));
+      expect(unhandledRejections.reasons).toEqual([]);
+    });
+
+    test("logs a single warning that telemetry is off, and sends no telemetry", async () => {
+      await client.initialize({ id: "user-1" });
+      await client.updateContext({ id: "user-2" });
+      client.getValue("example-config", "Hello");
+      await hidePageFor(500);
+
+      const warnings = capturingLogger.warn.mock.calls.map(([message]) => message);
+      expect(warnings).toEqual([expect.stringContaining("Telemetry is off")]);
+      const payloads = (await commands.mswGetPayloads()) as Record<string, unknown>[];
+      expect(payloads.filter((payload) => "aggregatedEvents" in payload)).toEqual([]);
+    });
   });
 
   test("returns the default value when the config was not sent from the server", async () => {
