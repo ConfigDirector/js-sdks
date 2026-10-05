@@ -44,6 +44,15 @@ type WatchHandlerWithOptions<T extends ConfigValueType> = {
   context?: ConfigDirectorContext;
 };
 
+const usesAnySegment = (definition: ConfigDefinition, segmentIds: Set<string>): boolean =>
+  (definition.target?.rules ?? []).some(
+    (rule) =>
+      rule.type === "conditional" &&
+      (rule.conditions ?? []).some(
+        (condition) => condition.kind === "segment" && segmentIds.has(condition.segmentId),
+      ),
+  );
+
 export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private logger: ConfigDirectorLogger;
   private usageEventCollector: ServerTelemetryClient;
@@ -95,7 +104,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           ...configBundle.segments,
         };
       }
-      const keys = Object.keys(configBundle.configs);
+      const keys = this.findKeysUpdatedBy(configBundle);
       this.eventEmitter.emit("configsUpdated", { keys, removedKeys });
       this.updateWatchers([...keys, ...removedKeys]);
       this.logger.debug(
@@ -246,6 +255,14 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     return Object.keys(this.configSet.configs).filter(
       (key) => !Object.prototype.hasOwnProperty.call(configBundle.configs, key),
     );
+  }
+
+  private findKeysUpdatedBy(configBundle: ConfigBundle): string[] {
+    const carriedSegmentIds = new Set(Object.keys(configBundle.segments ?? {}));
+    const keysUsingCarriedSegments = Object.entries(this.configSet?.configs ?? {})
+      .filter(([, definition]) => usesAnySegment(definition, carriedSegmentIds))
+      .map(([key]) => key);
+    return [...new Set([...Object.keys(configBundle.configs), ...keysUsingCarriedSegments])];
   }
 
   private updateWatchers(configKeys: string[]) {

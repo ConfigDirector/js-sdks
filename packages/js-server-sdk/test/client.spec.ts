@@ -2251,5 +2251,94 @@ describe("ConfigDirectorClient", () => {
       expect(client.getValue("greeting", "in-code-default", member)).toBe("hello");
       client.dispose();
     });
+
+    const otherMembers = {
+      [ACME]: {
+        groups: [
+          [
+            {
+              id: "g0c0",
+              kind: "attribute",
+              attribute: "traits",
+              trait: "/email",
+              operator: "ends with any of",
+              targetType: "text",
+              targetValues: ["@other.com"],
+            },
+          ],
+        ],
+      },
+    };
+    const farewellForEveryone = {
+      ...greetingForMembers("ciao"),
+      id: "00000000-0000-0000-0000-0000000000cc",
+      key: "farewell",
+      target: { ...greetingForMembers("ciao").target, defaultValue: "bye", rules: [] },
+    };
+    const BETA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const welcomeForBetaMembers = {
+      ...greetingForMembers("welcome"),
+      id: "00000000-0000-0000-0000-0000000000dd",
+      key: "welcome",
+      target: {
+        ...greetingForMembers("welcome").target,
+        rules: [
+          {
+            ...greetingForMembers("welcome").target.rules[0],
+            conditions: [
+              {
+                id: "55555555-5555-4555-8555-555555555555",
+                kind: "segment",
+                operator: "in",
+                segmentId: BETA,
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    test("calls the watchers of the configs whose rules use a segment that a delta carries without them", async () => {
+      streaming(
+        {
+          ...set("full", "bonjour", { ...acmeMembers, [BETA]: acmeMembers[ACME] }),
+          configs: {
+            greeting: greetingForMembers("bonjour"),
+            farewell: farewellForEveryone,
+            welcome: welcomeForBetaMembers,
+          },
+        },
+        { ...set("delta", "bonjour", otherMembers), configs: {} },
+      );
+      const updates: { keys: string[]; removedKeys: string[] }[] = [];
+      const greetings: string[] = [];
+      const farewells: string[] = [];
+      const welcomes: string[] = [];
+      const client = createClient("sdk-key", { logger });
+      client.on("configsUpdated", (update) => updates.push(update));
+      client.watch("greeting", "in-code-default", (value: string) => greetings.push(value), member);
+      client.watch("farewell", "in-code-default", (value: string) => farewells.push(value), member);
+      client.watch("welcome", "in-code-default", (value: string) => welcomes.push(value), member);
+      await client.initialize();
+
+      await vi.waitFor(() => expect(updates).toHaveLength(2));
+      expect(updates[1]).toEqual({ keys: ["greeting"], removedKeys: [] });
+      expect(greetings).toEqual(["bonjour", "hello"]);
+      expect(farewells).toEqual(["bye"]);
+      expect(welcomes).toEqual(["welcome"]);
+      client.dispose();
+    });
+
+    test("lists a config once when a delta carries it together with a segment its rules use", async () => {
+      streaming(set("full", "bonjour", acmeMembers), set("delta", "salut", otherMembers));
+      const updates: { keys: string[]; removedKeys: string[] }[] = [];
+      const client = createClient("sdk-key", { logger });
+      client.on("configsUpdated", (update) => updates.push(update));
+      await client.initialize();
+
+      await vi.waitFor(() => expect(updates).toHaveLength(2));
+      expect(updates[1]).toEqual({ keys: ["greeting"], removedKeys: [] });
+      client.dispose();
+    });
   });
 });
