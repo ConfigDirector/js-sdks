@@ -12,7 +12,7 @@
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
   "dependencies": {
-    "@configdirector/openfeature-server-provider": "^1.8.0",
+    "@configdirector/openfeature-server-provider": "^1.9.1",
     "@openfeature/core": "^1.11.0",
     "@openfeature/server-sdk": "^1.22.0"
   },
@@ -24,7 +24,7 @@
   "packageManager": "yarn@4.13.0",
   "configdirector": {
     "npmDependencies": {
-      "@configdirector/openfeature-server-provider": "^1.8.0"
+      "@configdirector/openfeature-server-provider": "^1.9.1"
     }
   }
 }
