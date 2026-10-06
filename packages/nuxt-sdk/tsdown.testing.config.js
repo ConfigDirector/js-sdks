@@ -16,12 +16,18 @@ const localAlias = {
   "@config-evaluator": resolve(__dirname, "../config-evaluator/src"),
 };
 
+const declarationOptions = {
+  compilerOptions: {
+    paths: Object.fromEntries(Object.entries(localAlias).map(([alias, target]) => [`${alias}/*`, [`${target}/*`]])),
+  },
+};
+
 export default defineConfig({
   entry: { testing: "src/testing.ts" },
   format: "esm",
   outDir: "dist",
   clean: false,
-  dts: true,
+  dts: declarationOptions,
   alias: localAlias,
   plugins: [
     replace({

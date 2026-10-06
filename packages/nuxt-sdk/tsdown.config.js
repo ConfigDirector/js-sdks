@@ -17,6 +17,12 @@ const localAlias = {
   "@config-evaluator": resolve(__dirname, "../config-evaluator/src"),
 };
 
+const declarationOptions = {
+  compilerOptions: {
+    paths: Object.fromEntries(Object.entries(localAlias).map(([alias, target]) => [`${alias}/*`, [`${target}/*`]])),
+  },
+};
+
 function copyDtsAsLegacy(...outDirs) {
   for (const outDir of outDirs) {
     for (const file of fs.readdirSync(outDir, { recursive: true })) {
@@ -57,7 +63,7 @@ export default defineConfig([
     format: "esm",
     outDir: "dist",
     clean: true,
-    dts: true,
+    dts: declarationOptions,
     deps: { neverBundle: ["@nuxt/kit", "@nuxt/schema", "nuxt", /^nuxt\//] },
     alias: localAlias,
     plugins: [writeModuleMeta()],
@@ -66,7 +72,7 @@ export default defineConfig([
     entry: { "plugin.server": "src/runtime/plugin.server.ts" },
     format: "esm",
     outDir: "dist/runtime",
-    dts: true,
+    dts: declarationOptions,
     deps: { neverBundle: ["#app", /^#app\//, "vue", /^vue\//, "nuxt", /^nuxt\//, "nitropack", /^nitropack\//] },
     alias: localAlias,
     plugins: [
@@ -80,7 +86,7 @@ export default defineConfig([
     entry: { "plugin.client": "src/runtime/plugin.client.ts" },
     format: "esm",
     outDir: "dist/runtime",
-    dts: true,
+    dts: declarationOptions,
     deps: { neverBundle: ["#app", /^#app\//, "vue", /^vue\//, "nuxt", /^nuxt\//, "nitropack", /^nitropack\//] },
     alias: localAlias,
     plugins: [
@@ -105,7 +111,7 @@ export default defineConfig([
     },
     format: "esm",
     outDir: "dist/runtime",
-    dts: true,
+    dts: declarationOptions,
     deps: { neverBundle: ["#app", /^#app\//, "vue", /^vue\//, "nuxt", /^nuxt\//, "nitropack", /^nitropack\//, "h3", "@configdirector/client-sdk"] },
     alias: localAlias,
     plugins: [
