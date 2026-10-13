@@ -10,6 +10,16 @@ React Native SDK for [ConfigDirector](https://www.configdirector.com), remote co
 npm install --save @configdirector/react-native-sdk
 ```
 
+Install `@react-native-async-storage/async-storage` as well, so the SDK can keep the same client
+session for six hours across app starts. It is an optional peer dependency and works in Expo Go.
+Without it, every app start begins a new client session and the SDK logs a warning.
+
+```bash
+npm install --save @react-native-async-storage/async-storage
+# or in an Expo project
+npx expo install @react-native-async-storage/async-storage
+```
+
 ## Retrieve a value
 
 ```tsx
@@ -74,6 +84,10 @@ package's files are `.mjs` files, which the `jest-expo` and `@react-native/jest-
 transform, so a Jest setup must let `transformIgnorePatterns` transform both packages and add a
 `transform` entry for `.mjs` files; the documentation shows the configuration for both presets.
 `jest-expo` requires `@react-native/jest-preset` as a peer dependency, so install it in either case.
+The test client never touches AsyncStorage. A test that builds a real client instead, through
+`createClient` or a provider given an `sdkKey`, logs the warning that AsyncStorage is missing and
+starts a new client session under either preset; add `@babel/plugin-transform-dynamic-import` to the
+Babel test environment for that client to use the AsyncStorage Jest mock instead.
 
 ## Documentation
 

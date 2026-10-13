@@ -13,6 +13,11 @@ const replaceVersionPlugin = () => ({
 });
 
 module.exports = {
+  env: {
+    test: {
+      plugins: ["@babel/plugin-transform-dynamic-import"],
+    },
+  },
   overrides: [
     {
       exclude: /\/node_modules\//,

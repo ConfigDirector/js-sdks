@@ -71,7 +71,9 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
+    "@babel/plugin-transform-dynamic-import": "^7",
     "@eslint/js": "^10.0.1",
+    "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-native/babel-preset": "^0.85.0",
     "@react-native/jest-preset": "^0.86.2",
     "@rollup/plugin-replace": "^6.0.3",
@@ -96,11 +98,15 @@
     "wtfnode": "^0.10.1"
   },
   "peerDependencies": {
+    "@react-native-async-storage/async-storage": ">=1.0.0",
     "expo": ">=52",
     "react": "*",
     "react-native": ">=0.75"
   },
   "peerDependenciesMeta": {
+    "@react-native-async-storage/async-storage": {
+      "optional": true
+    },
     "expo": {
       "optional": true
     }
@@ -130,7 +136,7 @@
       "^@eventsource/(.*)$": "<rootDir>/../eventsource/src/$1"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|@noble)/)"
+      "node_modules/(?!((jest-)?react-native|@react-native(-community|-async-storage)?|@noble)/)"
     ]
   }
 }

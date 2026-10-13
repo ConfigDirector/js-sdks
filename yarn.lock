@@ -982,6 +982,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@babel/plugin-transform-dynamic-import@npm:^7":
+  version: 7.29.7
+  resolution: "@babel/plugin-transform-dynamic-import@npm:7.29.7"
+  dependencies:
+    "@babel/helper-plugin-utils": "npm:^7.29.7"
+  peerDependencies:
+    "@babel/core": ^7.0.0-0
+  checksum: 10c0/9f824556ab369173e5945cceeb3b83516a2896b161a5cd9f14641e30b7d1535426eebbf04d1f3cfcac557e0148180650584b4ce552b09a6b03f03adf1fbc689c
+  languageName: node
+  linkType: hard
+
 "@babel/plugin-transform-export-namespace-from@npm:^7.25.9":
   version: 7.27.1
   resolution: "@babel/plugin-transform-export-namespace-from@npm:7.27.1"
@@ -1978,8 +1989,10 @@ __metadata:
   resolution: "@configdirector/react-native-sdk@workspace:packages/react-native-sdk"
   dependencies:
     "@babel/core": "npm:^7.29.0"
+    "@babel/plugin-transform-dynamic-import": "npm:^7"
     "@eslint/js": "npm:^10.0.1"
     "@noble/hashes": "npm:^2.2.0"
+    "@react-native-async-storage/async-storage": "npm:^3.1.1"
     "@react-native/babel-preset": "npm:^0.85.0"
     "@react-native/jest-preset": "npm:^0.86.2"
     "@rollup/plugin-replace": "npm:^6.0.3"
@@ -4953,6 +4966,18 @@ __metadata:
   dependencies:
     quansync: "npm:^1.0.0"
   checksum: 10c0/41a7e145d4fc349eaeac20ee7ffe0c876a7c26b2268d5704b462b3e7379091221336e315b2b346d5b07a531502a41cad15c9f374800cc60b6339d074ef99aa16
+  languageName: node
+  linkType: hard
+
+"@react-native-async-storage/async-storage@npm:^3.1.1":
+  version: 3.1.1
+  resolution: "@react-native-async-storage/async-storage@npm:3.1.1"
+  dependencies:
+    idb: "npm:8.0.3"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10c0/20d34973b0a4d1acc133556c52daa59b9826f676abdc351f12c70feb4d557b66e279d1c880662bbfe037b7d79bf64fdee759a5217781c47cd20fd8ba0e0e1b24
   languageName: node
   linkType: hard
 
@@ -11855,6 +11880,13 @@ __metadata:
   dependencies:
     safer-buffer: "npm:>= 2.1.2 < 3.0.0"
   checksum: 10c0/3c228920f3bd307f56bf8363706a776f4a060eb042f131cd23855ceca962951b264d0997ab38a1ad340e1c5df8499ed26e1f4f0db6b2a2ad9befaff22f14b722
+  languageName: node
+  linkType: hard
+
+"idb@npm:8.0.3":
+  version: 8.0.3
+  resolution: "idb@npm:8.0.3"
+  checksum: 10c0/421cd9a3281b7564528857031cc33fd9e95753f8191e483054cb25d1ceea7303a0d1462f4f69f5b41606f0f066156999e067478abf2460dfcf9cab80dae2a2b2
   languageName: node
   linkType: hard
 

@@ -1,7 +1,11 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test, jest } from "@jest/globals";
 import { NativeModules } from "react-native";
 import { createClient } from "../src/client";
-import { buildResponse, createStubbedLogger, full, message, SSE_URL } from "./helpers";
+import { buildResponse, createStubbedLogger, full, message, SSE_URL, UUID_V4_PATTERN } from "./helpers";
+
+jest.mock("@react-native-async-storage/async-storage", () => {
+  throw new Error("Cannot find module '@react-native-async-storage/async-storage'");
+});
 
 const logger = createStubbedLogger();
 
@@ -139,6 +143,37 @@ describe("createClient", () => {
     expect(infoMessages.filter((message) => message.includes("could not find"))).toHaveLength(0);
 
     client.dispose();
+  });
+
+  test("warns that AsyncStorage is not installed and connects with an ephemeral instance id", async () => {
+    const warnings: string[] = [];
+    const recordingLogger = { ...logger, warn: (message: string) => warnings.push(message) };
+
+    const client = createClient("sdk-key", { logger: recordingLogger });
+    await client.initialize();
+
+    const connectRequest = requests.find((request) => request.url.startsWith(SSE_URL));
+    expect(connectRequest?.body).toMatchObject({
+      instanceId: expect.stringMatching(UUID_V4_PATTERN),
+      ephemeral: true,
+    });
+    expect(warnings.filter((message) => message.includes("@react-native-async-storage/async-storage"))).toHaveLength(1);
+
+    client.dispose();
+  });
+
+  test("gives every client its own instance id when AsyncStorage is not installed", async () => {
+    const firstClient = createClient("sdk-key", { logger });
+    await firstClient.initialize();
+    firstClient.dispose();
+
+    const secondClient = createClient("sdk-key", { logger });
+    await secondClient.initialize();
+    secondClient.dispose();
+
+    const [first, second] = requests.filter((request) => request.url.startsWith(SSE_URL)).map((request) => request.body);
+    expect(second).toMatchObject({ instanceId: expect.stringMatching(UUID_V4_PATTERN), ephemeral: true });
+    expect(second?.instanceId).not.toBe(first?.instanceId);
   });
 
   const waitForTelemetryReport = async () => {

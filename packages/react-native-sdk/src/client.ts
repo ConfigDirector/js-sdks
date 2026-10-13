@@ -4,6 +4,7 @@ import {
   DefaultConfigDirectorClient,
 } from "@js-client-core/index";
 import { resolveMetadata } from "./appInfo";
+import { asyncStorageInstanceIdStorage } from "./instanceIdStorage";
 import { createConsoleLogger } from "./logger";
 import { reactNativeStreamingFetch } from "./reactNativeStreamingFetch";
 import { ReactNativeTelemetryClient } from "./ReactNativeTelemetryClient";
@@ -34,6 +35,7 @@ export const createClient = (
     {
       fetch: reactNativeStreamingFetch,
       urlFactory,
+      instanceIdStorage: asyncStorageInstanceIdStorage(logger),
     },
   );
 };
