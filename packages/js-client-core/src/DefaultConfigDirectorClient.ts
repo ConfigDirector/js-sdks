@@ -18,6 +18,7 @@ import type {
   ConnectionMode,
   ConfigEvaluation,
   HookHandler,
+  ClientSession,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorValidationError } from "./errors";
@@ -30,7 +31,7 @@ import {
   CLIENT_MIN_POLLING_INTERVAL_SECONDS,
 } from "@shared/constants";
 import { resolvePollingInterval } from "@shared/transport/pollingInterval";
-import { resolveInstanceId } from "./instance-id";
+import { resolveClientSession } from "./client-session";
 import { PollingTransport } from "./PollingTransport";
 import { readHost, readUserAgent } from "./browser-globals";
 const MAX_EXPONENTIAL_DELAY = 9; // 2^9 = 512 seconds, to cap it to under 10min
@@ -57,7 +58,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private readyResolve: ((cancelled?: boolean) => void) | undefined;
   private currentContext?: ConfigDirectorContext;
   private connectionMode: ConnectionMode;
-  private instanceId: string;
+  private clientSession: Promise<ClientSession>;
 
   constructor(
     telemetryClient: TelemetryClient,
@@ -67,7 +68,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     internalClientOptions?: InternalClientOptions,
   ) {
     this.logger = clientOptions?.logger ?? createDefaultLogger();
-    this.instanceId = resolveInstanceId(this.logger);
+    this.clientSession = resolveClientSession(this.logger, internalClientOptions?.instanceIdStorage);
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
     this.validateSdkKeyPresence(clientSdkKey);
     const urlFactory: UrlFactory = internalClientOptions?.urlFactory ?? defaultUrlFactory;
@@ -152,7 +153,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   ): Transport {
     const transportConstructor = this.getTransportConstructor(this.connectionMode);
     return new transportConstructor({
-      instanceId: this.instanceId,
+      clientSession: this.clientSession,
       clientSdkKey,
       baseUrl,
       resolveUrl: urlFactory,

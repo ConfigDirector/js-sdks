@@ -17,6 +17,7 @@ export class StreamingTransport implements Transport {
   private eventEmitter = new Emitter<TransportEvents>();
   private url: UrlLike;
   private timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+  private connectionGeneration = 0;
 
   constructor(private readonly options: TransportOptions) {
     this.options = options;
@@ -25,6 +26,12 @@ export class StreamingTransport implements Transport {
   }
 
   public async connect(context: ConfigDirectorContext, timeout: number): Promise<this> {
+    const generation = ++this.connectionGeneration;
+    const clientSession = await this.options.clientSession;
+    if (generation !== this.connectionGeneration) {
+      return this;
+    }
+
     if (this.eventSource) {
       this.close();
     }
@@ -39,7 +46,8 @@ export class StreamingTransport implements Transport {
           givenContext: context,
           metaContext: this.options.metaContext,
           clientSdkKey: this.options.clientSdkKey,
-          instanceId: this.options.instanceId,
+          instanceId: clientSession.instanceId,
+          ephemeral: clientSession.ephemeral,
         }),
 
         onMessage: ({ data }) => {
@@ -131,6 +139,7 @@ export class StreamingTransport implements Transport {
   }
 
   public close() {
+    this.connectionGeneration++;
     this.eventSource?.close();
     clearTimeout(this.timeoutTimer);
   }

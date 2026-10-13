@@ -1,4 +1,5 @@
 import type {
+  ClientSession,
   ConfigDirectorContext,
   ConfigDirectorLogger,
   Transport,
@@ -17,6 +18,7 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
   private eventEmitter = new Emitter<TransportEvents>();
   private url: UrlLike;
   private lastUpdateTimestamp: string | undefined;
+  private connectionGeneration = 0;
 
   constructor(private readonly options: TransportOptions) {
     super();
@@ -27,17 +29,22 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
   }
 
   public async connect(context: ConfigDirectorContext, timeout: number): Promise<this> {
+    const generation = ++this.connectionGeneration;
     this.clearPollingInterval();
+    const clientSession = await this.options.clientSession;
+    if (generation !== this.connectionGeneration) {
+      return this;
+    }
 
     try {
-      await this.fetchConfigs(context, timeout);
+      await this.fetchConfigs(context, timeout, clientSession);
     } finally {
       // A transient failure on the first fetch must not leave the client without a
       // connection, so polling is scheduled either way. An unrecoverable failure has
       // already closed the transport and must not be retried.
       if (!this.fatalError) {
         this.schedulePollingInterval(() => {
-          void this.fetchConfigs(context, timeout).catch((error) => {
+          void this.fetchConfigs(context, timeout, clientSession).catch((error) => {
             this.logger.error("[PollingTransport] Error during polling:", error);
           });
         });
@@ -47,7 +54,12 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     return this;
   }
 
-  private async fetchConfigs(context: ConfigDirectorContext, timeout: number) {
+  public override close() {
+    this.connectionGeneration++;
+    super.close();
+  }
+
+  private async fetchConfigs(context: ConfigDirectorContext, timeout: number, clientSession: ClientSession) {
     if (this.fatalError) {
       this.logger.warn(
         "[PollingTransport] There was a prior unrecoverable error. Ignoring attempt to reconnect.",
@@ -66,7 +78,8 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
             givenContext: context,
             metaContext: this.options.metaContext,
             clientSdkKey: this.options.clientSdkKey,
-            instanceId: this.options.instanceId,
+            instanceId: clientSession.instanceId,
+            ephemeral: clientSession.ephemeral,
             lastUpdateTimestamp: this.lastUpdateTimestamp,
           }),
         },

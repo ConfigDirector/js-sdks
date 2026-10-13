@@ -20,6 +20,22 @@ export const createStubbedLogger = (): ConfigDirectorLogger => {
 
 export const createCapturingLogger = () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() });
 
+export type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason: unknown) => void;
+};
+
+export const deferred = <T>(): Deferred<T> => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
+
 export const captureUnhandledRejections = () => {
   const reasons: unknown[] = [];
   const listener = (event: PromiseRejectionEvent) => reasons.push(event.reason);

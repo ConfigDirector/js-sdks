@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
 import type {
   ClientConnectAction,
@@ -6,6 +6,7 @@ import type {
   ConfigDirectorClientOptions,
   ConfigDirectorContext,
   ConfigSet,
+  InstanceIdStorage,
   InternalClientOptions,
   Transport,
   TransportEvents,
@@ -20,6 +21,7 @@ import {
   captureUnhandledRejections,
   createCapturingLogger,
   createStubbedLogger,
+  deferred,
 } from "./helpers";
 
 const logger = createStubbedLogger();
@@ -67,6 +69,9 @@ class RecordingTransport implements Transport {
   };
   dispose = () => this.close();
 }
+
+const INSTANCE_ID_STORAGE_KEY = "configdirector-sdk:instance-id";
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const buildPayload = (kind: "full" | "delta", configs: object = {}, lastUpdateTimestamp?: string) => ({
   environmentId: "10000000-0000-0000-0000-000000000000",
@@ -126,7 +131,9 @@ describe("ConfigDirectorClient", () => {
 
     const payloads = (await commands.mswGetPayloads()) as any[];
     expect(payloads[0]?.instanceId).toEqual(expect.any(String));
+    expect(payloads[0]).not.toHaveProperty("ephemeral");
     expect(payloads[1]?.instanceId).toBe(payloads[0]?.instanceId);
+    expect(payloads[1]).not.toHaveProperty("ephemeral");
     expect(JSON.parse(localStorage.getItem("configdirector-sdk:instance-id") as string)).toMatchObject({
       id: payloads[0]?.instanceId,
     });
@@ -134,6 +141,198 @@ describe("ConfigDirectorClient", () => {
     firstClient.dispose();
     secondClient.dispose();
     localStorage.removeItem("configdirector-sdk:instance-id");
+  });
+
+  describe("client session", () => {
+    const pendingForever = <T>() => new Promise<T>(() => {});
+
+    beforeEach(() => {
+      localStorage.removeItem(INSTANCE_ID_STORAGE_KEY);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      localStorage.removeItem(INSTANCE_ID_STORAGE_KEY);
+    });
+
+    test("defers the connection and telemetry until an asynchronous storage answers, then connects with the stored instance id", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      const firstClient = createClient("sdk-key", { logger });
+      await firstClient.initialize();
+      const storedRecord = localStorage.getItem(INSTANCE_ID_STORAGE_KEY) as string;
+      const read = deferred<string | null>();
+      const storage: InstanceIdStorage = { getItem: () => read.promise, setItem: vi.fn(async () => {}) };
+      const telemetryContextUpdates = vi.mocked(telemetryClient.updateContext).mock.calls.length;
+
+      const secondClient = createClient("sdk-key", { logger }, { instanceIdStorage: storage });
+      const initialization = secondClient.initialize();
+      await sleep(100);
+
+      expect(await commands.mswGetPayloads()).toHaveLength(1);
+      expect(vi.mocked(telemetryClient.updateContext).mock.calls).toHaveLength(telemetryContextUpdates);
+
+      read.resolve(storedRecord);
+      await initialization;
+
+      const payloads = (await commands.mswGetPayloads()) as any[];
+      expect(payloads).toHaveLength(2);
+      expect(payloads[1]?.instanceId).toBe(payloads[0]?.instanceId);
+      expect(payloads[1]).not.toHaveProperty("ephemeral");
+      expect(vi.mocked(telemetryClient.updateContext).mock.calls).toHaveLength(telemetryContextUpdates + 1);
+      expect(storage.setItem).not.toHaveBeenCalled();
+      expect(secondClient.isReady).toBe(true);
+
+      firstClient.dispose();
+      secondClient.dispose();
+    });
+
+    test("connects with an ephemeral instance id when the storage has not answered after one second, and keeps it", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      const storage: InstanceIdStorage = { getItem: () => pendingForever(), setItem: vi.fn(async () => {}) };
+
+      client = createClient("sdk-key", { logger }, { instanceIdStorage: storage });
+      await client.initialize();
+      await client.updateContext({ id: "user-1", name: "Alice", traits: {} });
+
+      const payloads = (await commands.mswGetPayloads()) as any[];
+      expect(payloads).toHaveLength(2);
+      expect(payloads[0]).toMatchObject({
+        instanceId: expect.stringMatching(UUID_V4_PATTERN),
+        ephemeral: true,
+      });
+      expect(payloads[1]).toMatchObject({ instanceId: payloads[0]?.instanceId, ephemeral: true });
+      expect(storage.setItem).not.toHaveBeenCalled();
+      expect(client.isReady).toBe(true);
+    });
+
+    test("connects with an ephemeral instance id when the storage read fails", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const storage: InstanceIdStorage = {
+        getItem: async () => {
+          throw new Error("storage unavailable");
+        },
+        setItem: vi.fn(async () => {}),
+      };
+
+      client = createClient("sdk-key", { logger }, { instanceIdStorage: storage });
+      await client.initialize();
+
+      const payloads = (await commands.mswGetPayloads()) as any[];
+      expect(payloads[0]).toMatchObject({
+        instanceId: expect.stringMatching(UUID_V4_PATTERN),
+        ephemeral: true,
+      });
+      expect(storage.setItem).not.toHaveBeenCalled();
+      expect(client.isReady).toBe(true);
+    });
+
+    test("connects with an ephemeral instance id when the storage write fails", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const storage: InstanceIdStorage = {
+        getItem: async () => null,
+        setItem: async () => {
+          throw new Error("disk full");
+        },
+      };
+
+      client = createClient("sdk-key", { logger }, { instanceIdStorage: storage });
+      await client.initialize();
+
+      const payloads = (await commands.mswGetPayloads()) as any[];
+      expect(payloads[0]).toMatchObject({
+        instanceId: expect.stringMatching(UUID_V4_PATTERN),
+        ephemeral: true,
+      });
+      expect(client.isReady).toBe(true);
+    });
+
+    test("connects with an ephemeral instance id when localStorage is unavailable", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      vi.stubGlobal("localStorage", undefined);
+
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const payloads = (await commands.mswGetPayloads()) as any[];
+      expect(payloads[0]).toMatchObject({
+        instanceId: expect.stringMatching(UUID_V4_PATTERN),
+        ephemeral: true,
+      });
+      expect(client.isReady).toBe(true);
+    });
+
+    test("sends the ephemeral flag on polling requests when the instance id is not storage-backed", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+      const storage: InstanceIdStorage = { getItem: () => pendingForever(), setItem: vi.fn(async () => {}) };
+
+      client = createClient(
+        "sdk-key",
+        { logger, connection: { mode: "polling" } },
+        { instanceIdStorage: storage },
+      );
+      await client.initialize();
+
+      const payloads = (await commands.mswGetPayloads()) as any[];
+      expect(payloads[0]).toMatchObject({
+        instanceId: expect.stringMatching(UUID_V4_PATTERN),
+        ephemeral: true,
+      });
+      expect(client.isReady).toBe(true);
+    });
+
+    test("does not open a streaming connection when the client is disposed before its session resolves", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      const read = deferred<string | null>();
+      const storage: InstanceIdStorage = { getItem: () => read.promise, setItem: vi.fn(async () => {}) };
+
+      client = createClient("sdk-key", { logger }, { instanceIdStorage: storage });
+      const initialization = client.initialize();
+      client.dispose();
+      read.resolve(null);
+      await initialization;
+      await sleep(100);
+
+      expect(await commands.mswWasRequestReceived()).toBe(false);
+    });
+
+    test("does not start polling when the client is disposed before its session resolves", async () => {
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      try {
+        await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+        const read = deferred<string | null>();
+        const storage: InstanceIdStorage = { getItem: () => read.promise, setItem: vi.fn(async () => {}) };
+
+        client = createClient(
+          "sdk-key",
+          { logger, connection: { mode: "polling", pollingInterval: 60 } },
+          { instanceIdStorage: storage },
+        );
+        const initialization = client.initialize();
+        client.dispose();
+        read.resolve(null);
+        await initialization;
+        await vi.advanceTimersByTimeAsync(120_000);
+        await sleep(100);
+
+        expect(await commands.mswWasRequestReceived()).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    test("omits the ephemeral flag on polling requests when the instance id is storage-backed", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+      await client.initialize();
+
+      const payloads = (await commands.mswGetPayloads()) as any[];
+      expect(payloads[0]?.instanceId).toMatch(UUID_V4_PATTERN);
+      expect(payloads[0]).not.toHaveProperty("ephemeral");
+      expect(JSON.parse(localStorage.getItem(INSTANCE_ID_STORAGE_KEY) as string)).toMatchObject({
+        id: payloads[0]?.instanceId,
+      });
+    });
   });
 
   test("returns the default value when the config was not sent from the server", async () => {

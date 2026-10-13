@@ -30,11 +30,22 @@ export type SdkMetaContext = IdentifyingSdkOptions & {
 
 type ConnectionRetryDelayCalculator = (attempt: number) => number;
 
+export type InstanceIdStorage = {
+  getItem(key: string): string | null | Promise<string | null>;
+  setItem(key: string, value: string): void | Promise<void>;
+};
+
+export type ClientSession = {
+  instanceId: string;
+  ephemeral?: true;
+};
+
 export type InternalClientOptions = {
   fetch?: (url: string, init: RequestInit) => Promise<Response>;
   connectionRetryDelay?: ConnectionRetryDelayCalculator;
   urlFactory?: UrlFactory;
   transport?: Transport;
+  instanceIdStorage?: InstanceIdStorage;
 };
 
 /**
@@ -263,7 +274,7 @@ export type TransportOptions = {
   baseUrl: UrlLike;
   resolveUrl: UrlFactory;
   metaContext: ConfigDirectorClientOptions["metadata"] & SdkMetaContext;
-  instanceId: string;
+  clientSession: Promise<ClientSession>;
   logger: ConfigDirectorLogger;
   fetch?: (url: string, init: RequestInit) => Promise<Response>;
   connectionRetryDelay: ConnectionRetryDelayCalculator;
