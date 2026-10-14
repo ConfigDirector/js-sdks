@@ -8,6 +8,7 @@ const RULE_A = "a0000000-0000-4000-8000-000000000001";
 const RULE_B = "b0000000-0000-4000-8000-000000000002";
 const CONDITION_PLAN = "c0000000-0000-4000-8000-000000000001";
 const CONDITION_VERSION = "c0000000-0000-4000-8000-000000000002";
+const CONDITION_KIND = "c0000000-0000-4000-8000-000000000003";
 const SHARE_ENABLED = "d0000000-0000-4000-8000-000000000001";
 const SHARE_DISABLED = "d0000000-0000-4000-8000-000000000002";
 
@@ -26,6 +27,14 @@ const versionAtLeast = (version: string): Condition => ({
   operator: ">=",
   targetType: "semver",
   targetValues: [version],
+});
+const kindIs = (kind: string): Condition => ({
+  id: CONDITION_KIND,
+  attribute: "kind",
+  trait: undefined,
+  operator: "equals",
+  targetType: "text",
+  targetValues: [kind],
 });
 const conditionalRule = (id: string, order: number, conditions: Condition[], value = "Enabled"): Rule => ({
   id,
@@ -215,6 +224,36 @@ describe("ConfigEvaluator.explain", () => {
     });
   });
 
+  test("reports a kind condition by the context's kind", () => {
+    const config = configWith(conditionalRule(RULE_A, 0, [kindIs("device")]));
+
+    const explanation = evaluator.explain(config, { context: { id: "abc", kind: "device" } });
+
+    expect(explanation.value).toEqual("Enabled");
+    expect(explanation.rules[0]?.conditions[0]).toEqual({
+      conditionId: CONDITION_KIND,
+      kind: "attribute",
+      outcome: "matched",
+      resolvedValue: "device",
+      resolvedType: "scalar",
+    });
+  });
+
+  test("reports a kind condition for a context without a kind as user", () => {
+    const config = configWith(conditionalRule(RULE_A, 0, [kindIs("device")]));
+
+    const explanation = evaluator.explain(config, { context: { id: "abc" } });
+
+    expect(explanation.value).toEqual("Disabled");
+    expect(explanation.rules[0]?.conditions[0]).toEqual({
+      conditionId: CONDITION_KIND,
+      kind: "attribute",
+      outcome: "not-matched",
+      resolvedValue: "user",
+      resolvedType: "scalar",
+    });
+  });
+
   test("explains the share a rollout assigned the context to", () => {
     const config = configWith(
       rolloutRule(RULE_A, 0, [
@@ -241,6 +280,29 @@ describe("ConfigEvaluator.explain", () => {
         ],
         selectedPercentageId: SHARE_DISABLED,
       },
+    });
+  });
+
+  test("explains the share a rollout assigned a device context to from its identifier and kind", () => {
+    const config = configWith(
+      rolloutRule(RULE_A, 0, [
+        { id: SHARE_ENABLED, percentage: 25, value: "Enabled" },
+        { id: SHARE_DISABLED, percentage: 50, value: "Disabled by rollout" },
+      ]),
+    );
+
+    const explanation = evaluator.explain(config, { context: { id: "abc", kind: "device" } });
+
+    expect(explanation.value).toEqual("Disabled by rollout");
+    expect(explanation.rules[0]?.bucket).toEqual({
+      identifier: "abc",
+      defaultedToPredefinedBucket: false,
+      assignedPercentage: 47.0,
+      shares: [
+        { percentageId: SHARE_ENABLED, from: 0, to: 25, value: "Enabled" },
+        { percentageId: SHARE_DISABLED, from: 25, to: 75, value: "Disabled by rollout" },
+      ],
+      selectedPercentageId: SHARE_DISABLED,
     });
   });
 

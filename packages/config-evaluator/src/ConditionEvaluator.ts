@@ -5,6 +5,7 @@ import { compareNumeric } from "./numeric-comparison";
 import { compareDate } from "./date-comparison";
 import { compareSemver } from "./semver-comparison";
 import { compareArray } from "./array-comparison";
+import { effectiveContextKind } from "./context-kind";
 import { ABSENT, UNKNOWN_ATTRIBUTE, render, resolvedTypeOf, unwrap, type Resolved } from "./render";
 
 export class ConditionEvaluator {
@@ -59,6 +60,8 @@ export class ConditionEvaluator {
         return orAbsent(context?.context?.id);
       case "name":
         return orAbsent(context?.context?.name);
+      case "kind":
+        return effectiveContextKind(context);
       case "appName":
         return orAbsent(context?.metadata?.appName);
       case "appVersion":

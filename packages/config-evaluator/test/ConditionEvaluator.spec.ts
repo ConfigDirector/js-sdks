@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import type { Condition, Operator } from "../src/types";
+import type { AttributeCondition, Condition, Operator } from "../src/types";
 import { ConditionEvaluator } from "../src/ConditionEvaluator";
 
 describe("ConditionEvaluator", () => {
@@ -1079,6 +1079,119 @@ describe("ConditionEvaluator", () => {
       expect(
         evaluator.evaluate(condition, { context: { traits: { tags: [["a"], { k: "v" }, null] } } }),
       ).toBe(false);
+    });
+  });
+
+  describe("kind conditions", () => {
+    const kindCondition = (operator: Operator, targetValues: string[]): AttributeCondition => ({
+      id: "a",
+      attribute: "kind",
+      trait: undefined,
+      operator,
+      targetType: "text",
+      targetValues,
+    });
+
+    test("equals user holds for a context without a kind", () => {
+      const condition = kindCondition("equals", ["user"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42" } })).toBe(true);
+    });
+
+    test("does NOT equal user does not hold for a context without a kind", () => {
+      const condition = kindCondition("does NOT equal", ["user"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42" } })).toBe(false);
+    });
+
+    test("does NOT equal device holds for a context without a kind", () => {
+      const condition = kindCondition("does NOT equal", ["device"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42" } })).toBe(true);
+    });
+
+    test("is one of user and device holds for a context without a kind", () => {
+      const condition = kindCondition("is one of", ["user", "device"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42" } })).toBe(true);
+    });
+
+    test("is NOT one of user and device does not hold for a context without a kind", () => {
+      const condition = kindCondition("is NOT one of", ["user", "device"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42" } })).toBe(false);
+    });
+
+    test("is NOT one of device and tenant holds for a context without a kind", () => {
+      const condition = kindCondition("is NOT one of", ["device", "tenant"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42" } })).toBe(true);
+    });
+
+    test("equals user holds for an evaluation without a context", () => {
+      const condition = kindCondition("equals", ["user"]);
+
+      expect(evaluator.evaluate(condition, {})).toBe(true);
+    });
+
+    test("equals user holds for a user context", () => {
+      const condition = kindCondition("equals", ["user"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", kind: "user" } })).toBe(true);
+    });
+
+    test("does NOT equal device holds for a user context", () => {
+      const condition = kindCondition("does NOT equal", ["device"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", kind: "user" } })).toBe(true);
+    });
+
+    test("is one of device and user holds for a user context", () => {
+      const condition = kindCondition("is one of", ["device", "user"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", kind: "user" } })).toBe(true);
+    });
+
+    test("is NOT one of device and tenant holds for a user context", () => {
+      const condition = kindCondition("is NOT one of", ["device", "tenant"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", kind: "user" } })).toBe(true);
+    });
+
+    test("equals device holds for a device context", () => {
+      const condition = kindCondition("equals", ["device"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", kind: "device" } })).toBe(true);
+    });
+
+    test("equals user does not hold for a device context", () => {
+      const condition = kindCondition("equals", ["user"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", kind: "device" } })).toBe(false);
+    });
+
+    test("does NOT equal device does not hold for a device context", () => {
+      const condition = kindCondition("does NOT equal", ["device"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", kind: "device" } })).toBe(false);
+    });
+
+    test("is one of device and tenant holds for a device context", () => {
+      const condition = kindCondition("is one of", ["device", "tenant"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", kind: "device" } })).toBe(true);
+    });
+
+    test("is NOT one of device and tenant does not hold for a device context", () => {
+      const condition = kindCondition("is NOT one of", ["device", "tenant"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", kind: "device" } })).toBe(false);
+    });
+
+    test("a trait named kind does not change the context's kind", () => {
+      const condition = kindCondition("equals", ["user"]);
+
+      expect(evaluator.evaluate(condition, { context: { id: "42", traits: { kind: "device" } } })).toBe(true);
     });
   });
 

@@ -234,6 +234,23 @@ describe("ConfigEvaluator with segments", () => {
     expect(served.value).toBe("not free");
   });
 
+  test("a group on the context kind holds for a context of that kind", () => {
+    const kindIsDevice: AttributeCondition = {
+      id: crypto.randomUUID(),
+      kind: "attribute",
+      attribute: "kind",
+      operator: "equals",
+      targetType: "text",
+      targetValues: ["device"],
+    };
+    const segments: Segments = { [ACME]: { groups: [[kindIsDevice]] } };
+    const config = configWith(ruleServing("devices", 0, inSegment(ACME)));
+
+    const served = evaluator.evaluate(config, { context: { id: "u1", kind: "device" } }, segments);
+
+    expect(served.value).toBe("devices");
+  });
+
   describe("explain", () => {
     test("records which group a matching segment condition matched through", () => {
       const segments: Segments = {

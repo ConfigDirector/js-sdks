@@ -596,6 +596,54 @@ describe("ConfigEvaluator", () => {
     });
   });
 
+  describe("context kinds", () => {
+    const config: Config = {
+      id: CONFIG_ID,
+      key: "config-with-ten-equal-shares",
+      type: "string",
+      variations: [],
+      target: {
+        defaultValue: "this-is-the-default",
+        rules: [
+          {
+            id: crypto.randomUUID(),
+            order: 0,
+            type: "percentage",
+            target: "percentage",
+            percentages: [
+              { value: "0", percentage: 10, id: crypto.randomUUID() },
+              { value: "1", percentage: 10, id: crypto.randomUUID() },
+              { value: "2", percentage: 10, id: crypto.randomUUID() },
+              { value: "3", percentage: 10, id: crypto.randomUUID() },
+              { value: "4", percentage: 10, id: crypto.randomUUID() },
+              { value: "5", percentage: 10, id: crypto.randomUUID() },
+              { value: "6", percentage: 10, id: crypto.randomUUID() },
+              { value: "7", percentage: 10, id: crypto.randomUUID() },
+              { value: "8", percentage: 10, id: crypto.randomUUID() },
+              { value: "9", percentage: 10, id: crypto.randomUUID() },
+            ],
+          },
+        ],
+      },
+    };
+
+    test("assigns a context without a kind the share its identifier and the config id hash to", () => {
+      expect(evaluator.evaluate(config, { context: { id: "user-1" } }).value).toEqual("0");
+    });
+
+    test("assigns a user context the same share as a context without a kind", () => {
+      expect(evaluator.evaluate(config, { context: { id: "user-1", kind: "user" } }).value).toEqual("0");
+    });
+
+    test("assigns a device context the share its identifier and kind hash to", () => {
+      expect(evaluator.evaluate(config, { context: { id: "user-1", kind: "device" } }).value).toEqual("5");
+    });
+
+    test("assigns a device context without an identifier the first share", () => {
+      expect(evaluator.evaluate(config, { context: { kind: "device" } }).value).toEqual("0");
+    });
+  });
+
   describe("unknown rule type", () => {
     test("skips an unknown rule type and falls back to the default value", () => {
       const config: Config = {

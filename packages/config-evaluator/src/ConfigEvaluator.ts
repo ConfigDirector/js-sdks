@@ -1,6 +1,7 @@
 import { ConditionEvaluator } from "./ConditionEvaluator";
 import { SegmentEvaluator } from "./SegmentEvaluator";
 import { assignPercentage, PERCENTAGE_WITHOUT_IDENTIFIER } from "./percent-hashing";
+import { effectiveContextKind } from "./context-kind";
 import type {
   Condition,
   ConditionExplanation,
@@ -123,7 +124,11 @@ export class ConfigEvaluator {
     const assignedPercentage =
       identifier === undefined
         ? PERCENTAGE_WITHOUT_IDENTIFIER
-        : assignPercentage({ configId: config.id, contextIdentifier: identifier });
+        : assignPercentage({
+            configId: config.id,
+            contextIdentifier: identifier,
+            contextKind: effectiveContextKind(context),
+          });
     const shares: Share[] = [];
     let sum = 0.0;
     let selected: Percentage | undefined = undefined;

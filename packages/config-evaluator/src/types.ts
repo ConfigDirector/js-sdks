@@ -118,7 +118,7 @@ export type Config = {
 };
 
 export type EvaluationContext = {
-  context?: ConfigDirectorContext;
+  context?: ConfigDirectorContext & { kind?: string };
   metadata?: ConfigDirectorMetaContext;
 };
 
