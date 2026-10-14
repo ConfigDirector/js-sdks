@@ -183,6 +183,67 @@ describe("Vue plugin composables", () => {
       expect(payloads).toHaveLength(2);
       expect((payloads[1] as any)?.givenContext).toMatchObject({ id: "user-2" });
     });
+
+    test("connects with no context and shows none when the context is updated to one with an invalid kind", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "before-context-update",
+              },
+            }),
+          },
+        ],
+        [
+          {
+            data: full({
+              "example-config": {
+                id: "00000000-0000-0000-0000-0000000003e8",
+                key: "example-config",
+                type: "string",
+                value: "after-context-update",
+              },
+            }),
+          },
+        ],
+      ]);
+
+      const TestComponent = defineComponent({
+        setup() {
+          const { value } = useConfigValue("example-config", "Default");
+          const { context, updateContext } = useContext();
+          return { value, context, updateContext };
+        },
+        template: `
+          <div>
+            <div data-testid="target">{{ value }}</div>
+            <div data-testid="context-id">{{ context?.id ?? "none" }}</div>
+            <button data-testid="update-btn" @click="updateContext({ id: 'user-2', kind: 'Tenant' })">Update</button>
+          </div>
+        `,
+      });
+
+      render(TestComponent, {
+        global: {
+          plugins: [[ConfigDirectorPlugin, { sdkKey: "dummy-key", context: { id: "user-1" }, logger }]],
+        },
+      });
+
+      await screen.findByText("before-context-update", undefined, { timeout: 1_000 });
+      expect(screen.getByTestId("context-id")).toHaveTextContent("user-1");
+
+      await fireEvent.click(screen.getByTestId("update-btn"));
+
+      await screen.findByText("after-context-update", undefined, { timeout: 1_000 });
+      expect(screen.getByTestId("context-id")).toHaveTextContent("none");
+
+      const payloads = (await commands.mswGetPayloads()) as { givenContext?: unknown }[];
+      expect(payloads.map((payload) => payload.givenContext)).toEqual([{ id: "user-1" }, {}]);
+    });
   });
 
   describe("instanceId", () => {

@@ -15,6 +15,7 @@ const MockCollector = jest.mocked(ClientTelemetryEventCollector);
 type CollectorMock = {
   start: jest.Mock;
   evaluatedConfig: jest.Mock;
+  recordInvalidContext: jest.Mock;
   updateContext: jest.Mock;
   close: jest.Mock;
 };
@@ -29,6 +30,7 @@ beforeEach(() => {
   collectorMock = {
     start: jest.fn(),
     evaluatedConfig: jest.fn(),
+    recordInvalidContext: jest.fn(),
     updateContext: jest.fn().mockImplementation(() => Promise.resolve()),
     close: jest.fn().mockImplementation(() => Promise.resolve()),
   };
@@ -181,6 +183,12 @@ describe("ReactNativeTelemetryClient", () => {
     const ctx = { id: "u-1" };
     await makeClient().updateContext(ctx);
     expect(collectorMock.updateContext).toHaveBeenCalledWith(ctx);
+  });
+
+  test("delegates recordInvalidContext to the collector", () => {
+    makeClient().recordInvalidContext("Device");
+
+    expect(collectorMock.recordInvalidContext).toHaveBeenCalledWith("Device");
   });
 
   test("delegates close to the collector", async () => {

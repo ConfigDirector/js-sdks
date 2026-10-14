@@ -106,6 +106,7 @@ export class ConfigDirectorProvider implements Provider {
     }
 
     const id = (openFeatureContext.targetingKey ?? openFeatureContext["id"])?.toString();
+    const kind = openFeatureContext["kind"] as string | undefined;
     const name = openFeatureContext["name"]?.toString();
     const traits = (openFeatureContext?.["traits"] as Record<string, unknown>) || {};
     const hasTraits = typeof traits === "object" && Object.keys(traits).length > 0;
@@ -113,6 +114,7 @@ export class ConfigDirectorProvider implements Provider {
 
     return {
       id,
+      kind,
       name,
       traits: hasTraits ? traits : undefined,
       anonymous: typeof anonymousProp === "boolean" ? anonymousProp : undefined,

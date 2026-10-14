@@ -61,5 +61,15 @@ describe.skipIf(appCreatedBeforeThisFile)(
       expect(testClient.contextUpdates).toEqual([{}, { id: "user-1" }]);
       expect(testClient.client.context).toEqual({ id: "user-1" });
     });
+
+    test("shows no context after updateContext with an invalid kind, which the client records as an empty context", async () => {
+      const { context, updateContext } = useConfigDirectorContext();
+
+      await updateContext({ id: "42", kind: "Device" });
+
+      expect(context.value).toBeUndefined();
+      expect(testClient.client.context).toBeUndefined();
+      expect(testClient.contextUpdates).toEqual([{}, { id: "user-1" }, {}]);
+    });
   },
 );

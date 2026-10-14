@@ -9,7 +9,7 @@ import { shallowRef, readonly } from "vue";
 import { defineNuxtPlugin, useRuntimeConfig } from "#app";
 import { useConfigDirectorContext } from "./app/composables/useConfigDirectorContext";
 import type { ClientStatus } from "./types";
-import { admitContext } from "@shared/context-kind";
+import { admittedContextOrNone } from "@shared/context-kind";
 
 export default defineNuxtPlugin((nuxtApp) => {
   const runtimeConfig = useRuntimeConfig();
@@ -56,8 +56,7 @@ class SsrClient implements ConfigDirectorClient {
   }
 
   get context(): ConfigDirectorContext | undefined {
-    const admission = admitContext(this.suppliedContext);
-    return admission.outcome === "admitted" ? admission.context : undefined;
+    return admittedContextOrNone(this.suppliedContext);
   }
 
   get isReady(): boolean {

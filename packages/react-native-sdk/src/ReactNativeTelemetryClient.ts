@@ -42,6 +42,10 @@ export class ReactNativeTelemetryClient implements TelemetryClient {
     this.collector.evaluatedConfig(this.sanitizeEvaluatedConfigEvent(event));
   }
 
+  public recordInvalidContext(kindSample: string): void {
+    this.collector.recordInvalidContext(kindSample);
+  }
+
   public async close(): Promise<void> {
     await this.collector.close();
   }

@@ -117,6 +117,20 @@ describe("createClient", () => {
     expect(telemetryRequest?.body?.metaContext).toMatchObject({ appName: "Robo Checkout", appVersion: "7.1.0" });
   });
 
+  test("reports an invalid context kind found at initialization, and connects with no context", async () => {
+    const client = createClient("sdk-key", { logger });
+
+    await client.initialize({ id: "42", kind: "Device" });
+    client.dispose();
+
+    await waitForTelemetryReport();
+    const telemetryRequest = requests.find((request) => request.url.includes("telemetry"));
+    expect(telemetryRequest?.body?.aggregatedEvents?.invalidContext).toEqual([
+      expect.objectContaining({ count: 1, event: { reason: "invalid-context-kind", kindSample: "Device" } }),
+    ]);
+    expect(requests.find((request) => request.url.startsWith(SSE_URL))?.body?.givenContext).toEqual({});
+  });
+
   test("says which of the app name and version it could not find", async () => {
     const infoMessages: string[] = [];
     const recordingLogger = { ...logger, info: (message: string) => infoMessages.push(message) };

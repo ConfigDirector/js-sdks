@@ -302,6 +302,42 @@ describe("ConfigDirectorProvider", () => {
       unmount();
     });
 
+    test("reconnects with no context when the context prop changes to a context with an invalid kind", async () => {
+      mockFetchWith(async () => buildResponse(new ReadableStream()));
+
+      let setContext: (ctx: { id: string; kind?: string }) => void = () => {};
+
+      const StatefulWrapper = ({ children }: { children: React.ReactNode }) => {
+        const [context, setCtx] = React.useState<{ id: string; kind?: string } | undefined>({ id: "user-1" });
+        setContext = setCtx;
+        return (
+          <ConfigDirectorProvider sdkKey="dummy-key" context={context} logger={logger}>
+            {children}
+          </ConfigDirectorProvider>
+        );
+      };
+
+      const { unmount } = renderHook(() => useConfigValue("key", "default"), {
+        wrapper: StatefulWrapper,
+      });
+
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+      const callsBefore = fetchSpy.mock.calls.length;
+
+      await act(async () => {
+        setContext({ id: "user-2", kind: "Tenant" });
+      });
+
+      await waitFor(() => expect(fetchSpy.mock.calls.length).toBeGreaterThan(callsBefore));
+      const sseCalls = (fetchSpy.mock.calls as Array<[unknown, RequestInit]>).filter(([url]) =>
+        String(url).includes("/sse/"),
+      );
+      const bodies = sseCalls.map(([, init]) => JSON.parse(init.body as string) as Record<string, unknown>);
+      expect(bodies.map((body) => body.givenContext)).toEqual([{ id: "user-1" }, {}]);
+
+      unmount();
+    });
+
     test("does not reconnect when an unrelated prop changes", async () => {
       mockFetchWith(async () => buildResponse(new ReadableStream()));
 

@@ -1,14 +1,15 @@
 import { type TelemetryValue } from "@shared/telemetry/utils";
 import { type ConfigDirectorContext } from "../types";
 import { ClientEventReporter } from "./ClientEventReporter";
-import type { EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
-import type { EventSnapshotPreprocessor, ReporterResponse} from "./types";
+import type { EvaluatedConfigEvent, InvalidContextEvent } from "@shared/telemetry/telemetry-events";
+import type { AggregatedEvent, EventSnapshotPreprocessor, ReporterResponse } from "./types";
 import { type EventReporter } from "./types";
 import {
   TelemetryEventCollector,
   type TelemetryEventCollectorOptions,
 } from "@shared/telemetry/TelemetryEventCollector";
 import { EvaluatedConfigEventPreprocessor } from "@shared/telemetry/EvaluatedConfigEventPreprocessor";
+import { InvalidContextSubmissions } from "@shared/telemetry/InvalidContextSubmissions";
 
 export class ClientTelemetryEventCollector extends TelemetryEventCollector<
   EvaluatedConfigEvent<TelemetryValue>
@@ -18,6 +19,7 @@ export class ClientTelemetryEventCollector extends TelemetryEventCollector<
   >;
   protected readonly reporter: EventReporter;
   protected _context?: ConfigDirectorContext;
+  private readonly invalidContextSubmissions = new InvalidContextSubmissions();
 
   constructor(options: TelemetryEventCollectorOptions) {
     super(options);
@@ -40,6 +42,14 @@ export class ClientTelemetryEventCollector extends TelemetryEventCollector<
     this.evaluationEventQueue.push(event);
   }
 
+  public recordInvalidContext(kindSample: string): void {
+    this.invalidContextSubmissions.record(kindSample);
+  }
+
+  public absorbInvalidContextSubmissions(entries: AggregatedEvent<InvalidContextEvent>[]): void {
+    this.invalidContextSubmissions.absorb(entries);
+  }
+
   public async forceFlush() {
     this.cancelScheduledFlush();
     await this.flushAndScheduleNext();
@@ -57,6 +67,7 @@ export class ClientTelemetryEventCollector extends TelemetryEventCollector<
       discreteEvents: {},
       aggregatedEvents: {
         evaluatedConfig: this.aggregator.aggregate(evaluationSnapshot),
+        invalidContext: this.invalidContextSubmissions.takeSnapshot(),
       },
       droppedEvents: {
         evaluatedConfig: evaluationSnapshot.droppedCount,

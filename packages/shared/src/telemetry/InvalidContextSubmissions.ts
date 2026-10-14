@@ -16,17 +16,33 @@ export class InvalidContextSubmissions {
 
   public record(kindSample: string): InvalidContextRecording {
     this.startTime ??= new Date();
-    const count = this.countsByKindSample.get(kindSample);
-    if (count !== undefined) {
-      this.countsByKindSample.set(kindSample, count + 1);
-      return "known-kind-sample";
+    return this.add(kindSample, 1);
+  }
+
+  public absorb(entries: AggregatedEvent<InvalidContextEvent>[]): void {
+    for (const entry of entries) {
+      if (this.startTime === undefined || entry.startTime < this.startTime) {
+        this.startTime = entry.startTime;
+      }
+      this.add(entry.event.kindSample, entry.count);
     }
-    if (this.countsByKindSample.size < DISTINCT_KIND_SAMPLE_LIMIT) {
-      this.countsByKindSample.set(kindSample, 1);
-      return "new-kind-sample";
+  }
+
+  private add(kindSample: string | undefined, count: number): InvalidContextRecording {
+    if (kindSample !== undefined) {
+      const knownCount = this.countsByKindSample.get(kindSample);
+      if (knownCount !== undefined) {
+        this.countsByKindSample.set(kindSample, knownCount + count);
+        return "known-kind-sample";
+      }
+      if (this.countsByKindSample.size < DISTINCT_KIND_SAMPLE_LIMIT) {
+        this.countsByKindSample.set(kindSample, count);
+        return "new-kind-sample";
+      }
     }
-    this.countBeyondSampleLimit += 1;
-    return this.countBeyondSampleLimit === 1 ? "first-beyond-sample-limit" : "beyond-sample-limit";
+    const firstBeyondSampleLimit = this.countBeyondSampleLimit === 0;
+    this.countBeyondSampleLimit += count;
+    return firstBeyondSampleLimit ? "first-beyond-sample-limit" : "beyond-sample-limit";
   }
 
   public takeSnapshot(): AggregatedEvent<InvalidContextEvent>[] {

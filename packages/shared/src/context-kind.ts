@@ -52,6 +52,13 @@ const firstCharactersOf = (text: string, maximumCharacters: number): string => {
   return sample;
 };
 
+export const admittedContextOrNone = (
+  context: ConfigDirectorContext | undefined,
+): ConfigDirectorContext | undefined => {
+  const admission = admitContext(context);
+  return admission.outcome === "admitted" ? admission.context : undefined;
+};
+
 export const admitContext = (context: ConfigDirectorContext | undefined): ContextAdmission => {
   const kind: unknown = context?.kind;
   if (isAcceptedKind(kind)) {

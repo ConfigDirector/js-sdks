@@ -99,7 +99,8 @@ export interface TestClient {
 
   /**
    * The context of every `initialize` and `updateContext` call, in call order. `initialize` without
-   * a context records an empty context. Resumes are not recorded.
+   * a context records an empty context, and so does a call whose context has an invalid kind, since
+   * the client connects without it. Resumes are not recorded.
    */
   readonly contextUpdates: ConfigDirectorContext[];
 }
@@ -107,6 +108,7 @@ export interface TestClient {
 const noopTelemetryClient: TelemetryClient = {
   updateContext: async () => {},
   evaluatedConfig: () => {},
+  recordInvalidContext: () => {},
   close: async () => {},
 };
 

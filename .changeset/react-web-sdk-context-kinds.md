@@ -1,0 +1,5 @@
+---
+"@configdirector/react-web-sdk": minor
+---
+
+`ConfigDirectorContext` has a new optional `kind` field that says what kind of entity the context represents, such as `device`, `organization` or `tenant`; leaving it out means `user`. A kind has 1 to 64 characters, using only lowercase letters, digits, `-` and `_`, and is used exactly as given. Targeting rules and segments can match on a context's kind, and percentage rollouts give contexts of other kinds their own assignments while `user` contexts keep the ones they have today. A context with an invalid kind never makes the client throw: `initialize` and `updateContext` log an error, stop using the previous context, and connect as if no context had been supplied, so flags evaluate for no context, `context` reads as none, and `contextUpdated` reports none. ConfigDirector receives a count of these calls with a sample of each invalid kind, never the context's identifier, name or traits. This applies to the `context` prop of `ConfigDirectorProvider` and to `useContext().updateContext`. The test client records such a call as an empty context in `contextUpdates`.

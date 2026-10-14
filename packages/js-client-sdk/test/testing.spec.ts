@@ -217,6 +217,22 @@ describe("@configdirector/client-sdk/testing", () => {
     expect(testClient.contextUpdates).toEqual([a, b]);
   });
 
+  test("S13b contextUpdates records an empty context for a context with an invalid kind, and the error is logged", async () => {
+    const loggedErrors: unknown[][] = [];
+    const testClient = create({
+      values: {},
+      logger: { ...createStubbedLogger(), error: (...args: unknown[]) => loggedErrors.push(args) },
+    });
+
+    await testClient.client.initialize({ id: "42", kind: "Device" });
+    await testClient.client.updateContext({ id: "42", kind: "device" });
+    await testClient.client.updateContext({ id: "43", kind: "Tenant" });
+
+    expect(testClient.contextUpdates).toEqual([{}, { id: "42", kind: "device" }, {}]);
+    expect(testClient.client.context).toBeUndefined();
+    expect(loggedErrors).toEqual([[expect.stringContaining("'Device'")], [expect.stringContaining("'Tenant'")]]);
+  });
+
   test("S14 operations after dispose are silent no-ops", async () => {
     const testClient = create({ values: { greeting: "hello" } });
     const watched: string[] = [];

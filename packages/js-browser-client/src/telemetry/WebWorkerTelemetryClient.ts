@@ -6,11 +6,13 @@ import type {
   TelemetryEvaluatedConfigEvent,
   TelemetryFlushEvent,
   TelemetryInitializeEvent,
+  TelemetryInvalidContextSubmissionsEvent,
   TelemetryUpdateContextEvent,
   TelemetryWorkerResponseEvent,
 } from "./types";
 import type { TelemetryValue } from "@shared/telemetry/utils";
 import { mapToTelemetryValue } from "@shared/telemetry/utils";
+import { InvalidContextSubmissions } from "@shared/telemetry/InvalidContextSubmissions";
 
 const DEFAULT_WORKER_CLOSE_TIMEOUT = 6_000;
 
@@ -25,6 +27,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
   private turnedOff = false;
   private readonly pendingEvaluations: TelemetryEvaluatedConfigEvent[] = [];
   private readonly pendingEvaluationLimit: number;
+  private readonly pendingInvalidContextSubmissions = new InvalidContextSubmissions();
   private closePromise: Promise<void> | undefined;
   private closeResolve: (() => void) | undefined;
   private closeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -104,7 +107,23 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
       worker.postMessage(evaluation);
     }
     this.pendingEvaluations.length = 0;
+    this.forwardInvalidContextSubmissions(worker);
     return worker;
+  }
+
+  private forwardInvalidContextSubmissions(worker: Worker | undefined) {
+    if (!worker) {
+      return;
+    }
+    const entries = this.pendingInvalidContextSubmissions.takeSnapshot();
+    if (entries.length === 0) {
+      return;
+    }
+    const submissionsMessage: TelemetryInvalidContextSubmissionsEvent = {
+      type: "InvalidContextSubmissions",
+      payload: { entries },
+    };
+    worker.postMessage(submissionsMessage);
   }
 
   public async updateContext(value: ConfigDirectorContext | undefined) {
@@ -136,6 +155,11 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
       this.pendingEvaluations.shift();
     }
     this.pendingEvaluations.push(evaluatedConfigMessage);
+  }
+
+  public recordInvalidContext(kindSample: string): void {
+    this.pendingInvalidContextSubmissions.record(kindSample);
+    this.forwardInvalidContextSubmissions(this.worker);
   }
 
   private sanitizeEvaluatedConfigEvent<T extends ConfigValueType>(

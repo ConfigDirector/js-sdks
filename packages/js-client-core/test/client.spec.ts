@@ -28,6 +28,7 @@ const logger = createStubbedLogger();
 const telemetryClient: TelemetryClient = {
   updateContext: vi.fn(async () => {}),
   evaluatedConfig: vi.fn(),
+  recordInvalidContext: vi.fn(),
   close: vi.fn(async () => {}),
 };
 
@@ -648,6 +649,7 @@ describe("ConfigDirectorClient", () => {
       const rejectingTelemetryClient: TelemetryClient = {
         updateContext: () => Promise.reject(new Error("telemetry is unavailable")),
         evaluatedConfig: () => {},
+        recordInvalidContext: () => {},
         close: () => Promise.reject(new Error("telemetry is unavailable")),
       };
 
@@ -2100,5 +2102,158 @@ describe("ConfigDirectorClient", () => {
 
     expect(client.isReady).toBe(false);
     await vi.waitFor(() => expect(client.isReady).toBe(true), { timeout: 2_000 });
+  });
+
+  describe("context kinds", () => {
+    let capturingLogger: ReturnType<typeof createCapturingLogger>;
+
+    beforeEach(() => {
+      capturingLogger = createCapturingLogger();
+      vi.mocked(telemetryClient.recordInvalidContext).mockClear();
+      vi.mocked(telemetryClient.updateContext).mockClear();
+    });
+
+    test("initialize with a context whose kind has an uppercase letter connects with an empty context, logs one error and shows no context", async () => {
+      const transport = new RecordingTransport();
+      client = createClient("sdk-key", { logger: capturingLogger }, { transport });
+      const contextEvents: unknown[] = [];
+      client.on("contextUpdated", (event) => contextEvents.push(event));
+
+      const initialization = client.initialize({ id: "42", kind: "Device" });
+      transport.deliver(full() as ConfigSet);
+      await initialization;
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{}]);
+      expect(client.context).toBeUndefined();
+      expect(contextEvents).toEqual([{ context: undefined }]);
+      expect(capturingLogger.error.mock.calls).toEqual([[expect.stringContaining("'Device'")]]);
+    });
+
+    test("updateContext with a context whose kind is empty stops using the previous context and shows no context", async () => {
+      const transport = new RecordingTransport();
+      client = createClient("sdk-key", { logger: capturingLogger }, { transport });
+      const initialization = client.initialize({ id: "42", kind: "device" });
+      transport.deliver(full() as ConfigSet);
+      await initialization;
+      const contextEvents: unknown[] = [];
+      client.on("contextUpdated", (event) => contextEvents.push(event));
+
+      await client.updateContext({ id: "43", kind: "" });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{ id: "42", kind: "device" }, {}]);
+      expect(client.context).toBeUndefined();
+      expect(contextEvents).toEqual([{ context: undefined }]);
+      expect(vi.mocked(telemetryClient.updateContext).mock.calls).toEqual([[{ id: "42", kind: "device" }], [undefined]]);
+      expect(capturingLogger.error.mock.calls).toEqual([[expect.stringContaining("''")]]);
+    });
+
+    test("counts one invalid submission per initialization or context update and none on a network resume", async () => {
+      const transport = new RecordingTransport();
+      client = createClient("sdk-key", { logger: capturingLogger }, { transport });
+
+      const initialization = client.initialize({ id: "42", kind: "Device" });
+      transport.deliver(full() as ConfigSet);
+      await initialization;
+      client.pauseNetwork();
+      await client.resumeNetwork();
+      await client.updateContext({ id: "42", kind: " tenant " });
+
+      expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["Device"], [" tenant "]]);
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{}, {}, {}]);
+      expect(capturingLogger.error).toHaveBeenCalledTimes(2);
+    });
+
+    test("counts no invalid submission when the stream reconnects after a dropped connection", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], { status: 429 }, [{ data: full() }]]);
+      client = new DefaultConfigDirectorClient(
+        telemetryClient,
+        "sdk-key",
+        { sdkName: "test-sdk", sdkVersion: "1.2.0" },
+        { logger: capturingLogger },
+        { connectionRetryDelay: () => 10 },
+      );
+
+      await client.initialize({ id: "42", kind: "Device" });
+      await vi.waitFor(
+        async () => expect((await commands.mswGetPayloads()).length).toBeGreaterThanOrEqual(3),
+        { timeout: 2_000 },
+      );
+      client.dispose();
+
+      const payloads = (await commands.mswGetPayloads()) as { givenContext: unknown }[];
+      expect(payloads.slice(0, 3).map((payload) => payload.givenContext)).toEqual([{}, {}, {}]);
+      expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["Device"]]);
+      expect(capturingLogger.error).toHaveBeenCalledTimes(1);
+    });
+
+    test("samples the first 128 characters of a long invalid kind", async () => {
+      const transport = new RecordingTransport();
+      client = createClient("sdk-key", { logger: capturingLogger }, { transport });
+
+      const initialization = client.initialize({ id: "42", kind: "D".repeat(200) });
+      transport.deliver(full() as ConfigSet);
+      await initialization;
+
+      expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["D".repeat(128)]]);
+    });
+
+    test("evaluates with no context after an invalid kind", async () => {
+      const transport = new RecordingTransport();
+      client = createClient("sdk-key", { logger: capturingLogger }, { transport });
+      const initialization = client.initialize({ id: "42", kind: "device" });
+      transport.deliver(full() as ConfigSet);
+      await initialization;
+      await client.updateContext({ id: "42", kind: "Device" });
+      const evaluations: unknown[] = [];
+      client.on("configEvaluated", ({ evaluation }) => evaluations.push(evaluation));
+      vi.mocked(telemetryClient.evaluatedConfig).mockClear();
+
+      client.getValue("greeting", "in-code default");
+
+      await vi.waitFor(() => expect(evaluations).toHaveLength(1));
+      expect(evaluations[0]).toMatchObject({ key: "greeting", context: undefined });
+      expect(telemetryClient.evaluatedConfig).toHaveBeenCalledWith(expect.objectContaining({ contextId: undefined }));
+    });
+
+    test("streaming sends a valid kind as givenContext.kind and an empty context for an invalid kind", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }], [{ data: full() }]]);
+      client = createClient("sdk-key", { logger: capturingLogger });
+
+      await client.initialize({ id: "42", kind: "Device" });
+      await client.updateContext({ id: "42", kind: "device" });
+      await client.updateContext({ id: "43", kind: "Tenant" });
+
+      const payloads = (await commands.mswGetPayloads()) as { givenContext: unknown }[];
+      expect(payloads.map((payload) => payload.givenContext)).toEqual([{}, { id: "42", kind: "device" }, {}]);
+      expect(client.context).toBeUndefined();
+      expect(vi.mocked(telemetryClient.updateContext).mock.calls).toEqual([
+        [undefined],
+        [{ id: "42", kind: "device" }],
+        [undefined],
+      ]);
+      expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["Device"], ["Tenant"]]);
+    });
+
+    test("polling sends a valid kind as givenContext.kind, an empty context for an invalid kind, and counts no poll", async () => {
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      try {
+        await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+        client = createClient("sdk-key", { logger: capturingLogger, connection: { mode: "polling", pollingInterval: 60 } });
+
+        await client.initialize({ id: "42", kind: "device" });
+        await client.updateContext({ id: "43", kind: "Tenant" });
+        await vi.advanceTimersByTimeAsync(60_000);
+        await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(3), { timeout: 1_000 });
+
+        const payloads = (await commands.mswGetPayloads()) as { givenContext: unknown }[];
+        expect(payloads.map((payload) => payload.givenContext)).toEqual([{ id: "42", kind: "device" }, {}, {}]);
+        expect(client.context).toBeUndefined();
+        expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["Tenant"]]);
+        expect(capturingLogger.error).toHaveBeenCalledTimes(1);
+      } finally {
+        client.dispose();
+        vi.useRealTimers();
+      }
+    });
   });
 });

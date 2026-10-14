@@ -22,5 +22,7 @@ export interface TelemetryClient {
 
   evaluatedConfig<T extends ConfigValueType>(event: EvaluatedConfigEvent<T>): void;
 
+  recordInvalidContext(kindSample: string): void;
+
   close(): Promise<void>;
 }

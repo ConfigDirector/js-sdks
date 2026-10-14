@@ -3,6 +3,7 @@ import { useState } from "#app";
 import { toRaw, readonly } from "vue";
 import type { Ref } from "vue";
 import { useConfigDirectorClient } from "./useConfigDirectorClient";
+import { admittedContextOrNone } from "@shared/context-kind";
 
 const DEFAULT_TIMEOUT = 3_000;
 
@@ -21,7 +22,7 @@ export const useConfigDirectorContext = (): {
     const rawContext = toRaw(context);
     const oldContext = JSON.stringify(state.value);
     const newContext = JSON.stringify(rawContext);
-    state.value = rawContext;
+    state.value = admittedContextOrNone(rawContext);
     if (oldContext != newContext) {
       const timeout = getEffectiveTimeout(options?.timeoutMilliseconds);
       let timer: ReturnType<typeof setTimeout> | undefined;

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { ConfigDirectorLogger } from "@shared/types";
 
 export const SSE_URL = "https://client-sdk-api.configdirector.com/client/sse/v1" as const;
@@ -11,3 +12,5 @@ export const createStubbedLogger = (): ConfigDirectorLogger => {
     error: function (): void {},
   };
 };
+
+export const createCapturingLogger = () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() });

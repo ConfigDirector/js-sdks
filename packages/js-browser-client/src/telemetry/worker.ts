@@ -63,6 +63,9 @@ addEventListener("message", (message: MessageEvent<TelemetryWorkerEvent>) => {
     case "EvaluatedConfigEvent":
       collector?.evaluatedConfig(event.payload);
       break;
+    case "InvalidContextSubmissions":
+      collector?.absorbInvalidContextSubmissions(event.payload.entries);
+      break;
     case "UpdateContext":
       collector?.updateContext(event.payload.context);
       break;

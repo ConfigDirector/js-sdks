@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vite
 import { commands } from "vitest/browser";
 import { OpenFeature, ProviderEvents, ProviderNotReadyError, ProviderStatus } from "@openfeature/web-sdk";
 import { ConfigDirectorProvider } from "../src";
-import { SSE_URL, POLL_URL, createStubbedLogger } from "./helpers";
+import { SSE_URL, POLL_URL, createCapturingLogger, createStubbedLogger } from "./helpers";
 
 const full = (configs: object = {}) => ({
   environmentId: "10000000-0000-0000-0000-000000000000",
@@ -155,6 +155,75 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
     await OpenFeature.setProviderAndWait(provider);
 
     await expect(OpenFeature.clearProviders()).resolves.toBeUndefined();
+  });
+
+  describe("context kinds", () => {
+    const givenContexts = async () =>
+      ((await commands.mswGetPayloads()) as { givenContext: unknown }[]).map((payload) => payload.givenContext);
+
+    test("maps a top-level kind onto the ConfigDirector context kind on initialization", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }), {
+        targetingKey: "42",
+        kind: "device",
+      });
+
+      expect(await givenContexts()).toEqual([{ id: "42", kind: "device" }]);
+    });
+
+    test("maps a top-level kind onto the ConfigDirector context kind when the context changes", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      await OpenFeature.setContext({ targetingKey: "42", kind: "tenant" });
+
+      expect(await givenContexts()).toEqual([{}, { id: "42", kind: "tenant" }]);
+    });
+
+    test("keeps a kind inside traits as an ordinary trait", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }), {
+        targetingKey: "42",
+        traits: { kind: "device" },
+      });
+
+      expect(await givenContexts()).toEqual([{ id: "42", traits: { kind: "device" } }]);
+    });
+
+    test("initializes successfully with an invalid kind, connecting with no context and logging an error", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(stringConfig("greeting", "hello everyone")) }]]);
+      const capturingLogger = createCapturingLogger();
+
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger: capturingLogger }), {
+        targetingKey: "42",
+        kind: "Tenant",
+      });
+
+      const client = OpenFeature.getClient();
+      expect(client.providerStatus).toBe(ProviderStatus.READY);
+      expect(client.getStringDetails("greeting", "in-code default")).toMatchObject({ value: "hello everyone" });
+      expect(client.getStringDetails("greeting", "in-code default").errorCode).toBeUndefined();
+      expect(await givenContexts()).toEqual([{}]);
+      expect(capturingLogger.error).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("'Tenant'"));
+    });
+
+    test("changes the context successfully with a top-level kind that is not text, connecting with no context", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [{ data: full(stringConfig("greeting", "hello 42")) }],
+        [{ data: full(stringConfig("greeting", "hello everyone")) }],
+      ]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }), { targetingKey: "42" });
+      const client = OpenFeature.getClient();
+      expect(client.getStringValue("greeting", "in-code default")).toBe("hello 42");
+
+      await OpenFeature.setContext({ targetingKey: "42", kind: 42 });
+
+      expect(client.providerStatus).toBe(ProviderStatus.READY);
+      expect(client.getStringValue("greeting", "in-code default")).toBe("hello everyone");
+      expect(await givenContexts()).toEqual([{ id: "42" }, {}]);
+    });
   });
 
   describe("events", () => {

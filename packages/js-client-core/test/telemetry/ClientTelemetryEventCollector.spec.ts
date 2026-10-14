@@ -192,6 +192,18 @@ describe("ClientTelemetryEventCollector", () => {
       });
     });
 
+    test("includes the context kind in the payload after updateContext", async () => {
+      collector = createCollector();
+      await collector.updateContext({ id: "42", kind: "device" });
+      collector.evaluatedConfig(baseEvent);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as EventReport).context).toEqual({ id: "42", kind: "device" });
+    });
+
     test("sends no context when context has not been set", async () => {
       collector = createCollector();
       collector.evaluatedConfig(baseEvent);
@@ -254,6 +266,172 @@ describe("ClientTelemetryEventCollector", () => {
 
       const payloads = await commands.mswGetPayloads();
       expect(payloads).toHaveLength(1);
+    });
+  });
+
+  describe("recordInvalidContext", () => {
+    const invalidContextEntries = async (payloadIndex = 0) => {
+      const payloads = await commands.mswGetPayloads();
+      return (payloads[payloadIndex] as EventReport).aggregatedEvents["invalidContext"];
+    };
+
+    test("reports invalid context submissions counted by kind sample", async () => {
+      vi.setSystemTime(new Date("2026-10-14T10:00:00.000Z"));
+      collector = createCollector();
+      collector.recordInvalidContext("Tenant");
+      await vi.advanceTimersByTimeAsync(1_000);
+      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContext("Device");
+
+      await vi.advanceTimersByTimeAsync(4_000);
+      await waitForPayloadCount(1);
+
+      expect(await invalidContextEntries()).toEqual([
+        {
+          startTime: "2026-10-14T10:00:00.000Z",
+          endTime: "2026-10-14T10:00:05.000Z",
+          count: 2,
+          event: { reason: "invalid-context-kind", kindSample: "Tenant" },
+        },
+        {
+          startTime: "2026-10-14T10:00:00.000Z",
+          endTime: "2026-10-14T10:00:05.000Z",
+          count: 1,
+          event: { reason: "invalid-context-kind", kindSample: "Device" },
+        },
+      ]);
+    });
+
+    test("counts submissions beyond 20 distinct kind samples in one entry without a sample", async () => {
+      collector = createCollector();
+      for (let index = 1; index <= 20; index++) {
+        collector.recordInvalidContext(`Kind-${index}`);
+      }
+      collector.recordInvalidContext("Kind-21");
+      collector.recordInvalidContext("Kind-22");
+      collector.recordInvalidContext("Kind-21");
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+
+      const entries = await invalidContextEntries();
+      expect(entries).toHaveLength(21);
+      expect(entries[19]).toMatchObject({ count: 1, event: { reason: "invalid-context-kind", kindSample: "Kind-20" } });
+      expect(entries[20]).toMatchObject({ count: 3, event: { reason: "invalid-context-kind" } });
+      expect(entries[20].event).not.toHaveProperty("kindSample");
+    });
+
+    test("sends a report holding only invalid context submissions", async () => {
+      collector = createCollector();
+      collector.recordInvalidContext("Tenant");
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads).toHaveLength(1);
+      expect((payloads[0] as EventReport).aggregatedEvents).toEqual({
+        evaluatedConfig: [],
+        invalidContext: [
+          {
+            startTime: expect.any(String),
+            endTime: expect.any(String),
+            count: 1,
+            event: { reason: "invalid-context-kind", kindSample: "Tenant" },
+          },
+        ],
+      });
+    });
+
+    test("clears invalid context submissions after a flush so they are not resent", async () => {
+      collector = createCollector({ flushIntervalDelay: 10_000, initialFlushIntervalDelay: 5_000 });
+      collector.recordInvalidContext("Tenant");
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+
+      collector.evaluatedConfig(baseEvent);
+      await vi.advanceTimersByTimeAsync(10_000);
+      await waitForPayloadCount(2);
+
+      expect(await invalidContextEntries(1)).toEqual([]);
+    });
+
+    test("stops reporting invalid context submissions after a fatal response", async () => {
+      await commands.mswUseHandlers({ url: TELEMETRY_URL, status: 401 });
+      collector = createCollector();
+      collector.recordInvalidContext("Tenant");
+      await vi.advanceTimersByTimeAsync(5_000);
+      await vi.waitFor(
+        async () => {
+          if (!(await commands.mswWasRequestReceived())) throw new Error("Request not yet received");
+        },
+        { timeout: 2_000 },
+      );
+      await commands.mswUseHandlers({ url: TELEMETRY_URL });
+
+      collector.recordInvalidContext("Device");
+      await vi.advanceTimersByTimeAsync(35_000);
+      await drainNetwork();
+
+      expect(await commands.mswGetPayloads()).toHaveLength(0);
+    });
+  });
+
+  describe("absorbInvalidContextSubmissions", () => {
+    const heldEntry = (kindSample: string | undefined, count: number, startTime: string) => ({
+      startTime: new Date(startTime),
+      endTime: new Date(startTime),
+      count,
+      event: { reason: "invalid-context-kind" as const, kindSample },
+    });
+
+    test("adds held submissions to the recorded ones and keeps the earliest start time", async () => {
+      vi.setSystemTime(new Date("2026-10-14T10:00:00.000Z"));
+      collector = createCollector();
+      collector.recordInvalidContext("Tenant");
+
+      collector.absorbInvalidContextSubmissions([
+        heldEntry("Tenant", 2, "2026-10-14T09:59:00.000Z"),
+        heldEntry("Device", 1, "2026-10-14T09:59:30.000Z"),
+      ]);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as EventReport).aggregatedEvents["invalidContext"]).toEqual([
+        {
+          startTime: "2026-10-14T09:59:00.000Z",
+          endTime: "2026-10-14T10:00:05.000Z",
+          count: 3,
+          event: { reason: "invalid-context-kind", kindSample: "Tenant" },
+        },
+        {
+          startTime: "2026-10-14T09:59:00.000Z",
+          endTime: "2026-10-14T10:00:05.000Z",
+          count: 1,
+          event: { reason: "invalid-context-kind", kindSample: "Device" },
+        },
+      ]);
+    });
+
+    test("counts a held entry without a sample, and held samples beyond the limit, in the entry without a sample", async () => {
+      collector = createCollector();
+      for (let index = 1; index <= 20; index++) {
+        collector.recordInvalidContext(`Kind-${index}`);
+      }
+
+      collector.absorbInvalidContextSubmissions([
+        heldEntry("Kind-21", 2, "2026-10-14T09:59:00.000Z"),
+        heldEntry(undefined, 5, "2026-10-14T09:59:00.000Z"),
+      ]);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+      const payloads = await commands.mswGetPayloads();
+      const entries = (payloads[0] as EventReport).aggregatedEvents["invalidContext"];
+      expect(entries).toHaveLength(21);
+      expect(entries[20]).toMatchObject({ count: 7, event: { reason: "invalid-context-kind" } });
+      expect(entries[20].event).not.toHaveProperty("kindSample");
     });
   });
 

@@ -130,6 +130,18 @@ describe("ConfigDirector client plugin", () => {
       expect(provided.provide.configDirectorClientReadyStatus.value).toBe("ready");
     });
 
+    test("initializes the installed client with no context when the app context has an invalid kind", async () => {
+      appContext.value = { id: "42", kind: "Device" };
+      const nuxtApp = createNuxtApp();
+      runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp);
+
+      await runAppCreatedHook(nuxtApp);
+
+      expect(testClient.client.isReady).toBe(true);
+      expect(testClient.client.context).toBeUndefined();
+      expect(testClient.contextUpdates).toEqual([{}]);
+    });
+
     test("does not initialize an installed client that is already ready with the same context", async () => {
       appContext.value = { id: "user-1" };
       await testClient.client.initialize({ id: "user-1" });

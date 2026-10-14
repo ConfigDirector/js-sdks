@@ -15,6 +15,12 @@
     >
       Set Context
     </button>
+    <button
+      data-testid="set-invalid-kind-context-btn"
+      @click="setInvalidKindContext"
+    >
+      Set Context With Invalid Kind
+    </button>
   </div>
 </template>
 
@@ -28,5 +34,9 @@ const { context, updateContext } = useConfigDirectorContext();
 
 const setUserContext = async () => {
   await updateContext({ id: "test-user-1", name: "Test User" });
+};
+
+const setInvalidKindContext = async () => {
+  await updateContext({ id: "test-user-2", kind: "Tenant" });
 };
 </script>

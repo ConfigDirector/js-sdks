@@ -320,6 +320,42 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
     await page.close();
   });
 
+  test("reconnects with no context when updateContext is called with an invalid kind", { timeout: 30_000 }, async () => {
+    const capturedPayloads: { givenContext?: unknown }[] = [];
+    const page = await browser.newPage();
+
+    await page.route("**/client/sse/v1", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+        return;
+      }
+      const rawBody = route.request().postData();
+      if (rawBody) capturedPayloads.push(JSON.parse(rawBody));
+      await route.fulfill({ status: 200, headers: SSE_HEADERS, body: sseBody(CLIENT_BUNDLE) });
+    });
+    await page.route("**/client/telemetry/v1", async (route) => {
+      await route.fulfill({ status: 202, headers: { "access-control-allow-origin": "*" } });
+    });
+
+    await page.goto(url("/context-test"));
+    await textOf(page, '[data-testid="status"]').toBe("ready");
+    await page.locator('[data-testid="set-context-btn"]').click();
+    await textOf(page, '[data-testid="client-context-id"]').toBe("test-user-1");
+
+    await page.locator('[data-testid="set-invalid-kind-context-btn"]').click();
+
+    await textOf(page, '[data-testid="context-id"]').toBe("after-invalid-kind");
+    await textOf(page, '[data-testid="client-context-id"]').toBe("none");
+    await expect.poll(() => capturedPayloads.length, { timeout: 10_000 }).toBe(3);
+    expect(capturedPayloads.map((payload) => payload.givenContext)).toEqual([
+      {},
+      { id: "test-user-1", name: "Test User" },
+      {},
+    ]);
+
+    await page.close();
+  });
+
   test(
     "telemetry web worker sends evaluation events to the telemetry endpoint",
     { timeout: 30_000 },

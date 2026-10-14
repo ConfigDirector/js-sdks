@@ -34,7 +34,10 @@ import { resolvePollingInterval } from "@shared/transport/pollingInterval";
 import { resolveClientSession } from "./client-session";
 import { PollingTransport } from "./PollingTransport";
 import { readHost, readUserAgent } from "./browser-globals";
+import { admitContext } from "@shared/context-kind";
 const MAX_EXPONENTIAL_DELAY = 9; // 2^9 = 512 seconds, to cap it to under 10min
+
+type ContextSubmission = Exclude<ClientConnectAction, "network resume">;
 
 type WatchHandlerWithOptions<T extends ConfigValueType> = {
   handler: WatchHandler<T>;
@@ -189,11 +192,32 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     if (!this.hasReceivedConfigSet) {
       this.initializing = true;
     }
-    await this.connectToTransport(context, "initialization");
+    await this.submitContext(context, "initialization");
   }
 
   public async updateContext(context: ConfigDirectorContext) {
-    await this.connectToTransport(context, "context update");
+    await this.submitContext(context, "context update");
+  }
+
+  private async submitContext(context: ConfigDirectorContext | undefined, submission: ContextSubmission) {
+    await this.connectToTransport(this.contextToConnectWith(context, submission), submission);
+  }
+
+  private contextToConnectWith(
+    suppliedContext: ConfigDirectorContext | undefined,
+    submission: ContextSubmission,
+  ): ConfigDirectorContext | undefined {
+    const admission = admitContext(suppliedContext);
+    switch (admission.outcome) {
+      case "admitted":
+        return admission.context;
+      case "ignored":
+        this.logger.error(
+          `[ConfigDirectorClient] Ignored the context supplied for ${submission} because its kind '${admission.kindSample}' is invalid; connecting as if no context was supplied. A context kind has 1 to 64 characters, using only lowercase letters, digits, '-' and '_'.`,
+        );
+        this.telemetryClient.recordInvalidContext(admission.kindSample);
+        return undefined;
+    }
   }
 
   public get context(): ConfigDirectorContext | undefined {

@@ -168,19 +168,27 @@ export interface ConfigDirectorClient extends EventProvider<ClientEvents> {
    * not attempt to re-connect and an error will be logged to the console or the provided
    * logger.
    *
-   * @param context The current user's context to be used for evaluating targeting rules (optional).
+   * A context whose {@link ConfigDirectorContext.kind} is invalid is ignored as a whole: an error is
+   * logged, and the client connects as if no context had been provided.
+   *
+   * @param context The current context to be used for evaluating targeting rules (optional).
    */
   initialize(context?: ConfigDirectorContext): Promise<void>;
 
   /**
-   * Updates the user's context and re-evaluates all config and flag values based on the new context.
+   * Updates the context and re-evaluates all config and flag values based on the new context.
    *
-   * @param context The current user's context to be used for evaluating targeting rules (required).
+   * A context whose {@link ConfigDirectorContext.kind} is invalid is ignored as a whole: an error is
+   * logged, the previous context is no longer used, and the client connects as if no context had been
+   * provided.
+   *
+   * @param context The current context to be used for evaluating targeting rules (required).
    */
   updateContext(context: ConfigDirectorContext): Promise<void>;
 
   /**
-   * Returns the current context the client is configured with, or undefined if there is no context.
+   * Returns the current context the client is configured with, or undefined if there is no context,
+   * including after a context with an invalid kind was ignored.
    *
    * Note that the value returned does not updated immediately after calling {@link updateContext}. Only
    * once the underlying connection was successful or timed out, the current context is updated. This is
