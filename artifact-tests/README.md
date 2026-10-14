@@ -11,7 +11,8 @@ dependency — together with only the package's declared peer dependencies. It t
 
 - **Packaging checks** — every file referenced by the package entry points (`exports`, `main`,
   `module`, `browser`, `types`, `typesVersions`) exists in the installed package, and every bare
-  import specifier in the `dist` bundles resolves from the installed package.
+  import specifier in the `dist` bundles resolves from the installed package or names one of the
+  package's optional peer dependencies.
 - **Functional smokes** — the SDK is imported for real (ESM and CJS entries where published) and
   driven against a local mock of the ConfigDirector SDK server: initialize, read config values
   over streaming and polling, dispose. Node SDKs run under plain `node`; browser SDKs are bundled

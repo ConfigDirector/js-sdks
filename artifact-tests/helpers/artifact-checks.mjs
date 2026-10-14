@@ -47,8 +47,15 @@ export const findMissingEntryFiles = (packageDir, { ignoreConditions = [] } = {}
   );
 };
 
+const optionalPeerDependencies = (packageDir) => {
+  const packageJson = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8"));
+  return Object.entries(packageJson.peerDependenciesMeta ?? {})
+    .filter(([, meta]) => meta?.optional === true)
+    .map(([name]) => name);
+};
+
 export const findUnresolvableImports = (packageDir, { allow = [] } = {}) => {
-  const allowed = new Set(allow);
+  const allowed = new Set([...allow, ...optionalPeerDependencies(packageDir)]);
   const problems = [];
   const distDir = join(packageDir, "dist");
   const files = walkFiles(distDir).filter((file) => /\.(mjs|cjs|js)$/.test(file));
