@@ -186,6 +186,84 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
     await expect(OpenFeature.clearProviders()).resolves.toBeUndefined();
   });
 
+  describe("context kinds", () => {
+    const attributeCondition = (attribute: string, trait: string | null, targetValue: string) => ({
+      id: crypto.randomUUID(),
+      attribute,
+      trait,
+      operator: "equals",
+      targetType: "text",
+      targetValues: [targetValue],
+    });
+    const valueRule = (order: number, value: string, condition: unknown) => ({
+      id: crypto.randomUUID(),
+      order,
+      type: "conditional",
+      target: "value",
+      percentages: null,
+      value,
+      conditions: [condition],
+    });
+    const greeting = configWithValue("greeting", "string", "hello everyone", [
+      valueRule(0, "hello device", attributeCondition("kind", null, "device")),
+      valueRule(1, "hello kind trait", attributeCondition("traits", "/kind", "device")),
+      valueRule(2, "hello 42", attributeCondition("identifier", null, "42")),
+    ]);
+
+    test("maps a top-level kind onto the ConfigDirector context kind", async () => {
+      server.use(sseHandler((controller) => controller.enqueue(message(fullBundle({ greeting })))));
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      const client = OpenFeature.getClient();
+
+      const value = await client.getStringValue("greeting", "in-code default", {
+        targetingKey: "42",
+        kind: "device",
+      });
+
+      expect(value).toBe("hello device");
+    });
+
+    test("keeps a kind inside traits as an ordinary trait", async () => {
+      server.use(sseHandler((controller) => controller.enqueue(message(fullBundle({ greeting })))));
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      const client = OpenFeature.getClient();
+
+      const value = await client.getStringValue("greeting", "in-code default", {
+        targetingKey: "42",
+        traits: { kind: "device" },
+      });
+
+      expect(value).toBe("hello kind trait");
+    });
+
+    test("resolves a context with an invalid kind successfully to the value for no context", async () => {
+      server.use(sseHandler((controller) => controller.enqueue(message(fullBundle({ greeting })))));
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      const client = OpenFeature.getClient();
+
+      const details = await client.getStringDetails("greeting", "in-code default", {
+        targetingKey: "42",
+        kind: "Tenant",
+      });
+
+      expect(details.value).toBe("hello everyone");
+      expect(details.errorCode).toBeUndefined();
+    });
+
+    test("treats a top-level kind that is not text as an invalid kind", async () => {
+      server.use(sseHandler((controller) => controller.enqueue(message(fullBundle({ greeting })))));
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      const client = OpenFeature.getClient();
+
+      const value = await client.getStringValue("greeting", "in-code default", {
+        targetingKey: "42",
+        kind: 42,
+      });
+
+      expect(value).toBe("hello everyone");
+    });
+  });
+
   describe("events", () => {
     test("notifies an OpenFeature client of PROVIDER_READY and PROVIDER_CONFIGURATION_CHANGED once the initial snapshot arrives", async () => {
       server.use(

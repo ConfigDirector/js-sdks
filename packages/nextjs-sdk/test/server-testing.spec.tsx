@@ -65,6 +65,24 @@ describe("@configdirector/nextjs-sdk/server/testing", () => {
     expect(testClient.client.getValue("greeting", "default", { id: "user-b", traits: { plan: "pro" } })).toBe("hello");
   });
 
+  test("generateSsrConfigSet evaluates a context with an invalid kind once per call, logging it", async () => {
+    const loggedErrors: unknown[][] = [];
+    const testClient = create({
+      values: { greeting: "hello", "max-items": 20 },
+      logger: { ...logger, error: (...args: unknown[]) => loggedErrors.push(args) },
+    });
+    install(testClient);
+    await testClient.client.initialize();
+
+    const configs = generateSsrConfigSet({ context: { id: "user-a", kind: "Tenant" } });
+
+    expect(configs).toMatchObject({
+      greeting: { key: "greeting", value: "hello" },
+      "max-items": { key: "max-items", value: "20" },
+    });
+    expect(loggedErrors).toEqual([[expect.stringContaining("'Tenant'")]]);
+  });
+
   test("createTestClient rejects a null value", () => {
     expect(() => create({ values: { k: null as any } })).toThrow(ConfigDirectorValidationError);
   });

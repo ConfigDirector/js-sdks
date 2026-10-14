@@ -205,6 +205,48 @@ describe("ServerTelemetryEventCollector", () => {
       expect(event.evaluatedValue.valueId).toMatch(/^[0-9a-zA-Z]{22}$/);
     });
 
+    test("carries the context kind beside the context id", async () => {
+      const collector = createCollector();
+      collector.evaluatedConfig({ ...basePayload, context: { id: "42", kind: "device" } });
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
+      expect(event.contextId).toBe("42");
+      expect(event.contextKind).toBe("device");
+    });
+
+    test("carries the context kind user beside the id of a context without a kind", async () => {
+      const collector = createCollector();
+      collector.evaluatedConfig({ ...basePayload, context: { id: "42" } });
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
+      expect(event.contextId).toBe("42");
+      expect(event.contextKind).toBe("user");
+    });
+
+    test("does not carry a context kind when the context is anonymous", async () => {
+      const collector = createCollector();
+      collector.evaluatedConfig({ ...basePayload, context: { id: "42", kind: "device", anonymous: true } });
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
+      expect(event).not.toHaveProperty("contextKind");
+    });
+
+    test("does not carry a context kind when the context has no identifier", async () => {
+      const collector = createCollector();
+      collector.evaluatedConfig({ ...basePayload, context: { kind: "device" } });
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      const event = capturedPayloads[0].aggregatedEvents.evaluatedConfig[0].event;
+      expect(event).not.toHaveProperty("contextKind");
+    });
+
     test("does not associate a contextId with the event when context is anonymous", async () => {
       const collector = createCollector();
       collector.evaluatedConfig({ ...basePayload, context: { id: "user-id", anonymous: true } });
@@ -223,7 +265,20 @@ describe("ServerTelemetryEventCollector", () => {
 
       await vi.advanceTimersByTimeAsync(5_000);
 
-      expect(capturedPayloads[0].discreteEvents.capturedContexts).toEqual([{ id: "user-id" }]);
+      expect(capturedPayloads[0].discreteEvents.capturedContexts).toEqual([{ id: "user-id", kind: "user" }]);
+    });
+
+    test("captures a user context and a device context that share an identifier separately, with their kinds", async () => {
+      const collector = createCollector();
+      collector.evaluatedConfig({ ...basePayload, context: { id: "42" } });
+      collector.evaluatedConfig({ ...basePayload, context: { id: "42", kind: "device" } });
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      expect(capturedPayloads[0].discreteEvents.capturedContexts).toEqual([
+        { id: "42", kind: "user" },
+        { id: "42", kind: "device" },
+      ]);
     });
 
     test("does not include context when context has no id", async () => {
@@ -299,6 +354,104 @@ describe("ServerTelemetryEventCollector", () => {
 
       expect(capturedPayloads[0].droppedEvents.capturedContexts).toBe(2);
       expect(capturedPayloads[0].discreteEvents.capturedContexts).toHaveLength(2);
+    });
+  });
+
+  describe("recordInvalidContext", () => {
+    test("reports invalid context submissions counted by kind sample", async () => {
+      vi.setSystemTime(new Date("2026-10-13T10:00:00.000Z"));
+      const collector = createCollector();
+      collector.recordInvalidContext("Tenant");
+      await vi.advanceTimersByTimeAsync(1_000);
+      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContext("Device");
+
+      await vi.advanceTimersByTimeAsync(4_000);
+
+      expect(capturedPayloads[0].aggregatedEvents.invalidContext).toEqual([
+        {
+          startTime: "2026-10-13T10:00:00.000Z",
+          endTime: "2026-10-13T10:00:05.000Z",
+          count: 2,
+          event: { reason: "invalid-context-kind", kindSample: "Tenant" },
+        },
+        {
+          startTime: "2026-10-13T10:00:00.000Z",
+          endTime: "2026-10-13T10:00:05.000Z",
+          count: 1,
+          event: { reason: "invalid-context-kind", kindSample: "Device" },
+        },
+      ]);
+    });
+
+    test("counts submissions beyond 20 distinct kind samples in one entry without a sample", async () => {
+      const collector = createCollector();
+      for (let index = 1; index <= 20; index++) {
+        collector.recordInvalidContext(`Kind-${index}`);
+      }
+      collector.recordInvalidContext("Kind-21");
+      collector.recordInvalidContext("Kind-22");
+      collector.recordInvalidContext("Kind-21");
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      const entries = capturedPayloads[0].aggregatedEvents.invalidContext;
+      expect(entries).toHaveLength(21);
+      expect(entries[19]).toMatchObject({
+        count: 1,
+        event: { reason: "invalid-context-kind", kindSample: "Kind-20" },
+      });
+      expect(entries[20]).toMatchObject({ count: 3, event: { reason: "invalid-context-kind" } });
+      expect(entries[20].event).not.toHaveProperty("kindSample");
+    });
+
+    test("sends a report holding only invalid context submissions", async () => {
+      const collector = createCollector();
+      collector.recordInvalidContext("Tenant");
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      expect(capturedPayloads).toHaveLength(1);
+      expect(capturedPayloads[0].aggregatedEvents).toEqual({
+        evaluatedConfig: [],
+        invalidContext: [
+          {
+            startTime: expect.any(String),
+            endTime: expect.any(String),
+            count: 1,
+            event: { reason: "invalid-context-kind", kindSample: "Tenant" },
+          },
+        ],
+      });
+    });
+
+    test("clears invalid context submissions after flush so they are not resent", async () => {
+      const collector = createCollector({ flushIntervalDelay: 10_000, initialFlushIntervalDelay: 5_000 });
+      collector.recordInvalidContext("Tenant");
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      collector.evaluatedConfig(basePayload);
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      expect(capturedPayloads[1].aggregatedEvents.invalidContext).toEqual([]);
+    });
+
+    test("stops reporting invalid context submissions after a fatal HTTP response", async () => {
+      server.use(http.post(TELEMETRY_URL, () => HttpResponse.json({}, { status: 401 })));
+      const collector = createCollector();
+      collector.recordInvalidContext("Tenant");
+      await vi.advanceTimersByTimeAsync(5_000);
+      server.use(
+        http.post(TELEMETRY_URL, async ({ request }) => {
+          capturedPayloads.push(await request.json());
+          return HttpResponse.json({});
+        }),
+      );
+
+      collector.recordInvalidContext("Device");
+      await vi.advanceTimersByTimeAsync(35_000);
+
+      expect(capturedPayloads).toHaveLength(0);
     });
   });
 

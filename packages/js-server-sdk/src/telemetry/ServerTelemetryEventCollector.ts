@@ -13,6 +13,11 @@ import { TelemetryEventCollector } from "@shared/telemetry/TelemetryEventCollect
 import { LimitedMap } from "@shared/LimitedMap";
 import { mapToTelemetryValue, type TelemetryValue } from "@shared/telemetry/utils";
 import { EvaluatedConfigEventPreprocessor } from "@shared/telemetry/EvaluatedConfigEventPreprocessor";
+import { effectiveContextKind } from "@config-evaluator/context-kind";
+import {
+  InvalidContextSubmissions,
+  type InvalidContextRecording,
+} from "@shared/telemetry/InvalidContextSubmissions";
 
 const DEFAULT_CONTEXTS_LIMIT = 1_000;
 
@@ -26,6 +31,7 @@ export class ServerTelemetryEventCollector
   protected readonly reporter: EventReporter;
   protected _context?: ConfigDirectorContext;
   private readonly contexts: LimitedMap<string, ConfigDirectorContext>;
+  private readonly invalidContextSubmissions = new InvalidContextSubmissions();
 
   constructor(options: ServerTelemetryEventCollectorOptions) {
     super(options);
@@ -38,15 +44,23 @@ export class ServerTelemetryEventCollector
     if (!this.collectEvents) {
       return;
     }
-    if (payload.context?.id && !payload.context.anonymous) {
-      this.contexts.set(payload.context.id, payload.context);
+    const context = payload.context ?? undefined;
+    const contextKind = effectiveContextKind({ context });
+    const contextId = context?.anonymous ? undefined : context?.id;
+    if (contextId) {
+      this.contexts.set(`${contextKind}:${contextId}`, { ...context, kind: contextKind });
     }
     const event = {
       ...payload.evaluation,
-      contextId: payload.context?.anonymous ? undefined : payload.context?.id,
+      contextId,
+      contextKind: contextId === undefined ? undefined : contextKind,
     };
 
     this.evaluationEventQueue.push(this.sanitizeEvaluatedConfigEvent(event));
+  }
+
+  public recordInvalidContext(kindSample: string): InvalidContextRecording {
+    return this.invalidContextSubmissions.record(kindSample);
   }
 
   private sanitizeEvaluatedConfigEvent<T extends ConfigValueType>(
@@ -85,6 +99,7 @@ export class ServerTelemetryEventCollector
       },
       aggregatedEvents: {
         evaluatedConfig: this.aggregator.aggregate(evaluationSnapshot),
+        invalidContext: this.invalidContextSubmissions.takeSnapshot(),
       },
       droppedEvents: {
         evaluatedConfig: evaluationSnapshot.droppedCount,

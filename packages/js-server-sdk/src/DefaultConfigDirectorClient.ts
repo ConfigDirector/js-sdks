@@ -30,6 +30,11 @@ import {
   SERVER_MIN_POLLING_INTERVAL_SECONDS,
 } from "@shared/constants";
 import { resolvePollingInterval } from "@shared/transport/pollingInterval";
+import { admitContext } from "@shared/context-kind";
+import {
+  DISTINCT_KIND_SAMPLE_LIMIT,
+  type InvalidContextRecording,
+} from "@shared/telemetry/InvalidContextSubmissions";
 import { ServerTelemetryEventCollector, type ServerTelemetryClient } from "./telemetry";
 import { generateValueId } from "./telemetry/value-id-generator";
 
@@ -42,6 +47,21 @@ type WatchHandlerWithOptions<T extends ConfigValueType> = {
   defaultValue: T;
   requestedType: string;
   context?: ConfigDirectorContext;
+};
+
+const logInvalidContext: {
+  [R in InvalidContextRecording]: (logger: ConfigDirectorLogger, kindSample: string) => void;
+} = {
+  "new-kind-sample": (logger, kindSample) =>
+    logger.error(
+      `[ConfigDirectorClient] Ignored a context with the invalid kind '${kindSample}' and evaluated as if no context was supplied. A context kind has 1 to 64 characters, using only lowercase letters, digits, '-' and '_'.`,
+    ),
+  "known-kind-sample": () => {},
+  "first-beyond-sample-limit": (logger) =>
+    logger.error(
+      `[ConfigDirectorClient] Ignored a context with another invalid kind and evaluated as if no context was supplied. ${DISTINCT_KIND_SAMPLE_LIMIT} different invalid kinds were logged recently, so further invalid kinds are not logged individually.`,
+    ),
+  "beyond-sample-limit": () => {},
 };
 
 const usesAnySegment = (definition: ConfigDefinition, segmentIds: Set<string>): boolean =>
@@ -332,8 +352,9 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     configKey: string,
     configDefinition: ConfigDefinition | undefined,
     defaultValue: T,
-    context?: ConfigDirectorContext,
+    suppliedContext?: ConfigDirectorContext,
   ): T {
+    const context = this.contextToEvaluate(suppliedContext);
     if (configDefinition) {
       const configState = this.configEvaluator.evaluate(
         configDefinition,
@@ -388,6 +409,21 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         context: context,
       });
       return defaultValue;
+    }
+  }
+
+  private contextToEvaluate(
+    suppliedContext: ConfigDirectorContext | undefined,
+  ): ConfigDirectorContext | undefined {
+    const admission = admitContext(suppliedContext);
+    switch (admission.outcome) {
+      case "admitted":
+        return admission.context;
+      case "ignored": {
+        const recording = this.usageEventCollector.recordInvalidContext(admission.kindSample);
+        logInvalidContext[recording](this.logger, admission.kindSample);
+        return undefined;
+      }
     }
   }
 
@@ -459,6 +495,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     context?: ConfigDirectorContext;
     configKeys?: string[];
   }): Record<string, ConfigState> {
+    const context = this.contextToEvaluate(options?.context);
     if (!this.configSet) return {};
 
     const entries = Object.entries(this.configSet.configs);
@@ -471,7 +508,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         key,
         this.configEvaluator.evaluate(
           config,
-          { context: options?.context, metadata: this.metaContext },
+          { context, metadata: this.metaContext },
           this.configSet?.segments,
         ),
       ]),

@@ -9,6 +9,7 @@ import { shallowRef, readonly } from "vue";
 import { defineNuxtPlugin, useRuntimeConfig } from "#app";
 import { useConfigDirectorContext } from "./app/composables/useConfigDirectorContext";
 import type { ClientStatus } from "./types";
+import { admitContext } from "@shared/context-kind";
 
 export default defineNuxtPlugin((nuxtApp) => {
   const runtimeConfig = useRuntimeConfig();
@@ -40,22 +41,23 @@ export default defineNuxtPlugin((nuxtApp) => {
 });
 
 class SsrClient implements ConfigDirectorClient {
-  private currentContext?: ConfigDirectorContext;
+  private suppliedContext?: ConfigDirectorContext;
 
   constructor(private readonly serverClient: ServerConfigDirectorClient) {
     this.serverClient = serverClient;
   }
 
   async initialize(context?: ConfigDirectorContext): Promise<void> {
-    this.currentContext = context;
+    this.suppliedContext = context;
   }
 
   async updateContext(context: ConfigDirectorContext): Promise<void> {
-    this.currentContext = context;
+    this.suppliedContext = context;
   }
 
   get context(): ConfigDirectorContext | undefined {
-    return this.currentContext;
+    const admission = admitContext(this.suppliedContext);
+    return admission.outcome === "admitted" ? admission.context : undefined;
   }
 
   get isReady(): boolean {
@@ -67,7 +69,7 @@ class SsrClient implements ConfigDirectorClient {
   }
 
   getValue<T extends ConfigValueType>(configKey: string, defaultValue: T): T {
-    return this.serverClient.getValue(configKey, defaultValue, this.currentContext);
+    return this.serverClient.getValue(configKey, defaultValue, this.suppliedContext);
   }
 
   watch(): () => void {

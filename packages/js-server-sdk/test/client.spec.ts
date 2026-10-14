@@ -1825,6 +1825,7 @@ describe("ConfigDirectorClient", () => {
     const createTelemetryClient = (): ServerTelemetryClient => ({
       start: vi.fn(),
       evaluatedConfig: vi.fn(),
+      recordInvalidContext: vi.fn(() => "new-kind-sample" as const),
       close: vi.fn(async () => {}),
     });
 
@@ -2339,6 +2340,481 @@ describe("ConfigDirectorClient", () => {
       await vi.waitFor(() => expect(updates).toHaveLength(2));
       expect(updates[1]).toEqual({ keys: ["greeting"], removedKeys: [] });
       client.dispose();
+    });
+  });
+
+  describe("context kinds", () => {
+    type TelemetryReport = {
+      discreteEvents: { capturedContexts: unknown[] };
+      aggregatedEvents: {
+        evaluatedConfig: unknown[];
+        invalidContext: { count: number; event: { reason: string; kindSample?: string } }[];
+      };
+    };
+
+    const greetingForContext42 = {
+      id: "11111111-1111-4111-8111-111111111111",
+      key: "greeting",
+      type: "string",
+      variations: [],
+      target: {
+        environmentId: "10000000-0000-0000-0000-000000000000",
+        defaultValue: "hello everyone",
+        rules: [
+          {
+            id: "33333333-3333-4333-8333-333333333333",
+            order: 0,
+            type: "conditional",
+            target: "value",
+            value: "hello 42",
+            conditions: [
+              {
+                id: "44444444-4444-4444-8444-444444444444",
+                attribute: "identifier",
+                operator: "equals",
+                targetType: "text",
+                targetValues: ["42"],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const streaming = (configs: Record<string, unknown>, ...deltaConfigs: Record<string, unknown>[]) =>
+      server.use(
+        http.post(SSE_URL, () =>
+          buildResponse(
+            new ReadableStream({
+              start(controller) {
+                const bundle = (kind: string, bundleConfigs: Record<string, unknown>) =>
+                  message({
+                    environmentId: "10000000-0000-0000-0000-000000000000",
+                    projectId: "20000000-0000-0000-0000-000000000000",
+                    kind,
+                    configs: bundleConfigs,
+                  });
+                controller.enqueue(bundle("full", configs));
+                deltaConfigs.forEach((delta) => controller.enqueue(bundle("delta", delta)));
+              },
+            }),
+          ),
+        ),
+      );
+
+    let loggedErrors: unknown[][];
+    let reports: TelemetryReport[];
+    const errorRecordingLogger = () => ({
+      ...createStubbedLogger(),
+      error: (...args: unknown[]) => {
+        loggedErrors.push(args);
+      },
+    });
+
+    beforeEach(() => {
+      loggedErrors = [];
+      reports = [];
+      server.use(
+        http.post(TELEMETRY_URL, async ({ request }) => {
+          reports.push((await request.json()) as TelemetryReport);
+          return new Response(null, { status: 204 });
+        }),
+      );
+    });
+
+    const reportSentOnDispose = async (client: { dispose(): void }): Promise<TelemetryReport> => {
+      client.dispose();
+      return vi.waitFor(() => {
+        const [report] = reports;
+        if (!report) {
+          throw new Error("No telemetry report was sent yet");
+        }
+        return report;
+      });
+    };
+
+    test("evaluates a context whose kind has an uppercase letter as if no context was supplied", async () => {
+      streaming({ greeting: greetingForContext42 });
+      const client = createClient("sdk-key", { logger: errorRecordingLogger() });
+      await client.initialize();
+      const evaluations: unknown[] = [];
+      client.on("configEvaluated", ({ evaluation }) => evaluations.push(evaluation));
+
+      const greeting = client.getValue("greeting", "in-code default", { id: "42", kind: "Tenant" });
+
+      expect(greeting).toBe("hello everyone");
+      await vi.waitFor(() => expect(evaluations).toHaveLength(1));
+      expect(evaluations[0]).toEqual({
+        key: "greeting",
+        value: "hello everyone",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+      expect(loggedErrors).toEqual([[expect.stringContaining("'Tenant'")]]);
+      client.dispose();
+    });
+
+    test("evaluates a context whose kind is empty as if no context was supplied", async () => {
+      streaming({ greeting: greetingForContext42 });
+      const client = createClient("sdk-key", { logger: errorRecordingLogger() });
+      await client.initialize();
+      const evaluations: unknown[] = [];
+      client.on("configEvaluated", ({ evaluation }) => evaluations.push(evaluation));
+
+      const greeting = client.getValue("greeting", "in-code default", { id: "42", kind: "" });
+
+      expect(greeting).toBe("hello everyone");
+      await vi.waitFor(() => expect(evaluations).toHaveLength(1));
+      expect(evaluations[0]).toEqual({
+        key: "greeting",
+        value: "hello everyone",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+      expect(loggedErrors).toEqual([[expect.stringContaining("''")]]);
+      client.dispose();
+    });
+
+    test("evaluates a context whose kind has 65 characters as if no context was supplied", async () => {
+      streaming({ greeting: greetingForContext42 });
+      const client = createClient("sdk-key", { logger: errorRecordingLogger() });
+      await client.initialize();
+      const evaluations: unknown[] = [];
+      client.on("configEvaluated", ({ evaluation }) => evaluations.push(evaluation));
+
+      const greeting = client.getValue("greeting", "in-code default", { id: "42", kind: "d".repeat(65) });
+
+      expect(greeting).toBe("hello everyone");
+      await vi.waitFor(() => expect(evaluations).toHaveLength(1));
+      expect(evaluations[0]).toEqual({
+        key: "greeting",
+        value: "hello everyone",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+      expect(loggedErrors).toEqual([[expect.stringContaining(`'${"d".repeat(65)}'`)]]);
+      client.dispose();
+    });
+
+    test("evaluates a context whose kind has surrounding spaces as if no context was supplied", async () => {
+      streaming({ greeting: greetingForContext42 });
+      const client = createClient("sdk-key", { logger: errorRecordingLogger() });
+      await client.initialize();
+      const evaluations: unknown[] = [];
+      client.on("configEvaluated", ({ evaluation }) => evaluations.push(evaluation));
+
+      const greeting = client.getValue("greeting", "in-code default", { id: "42", kind: " device " });
+
+      expect(greeting).toBe("hello everyone");
+      await vi.waitFor(() => expect(evaluations).toHaveLength(1));
+      expect(evaluations[0]).toEqual({
+        key: "greeting",
+        value: "hello everyone",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+      expect(loggedErrors).toEqual([[expect.stringContaining("' device '")]]);
+      client.dispose();
+    });
+
+    test("evaluates a context with an invalid kind before initialization with the no-context reason", async () => {
+      const client = createClient("sdk-key", { logger });
+      const evaluations: unknown[] = [];
+      client.on("configEvaluated", ({ evaluation }) => evaluations.push(evaluation));
+
+      const greeting = client.getValue("greeting", "in-code default", { id: "42", kind: "Tenant" });
+
+      expect(greeting).toBe("in-code default");
+      await vi.waitFor(() => expect(evaluations).toHaveLength(1));
+      expect(evaluations[0]).toEqual({
+        key: "greeting",
+        value: "in-code default",
+        isDefaultValue: true,
+        reason: "client-not-ready",
+      });
+      client.dispose();
+    });
+
+    test("re-evaluates a watcher whose context has an invalid kind as if no context was supplied", async () => {
+      streaming({ greeting: greetingForContext42 });
+      const greetings: string[] = [];
+      const client = createClient("sdk-key", { logger });
+      client.watch("greeting", "in-code default", (value: string) => greetings.push(value), {
+        id: "42",
+        kind: "Tenant",
+      });
+
+      await client.initialize();
+
+      expect(greetings).toEqual(["hello everyone"]);
+      client.dispose();
+    });
+
+    test("reads all configs for a context with an invalid kind as if no context was supplied", async () => {
+      streaming({ greeting: greetingForContext42 });
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const configs = client.getAllConfigs({ context: { id: "42", kind: "Tenant" } });
+
+      expect(configs["greeting"]?.value).toBe("hello everyone");
+      client.dispose();
+    });
+
+    describe("kind conditions and percentage buckets", () => {
+      const greetingForDevices = {
+        ...greetingForContext42,
+        target: {
+          ...greetingForContext42.target,
+          rules: [
+            {
+              id: "33333333-3333-4333-8333-333333333333",
+              order: 0,
+              type: "conditional",
+              target: "value",
+              value: "hello device",
+              conditions: [
+                {
+                  id: "44444444-4444-4444-8444-444444444444",
+                  attribute: "kind",
+                  operator: "equals",
+                  targetType: "text",
+                  targetValues: ["device"],
+                },
+              ],
+            },
+          ],
+        },
+      };
+      const greetingInTenEqualShares = {
+        ...greetingForContext42,
+        target: {
+          ...greetingForContext42.target,
+          rules: [
+            {
+              id: "33333333-3333-4333-8333-333333333333",
+              order: 0,
+              type: "percentage",
+              target: "percentage",
+              percentages: Array.from({ length: 10 }, (_, share) => ({
+                id: `55555555-5555-4555-8555-55555555555${share}`,
+                value: `${share}`,
+                percentage: 10,
+              })),
+            },
+          ],
+        },
+      };
+
+      test("serves a rule whose kind condition equals device to a device context", async () => {
+        streaming({ greeting: greetingForDevices });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        const greeting = client.getValue("greeting", "in-code default", { id: "42", kind: "device" });
+
+        expect(greeting).toBe("hello device");
+        client.dispose();
+      });
+
+      test("does not serve a rule whose kind condition equals device to a context without a kind", async () => {
+        streaming({ greeting: greetingForDevices });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        const greeting = client.getValue("greeting", "in-code default", { id: "42" });
+
+        expect(greeting).toBe("hello everyone");
+        client.dispose();
+      });
+
+      test("assigns a context without a kind the share its identifier and the config id hash to", async () => {
+        streaming({ greeting: { ...greetingInTenEqualShares, id: "00000000-0000-0000-0000-000000000001" } });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        const share = client.getValue("greeting", "in-code default", { id: "abc" });
+
+        expect(share).toBe("6");
+        client.dispose();
+      });
+
+      test("assigns a device context the share its identifier, the config id and its kind hash to", async () => {
+        streaming({ greeting: greetingInTenEqualShares });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        const share = client.getValue("greeting", "in-code default", { id: "user-1", kind: "device" });
+
+        expect(share).toBe("5");
+        client.dispose();
+      });
+
+      test("assigns a device context without an identifier the first share", async () => {
+        streaming({ greeting: greetingInTenEqualShares });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        const share = client.getValue("greeting", "in-code default", { kind: "device" });
+
+        expect(share).toBe("0");
+        client.dispose();
+      });
+    });
+
+    describe("invalid kind logging", () => {
+      test("logs a repeated invalid kind once per telemetry flush interval", async () => {
+        streaming({ greeting: greetingForContext42 });
+        vi.useFakeTimers();
+        const client = createClient("sdk-key", { logger: errorRecordingLogger() });
+        await client.initialize();
+
+        client.getValue("greeting", "in-code default", { id: "42", kind: "Tenant" });
+        client.getValue("greeting", "in-code default", { id: "43", kind: "Tenant" });
+
+        expect(loggedErrors).toHaveLength(1);
+
+        await vi.advanceTimersByTimeAsync(5_000);
+        client.getValue("greeting", "in-code default", { id: "42", kind: "Tenant" });
+
+        expect(loggedErrors).toHaveLength(2);
+        client.dispose();
+      });
+
+      test("logs each invalid kind once for the rest of the process after telemetry stops", async () => {
+        server.use(http.post(TELEMETRY_URL, () => new Response(null, { status: 401 })));
+        streaming({ greeting: greetingForContext42 });
+        vi.useFakeTimers();
+        const client = createClient("sdk-key", { logger: errorRecordingLogger() });
+        await client.initialize();
+        client.getValue("greeting", "in-code default", { id: "42" });
+        await vi.advanceTimersByTimeAsync(5_000);
+
+        client.getValue("greeting", "in-code default", { id: "42", kind: "Tenant" });
+        await vi.advanceTimersByTimeAsync(60_000);
+        client.getValue("greeting", "in-code default", { id: "42", kind: "Tenant" });
+
+        expect(loggedErrors).toEqual([[expect.stringContaining("'Tenant'")]]);
+        client.dispose();
+      });
+
+      test("logs one more error without a kind and then stops logging new invalid kinds once 20 were logged in an interval", async () => {
+        streaming({ greeting: greetingForContext42 });
+        const client = createClient("sdk-key", { logger: errorRecordingLogger() });
+        await client.initialize();
+        for (let index = 1; index <= 20; index++) {
+          client.getValue("greeting", "in-code default", { id: "42", kind: `Kind-${index}` });
+        }
+
+        client.getValue("greeting", "in-code default", { id: "42", kind: "Kind-21" });
+        client.getValue("greeting", "in-code default", { id: "42", kind: "Kind-22" });
+
+        expect(loggedErrors).toHaveLength(21);
+        expect(loggedErrors[20]).toEqual([expect.not.stringContaining("Kind-")]);
+        client.dispose();
+      });
+    });
+
+    describe("invalid kind telemetry", () => {
+      test("counts one invalid submission per evaluation supplied an invalid context", async () => {
+        streaming({ greeting: greetingForContext42 });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        client.getValue("greeting", "in-code default", { id: "42", kind: "Tenant" });
+        client.getValue("greeting", "in-code default", { id: "43", kind: "Tenant" });
+
+        const report = await reportSentOnDispose(client);
+        expect(report.aggregatedEvents.invalidContext).toEqual([
+          expect.objectContaining({
+            count: 2,
+            event: { reason: "invalid-context-kind", kindSample: "Tenant" },
+          }),
+        ]);
+      });
+
+      test("counts each watcher re-evaluation supplied an invalid context", async () => {
+        streaming({ greeting: greetingForContext42 }, { greeting: greetingForContext42 });
+        const greetings: string[] = [];
+        const client = createClient("sdk-key", { logger });
+        client.watch("greeting", "in-code default", (value: string) => greetings.push(value), {
+          id: "42",
+          kind: "Tenant",
+        });
+        await client.initialize();
+        await vi.waitFor(() => expect(greetings).toHaveLength(2));
+
+        const report = await reportSentOnDispose(client);
+
+        expect(report.aggregatedEvents.invalidContext).toEqual([
+          expect.objectContaining({
+            count: 2,
+            event: { reason: "invalid-context-kind", kindSample: "Tenant" },
+          }),
+        ]);
+      });
+
+      test("counts a read of all configs once per call", async () => {
+        streaming({
+          greeting: greetingForContext42,
+          farewell: { ...greetingForContext42, id: "22222222-2222-4222-8222-222222222222", key: "farewell" },
+        });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        client.getAllConfigs({ context: { id: "42", kind: "Tenant" } });
+
+        const report = await reportSentOnDispose(client);
+        expect(report.aggregatedEvents.invalidContext).toEqual([
+          expect.objectContaining({
+            count: 1,
+            event: { reason: "invalid-context-kind", kindSample: "Tenant" },
+          }),
+        ]);
+      });
+
+      test("sends a report holding only invalid context submissions", async () => {
+        streaming({ greeting: greetingForContext42 });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        client.getAllConfigs({ context: { id: "42", kind: "Tenant" } });
+
+        const report = await reportSentOnDispose(client);
+        expect(report.aggregatedEvents.evaluatedConfig).toEqual([]);
+        expect(report.aggregatedEvents.invalidContext).toHaveLength(1);
+      });
+
+      test("reports the first 128 characters of a longer invalid kind as its sample", async () => {
+        streaming({ greeting: greetingForContext42 });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        client.getValue("greeting", "in-code default", { id: "42", kind: "D".repeat(200) });
+
+        const report = await reportSentOnDispose(client);
+        expect(report.aggregatedEvents.invalidContext[0]?.event.kindSample).toBe("D".repeat(128));
+      });
+
+      test("reports an evaluation supplied an invalid context without the context's identifier, name or traits", async () => {
+        streaming({ greeting: greetingForContext42 });
+        const client = createClient("sdk-key", { logger });
+        await client.initialize();
+
+        client.getValue("greeting", "in-code default", {
+          id: "context-identifier-42",
+          name: "Ada Lovelace",
+          traits: { email: "ada@example.com" },
+          kind: "Tenant",
+        });
+
+        const report = await reportSentOnDispose(client);
+        expect(report.aggregatedEvents.evaluatedConfig).toHaveLength(1);
+        expect(report.discreteEvents.capturedContexts).toEqual([]);
+        expect(JSON.stringify(report)).not.toContain("context-identifier-42");
+        expect(JSON.stringify(report)).not.toContain("Ada Lovelace");
+        expect(JSON.stringify(report)).not.toContain("ada@example.com");
+      });
     });
   });
 });

@@ -49,9 +49,11 @@ array (`json`), and every context receives the same value. Reads behave exactly 
 ConfigDirector. Under the test client, the first update is delivered inside `initialize`, so
 watchers run before `initialize` resolves and `configsUpdated` fires before `clientReady`; a held
 `initialize` that times out or is interrupted by `dispose` leaves the client not ready until the
-next `initialize`; and an exception thrown by a watcher during a delivery is logged, as the
-production transports do. Close the client with `dispose`, which ends a held `initialize`;
-`closeConnection` does not.
+next `initialize`; an exception thrown by a watcher during a delivery is logged, as the
+production transports do; and since the test client sends no telemetry, every read that supplies
+a context with an invalid kind logs an error, rather than each invalid kind once per telemetry
+interval. Close the client with `dispose`, which ends a held `initialize`; `closeConnection` does
+not.
 
 ## Documentation
 

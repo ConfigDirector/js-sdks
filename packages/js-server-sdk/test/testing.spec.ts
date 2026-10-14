@@ -400,6 +400,40 @@ describe("@configdirector/server-sdk/testing", () => {
     expect(order).toEqual(["configsUpdated", "clientReady"]);
   });
 
+  test("logs every evaluation supplied a context with an invalid kind", async () => {
+    const loggedErrors: unknown[][] = [];
+    const { client } = create({
+      values: { greeting: "hello" },
+      logger: { ...createStubbedLogger(), error: (...args: unknown[]) => loggedErrors.push(args) },
+    });
+    await client.initialize();
+
+    client.getValue("greeting", "", { id: "42", kind: "Tenant" });
+    client.getValue("greeting", "", { id: "42", kind: "Tenant" });
+
+    expect(loggedErrors).toEqual([
+      [expect.stringContaining("'Tenant'")],
+      [expect.stringContaining("'Tenant'")],
+    ]);
+  });
+
+  test("reports an evaluation supplied a context with an invalid kind without the context", async () => {
+    const testClient = create({ values: { greeting: "hello" } });
+    const evaluations = evaluationsOf(testClient);
+    await testClient.client.initialize();
+
+    const greeting = testClient.client.getValue("greeting", "", { id: "42", kind: "Tenant" });
+
+    expect(greeting).toBe("hello");
+    await vi.waitFor(() => expect(evaluations).toHaveLength(1));
+    expect(evaluations[0]).toEqual({
+      key: "greeting",
+      value: "hello",
+      isDefaultValue: false,
+      reason: "found-match",
+    });
+  });
+
   describe("rejected values", () => {
     test("createTestClient rejects a null value", () => {
       expect(() => create({ values: { k: null as any } })).toThrow(ConfigDirectorValidationError);

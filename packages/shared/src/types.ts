@@ -62,29 +62,43 @@ export type ConfigEvaluation = {
   context?: ConfigDirectorContext;
 };
 /**
- * The user's context to be sent to ConfigDirector. This context will be used for targeting
- * rules evaluation.
+ * The context to be sent to ConfigDirector: the user or other entity, such as a device or an
+ * organization, that configs are evaluated for. This context will be used for targeting rules
+ * evaluation.
  */
 export type ConfigDirectorContext = {
   /**
-   * The user's identifier. This should be a value that uniquely identifies an application
-   * user.
+   * The context's identifier. This should be a value that uniquely identifies the user or other
+   * entity among contexts of the same {@link kind}.
    * In the case of anonymous users, you could generate a UUID or alternatively not provide
    * the {@link id} and the SDK will generate a random UUID. However, keep in mind that this
-   * value is used for segmenting users in percentage rollouts, and changes to the {@link id}
-   * could result in the user being assigned to a different percentile.
+   * value is used for segmenting contexts in percentage rollouts, and changes to the {@link id}
+   * could result in the context being assigned to a different percentile.
    */
   id?: string;
 
   /**
-   * The user's display name. This will be shown in the ConfigDirector dashboard and may be
+   * The kind of entity this context represents, such as `user`, `device`, `organization`,
+   * `tenant` or `listing`. You can use any other kind that fits your application. A kind has 1
+   * to 64 characters, using only lowercase letters (`a`-`z`), digits, `-` and `_`. It is used
+   * exactly as given, without trimming or changing its case.
+   *
+   * A context with an invalid kind is ignored as a whole: the SDK logs an error and evaluates
+   * as if no context had been provided.
+   *
+   * @default "user"
+   */
+  kind?: string;
+
+  /**
+   * The context's display name. This will be shown in the ConfigDirector dashboard and may be
    * used for targeting rules.
    */
   name?: string;
 
   /**
-   * Any arbitrary traits for the current user. They will be shown in the ConfigDirector
-   * dashboard and may be used for targeting rules.
+   * Any arbitrary traits for the context. They will be shown in the ConfigDirector dashboard
+   * and may be used for targeting rules.
    */
   traits?: { [key: string]: unknown };
 

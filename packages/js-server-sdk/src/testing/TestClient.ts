@@ -24,7 +24,9 @@ export type TestClientOptions = {
    */
   timeout?: number;
   /**
-   * The logger the SDK client uses. Defaults to the SDK's console logger at `warn` level.
+   * The logger the SDK client uses. Defaults to the SDK's console logger at `warn` level. Since
+   * the test client sends no telemetry, every read that supplies a context with an invalid kind
+   * logs an error, rather than each invalid kind once per telemetry interval.
    */
   logger?: ConfigDirectorLogger;
 };
@@ -84,6 +86,7 @@ export interface TestClient {
 const noopTelemetryClient: ServerTelemetryClient = {
   start: () => {},
   evaluatedConfig: () => {},
+  recordInvalidContext: () => "new-kind-sample",
   close: async () => {},
 };
 
