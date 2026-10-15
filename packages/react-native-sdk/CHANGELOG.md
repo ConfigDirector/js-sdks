@@ -1,5 +1,12 @@
 # @configdirector/react-native-sdk
 
+## 1.7.0
+
+### Minor Changes
+
+- 21073ca: The SDK now keeps its client session across app starts. When `@react-native-async-storage/async-storage` is installed, the instance ID is stored in AsyncStorage and reused for six hours from when it was generated, so an app reopened within that window continues the same client session instead of starting a new one. The package declares `@react-native-async-storage/async-storage` as an optional peer dependency. Without it, every app start begins a new client session as before, the SDK logs a warning when the client is created, and the instance ID is reported to ConfigDirector as ephemeral. `createClient` and `ConfigDirectorProvider` are unchanged.
+- 7ea20eb: `ConfigDirectorContext` has a new optional `kind` field that says what kind of entity the context represents, such as `device`, `organization` or `tenant`; leaving it out means `user`. A kind has 1 to 64 characters, using only lowercase letters, digits, `-` and `_`, and is used exactly as given. Targeting rules and segments can match on a context's kind, and percentage rollouts give contexts of other kinds their own assignments while `user` contexts keep the ones they have today. A context with an invalid kind never makes the client throw: `initialize` and `updateContext` log an error, stop using the previous context, and connect as if no context had been supplied, so flags evaluate for no context, `context` reads as none, and `contextUpdated` reports none. ConfigDirector receives a count of these calls with a sample of each invalid kind, never the context's identifier, name or traits. This applies to the `context` prop of `ConfigDirectorProvider` and to `useContext().updateContext`. The test client records such a call as an empty context in `contextUpdates`.
+
 ## 1.6.1
 
 ### Patch Changes

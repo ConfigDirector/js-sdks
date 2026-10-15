@@ -1,5 +1,12 @@
 # @configdirector/nuxt-sdk
 
+## 1.10.0
+
+### Minor Changes
+
+- 7ea20eb: In the browser, the client created by the Nuxt plugin evaluates targeting rules on the context's `kind`. A context with an invalid kind never makes the client throw: `initialize` and `updateContext` log an error, stop using the previous context, and connect as if no context had been supplied, so flags evaluate for no context, `context` reads as none, and `contextUpdated` reports none. ConfigDirector receives a count of these calls with a sample of each invalid kind, never the context's identifier, name or traits. `useConfigDirectorContext().context` reads as none after `updateContext` with an invalid kind, on the server and in the browser. The test client records such a call as an empty context in `contextUpdates`.
+- 248d226: `ConfigDirectorContext` has a new optional `kind` field that says what kind of entity the context represents, such as `device`, `organization` or `tenant`; leaving it out means `user`. Server-side rendering and the Nitro server client evaluate targeting rules on it. A kind has 1 to 64 characters, using only lowercase letters, digits, `-` and `_`. With any other kind, server-side rendering evaluates exactly as if no context had been supplied, the SSR client's `context` reads as no context, and the server logs an error for each distinct invalid kind once per telemetry flush interval.
+
 ## 1.9.2
 
 ### Patch Changes
