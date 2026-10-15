@@ -1410,7 +1410,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/react-native-sample-app@workspace:."
   dependencies:
-    "@configdirector/react-native-sdk": "npm:^1.6.0"
+    "@configdirector/react-native-sdk": "npm:^1.7.0"
     "@expo/vector-icons": "npm:^15.1.1"
     "@react-native/jest-preset": "npm:^0.86.3"
     "@testing-library/react-native": "npm:^14.0.1"
@@ -1444,19 +1444,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@configdirector/react-native-sdk@npm:^1.6.0":
-  version: 1.6.0
-  resolution: "@configdirector/react-native-sdk@npm:1.6.0"
+"@configdirector/react-native-sdk@npm:^1.7.0":
+  version: 1.7.0
+  resolution: "@configdirector/react-native-sdk@npm:1.7.0"
   dependencies:
     "@noble/hashes": "npm:^2.2.0"
   peerDependencies:
+    "@react-native-async-storage/async-storage": ">=1.0.0"
     expo: ">=52"
     react: "*"
     react-native: ">=0.75"
   peerDependenciesMeta:
+    "@react-native-async-storage/async-storage":
+      optional: true
     expo:
       optional: true
-  checksum: 10c0/064ea587a00e54f1512448e64d07f893817fe2a52322f8662cf23719bf545c22da0e478a07b73453ba2ed515e229351f852d558fa751072b310f92e2f0280da0
+  checksum: 10c0/052eb591f66f26daec7075b4983963a67420fa7797f2c7aa93189bd75798a8a80268782fc10a43c9d1ab6dc561562093b67deac3b81e8c4476a809326247023d
   languageName: node
   linkType: hard
 
