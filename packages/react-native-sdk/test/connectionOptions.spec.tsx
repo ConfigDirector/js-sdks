@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, jest, test } from "@jest/globals";
 import { render } from "@testing-library/react-native";
 import { ConfigDirectorProvider } from "../src/provider";
-import { createClient } from "../src/client";
+import { createReactNativeClient } from "../src/client";
 import { createStubbedLogger } from "./helpers";
 
 jest.mock("../src/client", () => ({
-  createClient: jest.fn(() => ({
+  createReactNativeClient: jest.fn(() => ({
     initialize: jest.fn(async () => {}),
     updateContext: jest.fn(async () => {}),
     on: jest.fn(),
@@ -20,11 +20,11 @@ jest.mock("../src/client", () => ({
 const logger = createStubbedLogger();
 
 const connectionOptionsOfLastClient = () =>
-  (jest.mocked(createClient).mock.lastCall?.[1] as { connection: Record<string, unknown> }).connection;
+  (jest.mocked(createReactNativeClient).mock.lastCall?.[1] as { connection: Record<string, unknown> }).connection;
 
 describe("connection options", () => {
   afterEach(() => {
-    jest.mocked(createClient).mockClear();
+    jest.mocked(createReactNativeClient).mockClear();
   });
 
   test("ConfigDirectorProvider passes mode and pollingInterval through to the client", () => {
@@ -45,6 +45,20 @@ describe("connection options", () => {
       timeout: 5_000,
       mode: "polling",
       pollingInterval: 120,
+    });
+  });
+
+  test("ConfigDirectorProvider passes offline values through to the client without a key", () => {
+    render(
+      <ConfigDirectorProvider logger={logger} mode="offline" values={{ "new-checkout": true, "max-items": 20 }}>
+        <></>
+      </ConfigDirectorProvider>,
+    );
+
+    expect(jest.mocked(createReactNativeClient).mock.lastCall?.[0]).toBeUndefined();
+    expect(connectionOptionsOfLastClient()).toEqual({
+      mode: "offline",
+      values: { "new-checkout": true, "max-items": 20 },
     });
   });
 });

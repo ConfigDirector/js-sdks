@@ -1,13 +1,14 @@
 import { afterAll, beforeAll, describe, test, expect, vi } from "vitest";
 import { commands } from "vitest/browser";
-import { render, screen, fireEvent } from "@testing-library/vue";
-import { defineComponent } from "vue";
+import { cleanup, render, screen, fireEvent } from "@testing-library/vue";
+import { createApp, defineComponent } from "vue";
 import { ConfigDirectorPlugin } from "../src/plugin";
 import { initializeClient } from "../src/client";
 import { useConfigValue } from "../src/composables/useConfigValue";
 import { useClientStatus } from "../src/composables/useClientStatus";
 import { useContext } from "../src/composables/useContext";
-import { SSE_URL, createStubbedLogger } from "./helpers";
+import { POLLING_URL, SSE_URL, TELEMETRY_URL, createStubbedLogger, sleep } from "./helpers";
+import { ConfigDirectorValidationError } from "@shared/errors";
 
 const logger = createStubbedLogger();
 
@@ -609,5 +610,55 @@ describe("pre-initialized client flow", () => {
       expect(screen.getByTestId("value")).toHaveTextContent("Hello");
       expect(screen.getByTestId("loading")).toHaveTextContent("false");
     });
+  });
+});
+
+describe("ConfigDirectorPlugin in offline mode", () => {
+  beforeAll(async () => {
+    await commands.mswSetup();
+  });
+
+  afterAll(async () => {
+    await commands.mswTeardown();
+  });
+
+  test("renders the offline value as ready without a key or a request", async () => {
+    await commands.mswUseHandlers({ url: SSE_URL }, { url: POLLING_URL }, { url: TELEMETRY_URL });
+    const TestComponent = defineComponent({
+      setup: () => useConfigValue("max-items", 0),
+      template: `
+        <div>
+          <div data-testid="status">{{ readyStatus }}</div>
+          <div data-testid="max-items">{{ value }}</div>
+        </div>
+      `,
+    });
+
+    render(TestComponent, {
+      global: {
+        plugins: [
+          [
+            ConfigDirectorPlugin,
+            {
+              logger,
+              appName: "offline-app",
+              context: { id: "offline-user-1" },
+              mode: "offline",
+              values: { "max-items": 20 },
+            },
+          ],
+        ],
+      },
+    });
+
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+    expect(screen.getByTestId("max-items")).toHaveTextContent("20");
+    cleanup();
+    await sleep(100);
+    expect(JSON.stringify(await commands.mswGetPayloads())).not.toMatch(/offline-(app|user)/);
+  });
+
+  test("fails as the browser client does without a key outside offline mode", () => {
+    expect(() => createApp({}).use(ConfigDirectorPlugin, { logger })).toThrow(ConfigDirectorValidationError);
   });
 });

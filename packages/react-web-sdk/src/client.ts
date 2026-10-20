@@ -6,7 +6,7 @@ import {
 } from "@js-browser-client/index";
 
 export const createClient = (
-  clientSdkKey: string,
+  clientSdkKey: string | undefined,
   clientOptions?: ConfigDirectorClientOptions,
 ): ConfigDirectorClient => {
   return createBrowserClient(

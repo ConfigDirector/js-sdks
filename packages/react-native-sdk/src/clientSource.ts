@@ -1,18 +1,19 @@
 import type { ConfigDirectorClient } from "@js-client-core/index";
 import { readInstalledTestClient } from "@js-client-core/installedTestClient";
-import { createClient } from "./client";
+import { createReactNativeClient } from "./client";
 import { createConsoleLogger } from "./logger";
 import type { ConfigDirectorProviderOptions, ConfigDirectorProviderProps } from "./types";
 
 export type ClientSource = { client: ConfigDirectorClient; owned: boolean };
 
 export const buildClient = (options: ConfigDirectorProviderOptions): ConfigDirectorClient =>
-  createClient(options.sdkKey, {
+  createReactNativeClient(options.sdkKey, {
     connection: {
       url: options.url,
       timeout: options.timeout,
       mode: options.mode,
       pollingInterval: options.pollingInterval,
+      values: options.values,
     },
     metadata: { appName: options.appName, appVersion: options.appVersion },
     logger: options.logger ?? createConsoleLogger("warn"),

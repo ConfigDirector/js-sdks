@@ -2,7 +2,6 @@ import { readonly, ref, type InjectionKey, type Ref, type App } from "vue";
 import type { ClientStatus, ConfigDirectorPluginOptions } from "./types";
 import { createClientFromPluginOptions } from "./client";
 import type { ConfigDirectorClient, ConfigDirectorContext } from "@js-client-core/types";
-import { ConfigDirectorInitializationError } from "@shared/errors";
 
 export const ConfigDirectorClientKey: InjectionKey<ConfigDirectorClient> = Symbol("ConfigDirector.Client");
 export const ConfigDirectorStatusKey: InjectionKey<Readonly<Ref<ClientStatus>>> = Symbol(
@@ -13,19 +12,9 @@ export const ConfigDirectorContextKey: InjectionKey<Readonly<Ref<ConfigDirectorC
 
 export const ConfigDirectorPlugin = {
   install: (app: App, optionsOrClient: ConfigDirectorPluginOptions | ConfigDirectorClient) => {
-    const getClient = () => {
-      if (isClientObject(optionsOrClient)) {
-        return optionsOrClient as ConfigDirectorClient;
-      } else if (isOptionsObject(optionsOrClient)) {
-        return createClientFromPluginOptions(optionsOrClient as ConfigDirectorPluginOptions);
-      } else {
-        throw new ConfigDirectorInitializationError(
-          "The plugin options must be either an initialized ConfigDirectorClient, or a ConfigDirectorPluginOptions object with a valid client 'sdkKey'",
-        );
-      }
-    };
-
-    const client = getClient();
+    const client = isClientObject(optionsOrClient)
+      ? optionsOrClient
+      : createClientFromPluginOptions(optionsOrClient);
 
     const status = ref<ClientStatus>(client.isReady ? "ready" : "loading");
     const readonlyStatus = readonly(status);
@@ -58,8 +47,4 @@ const isClientObject = (options: ConfigDirectorPluginOptions | ConfigDirectorCli
     typeof candidate.watch === "function" &&
     typeof candidate.on === "function"
   );
-};
-
-const isOptionsObject = (options: ConfigDirectorPluginOptions | ConfigDirectorClient) => {
-  return typeof (options as ConfigDirectorPluginOptions).sdkKey === "string";
 };

@@ -6,7 +6,15 @@ import { decideMountAction } from "@js-client-core/mountAction";
 import { deepEqual } from "@shared/deepEqual";
 import { buildClient, hasGivenClient, resolveClientSource } from "./clientSource";
 import { ClientHandlers } from "@js-client-core/clientHandlers";
-import type { ConfigDirectorProviderOptions, ConfigDirectorProviderProps, ConfigDirectorProviderState } from "./types";
+import type {
+  ClientStatus,
+  ConfigDirectorProviderOptions,
+  ConfigDirectorProviderProps,
+  ConfigDirectorProviderState,
+} from "./types";
+
+const settledStatusOf = (client: ConfigDirectorClient | undefined): ClientStatus =>
+  client?.isReady ? "ready" : "default";
 
 export class ConfigDirectorProvider extends Component<
   PropsWithChildren<ConfigDirectorProviderProps>,
@@ -55,9 +63,7 @@ export class ConfigDirectorProvider extends Component<
       case "none":
         return;
     }
-    if (!client.isReady) {
-      this.setState({ status: "default" });
-    }
+    this.setState({ status: settledStatusOf(client) });
   }
 
   override async componentDidUpdate(prevProps: PropsWithChildren<ConfigDirectorProviderProps>): Promise<void> {
@@ -69,9 +75,7 @@ export class ConfigDirectorProvider extends Component<
     if (!deepEqual(prevProps.context, this.props.context)) {
       this.setState({ status: "loading" });
       await this.state.client?.updateContext(this.props.context ?? {});
-      if (!this.state.client?.isReady) {
-        this.setState({ status: "default" });
-      }
+      this.setState({ status: settledStatusOf(this.state.client) });
     }
   }
 

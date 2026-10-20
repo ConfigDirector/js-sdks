@@ -3,8 +3,8 @@ import { createBrowserClient } from "@js-browser-client/index";
 import type { ConfigDirectorPluginOptions } from "./types";
 import { createConsoleLogger } from "./logger";
 
-export const createClient = (
-  clientSdkKey: string,
+const createClient = (
+  clientSdkKey: string | undefined,
   clientOptions?: ConfigDirectorClientOptions,
 ): ConfigDirectorClient => {
   return createBrowserClient(clientSdkKey, { sdkName: "vue-sdk", sdkVersion: "__VERSION__" }, clientOptions);
@@ -17,6 +17,7 @@ export const createClientFromPluginOptions = (options: ConfigDirectorPluginOptio
       timeout: options.timeout,
       mode: options.mode,
       pollingInterval: options.pollingInterval,
+      values: options.values,
     },
     metadata: { appName: options.appName, appVersion: options.appVersion },
     logger: options.logger ?? createConsoleLogger("warn"),

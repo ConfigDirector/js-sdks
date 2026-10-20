@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, test, expect, vi } from "vitest";
 import { commands } from "vitest/browser";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { StrictMode } from "react";
 import { ConfigDirectorProvider } from "../src/provider";
 import { useConfigValue } from "../src";
-import { SSE_URL, createStubbedLogger } from "./helpers";
+import { createClient } from "../src/client";
+import { ConfigDirectorValidationError } from "@shared/errors";
+import { POLLING_URL, SSE_URL, TELEMETRY_URL, createStubbedLogger, sleep } from "./helpers";
 
 const logger = createStubbedLogger();
 
@@ -209,5 +211,98 @@ describe("ConfigDirectorProvider hooks", () => {
       expect(hook1).toHaveBeenCalledOnce();
       expect(hook2).toHaveBeenCalledOnce();
     });
+  });
+});
+
+describe("ConfigDirectorProvider in offline mode", () => {
+  beforeAll(async () => {
+    await commands.mswSetup();
+  });
+
+  afterAll(async () => {
+    await commands.mswTeardown();
+  });
+
+  test("renders the offline value as ready without a key or a request", async () => {
+    await commands.mswUseHandlers({ url: SSE_URL }, { url: POLLING_URL }, { url: TELEMETRY_URL });
+    const MaxItems = () => {
+      const { value, readyStatus } = useConfigValue("max-items", 0);
+      return (
+        <>
+          <div data-testid="status">{readyStatus}</div>
+          <div data-testid="max-items">{value}</div>
+        </>
+      );
+    };
+
+    render(
+      <ConfigDirectorProvider
+        logger={logger}
+        appName="offline-app"
+        context={{ id: "offline-user-1" }}
+        mode="offline"
+        values={{ "max-items": 20 }}>
+        <MaxItems />
+      </ConfigDirectorProvider>,
+    );
+
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+    expect(screen.getByTestId("max-items")).toHaveTextContent("20");
+    cleanup();
+    await sleep(100);
+    expect(JSON.stringify(await commands.mswGetPayloads())).not.toMatch(/offline-(app|user)/);
+  });
+
+  test("reports ready again with the same value after the context prop changes", async () => {
+    const MaxItems = () => {
+      const { value, readyStatus } = useConfigValue("max-items", 0);
+      return (
+        <>
+          <div data-testid="status">{readyStatus}</div>
+          <div data-testid="max-items">{value}</div>
+        </>
+      );
+    };
+    const view = render(
+      <ConfigDirectorProvider logger={logger} mode="offline" values={{ "max-items": 20 }} context={{ id: "user-1" }}>
+        <MaxItems />
+      </ConfigDirectorProvider>,
+    );
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+
+    view.rerender(
+      <ConfigDirectorProvider logger={logger} mode="offline" values={{ "max-items": 20 }} context={{ id: "user-2" }}>
+        <MaxItems />
+      </ConfigDirectorProvider>,
+    );
+
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+    expect(screen.getByTestId("max-items")).toHaveTextContent("20");
+  });
+
+  test("reports ready when given a ready client and another context", async () => {
+    const client = createClient(undefined, { logger, connection: { mode: "offline", values: { "max-items": 20 } } });
+    await client.initialize({ id: "user-1" });
+    const Status = () => <div data-testid="status">{useConfigValue("max-items", 0).readyStatus}</div>;
+
+    render(
+      <ConfigDirectorProvider client={client} context={{ id: "user-2" }}>
+        <Status />
+      </ConfigDirectorProvider>,
+    );
+
+    await vi.waitFor(() => expect(client.context).toEqual({ id: "user-2" }));
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+    client.dispose();
+  });
+
+  test("fails without a key outside offline mode", () => {
+    expect(() =>
+      render(
+        <ConfigDirectorProvider logger={logger}>
+          <div />
+        </ConfigDirectorProvider>,
+      ),
+    ).toThrow(ConfigDirectorValidationError);
   });
 });

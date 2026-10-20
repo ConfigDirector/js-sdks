@@ -48,6 +48,20 @@ describe("connection options", () => {
     });
   });
 
+  test("ConfigDirectorProvider passes offline values through to the client without a key", () => {
+    render(
+      <ConfigDirectorProvider logger={logger} mode="offline" values={{ "new-checkout": true, "max-items": 20 }}>
+        <div />
+      </ConfigDirectorProvider>,
+    );
+
+    expect(vi.mocked(createClient).mock.lastCall?.[0]).toBeUndefined();
+    expect(connectionOptionsOfLastClient()).toEqual({
+      mode: "offline",
+      values: { "new-checkout": true, "max-items": 20 },
+    });
+  });
+
   test("withProvider passes mode and pollingInterval through to the client", async () => {
     await withProvider({
       sdkKey: "dummy-key",

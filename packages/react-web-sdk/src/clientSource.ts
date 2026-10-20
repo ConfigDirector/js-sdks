@@ -13,6 +13,7 @@ export const buildClient = (options: ConfigDirectorProviderOptions): ConfigDirec
       timeout: options.timeout,
       mode: options.mode,
       pollingInterval: options.pollingInterval,
+      values: options.values,
     },
     metadata: { appName: options.appName, appVersion: options.appVersion },
     logger: options.logger ?? createConsoleLogger("warn"),

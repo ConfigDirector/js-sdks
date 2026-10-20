@@ -42,4 +42,14 @@ describe("createClientFromPluginOptions", () => {
       pollingInterval: 120,
     });
   });
+
+  test("passes offline values through to the browser client without a key", () => {
+    createClientFromPluginOptions({ logger, mode: "offline", values: { "new-checkout": true, "max-items": 20 } });
+
+    expect(vi.mocked(createBrowserClient).mock.lastCall?.[0]).toBeUndefined();
+    expect(connectionOptionsOfLastClient()).toEqual({
+      mode: "offline",
+      values: { "new-checkout": true, "max-items": 20 },
+    });
+  });
 });

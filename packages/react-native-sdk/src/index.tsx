@@ -7,6 +7,8 @@ export type {
   ConfigDirectorProviderClientProps,
   ConfigDirectorProviderProps,
   ClientStatus,
+  OfflineValue,
+  OfflineValues,
 } from "./types";
 export { ConfigDirectorReactContextError } from "./errors";
 export { createConsoleLogger } from "./logger";

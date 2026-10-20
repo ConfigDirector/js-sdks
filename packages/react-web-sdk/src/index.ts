@@ -7,5 +7,7 @@ export type {
   ConfigDirectorProviderClientProps,
   ConfigDirectorProviderProps,
   ClientStatus,
+  OfflineValue,
+  OfflineValues,
 } from "./types";
 export type { ConfigDirectorClient, ConfigDirectorContext, ConnectionMode } from "@js-browser-client/index";

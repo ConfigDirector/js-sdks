@@ -13,6 +13,11 @@ import { urlFactory } from "./url";
 export const createClient = (
   clientSdkKey: string,
   clientOptions?: ConfigDirectorClientOptions,
+): ConfigDirectorClient => createReactNativeClient(clientSdkKey, clientOptions);
+
+export const createReactNativeClient = (
+  clientSdkKey: string | undefined,
+  clientOptions?: ConfigDirectorClientOptions,
 ): ConfigDirectorClient => {
   const sdkIdentity = { sdkName: "react-native-sdk", sdkVersion: "__VERSION__" };
   const logger = clientOptions?.logger ?? createConsoleLogger("warn");

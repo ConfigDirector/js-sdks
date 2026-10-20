@@ -4,6 +4,8 @@ import React from "react";
 import { AppState } from "react-native";
 import { ConfigDirectorProvider } from "../src/provider";
 import { useConfigValue } from "../src/hooks";
+import { createReactNativeClient } from "../src/client";
+import { ConfigDirectorValidationError } from "@shared/errors";
 import { buildResponse, message, full, createStubbedLogger } from "./helpers";
 
 const logger = createStubbedLogger();
@@ -735,6 +737,73 @@ describe("ConfigDirectorProvider", () => {
       });
 
       expect(mockRemove).toHaveBeenCalled();
+    });
+  });
+
+  describe("offline mode", () => {
+    test("renders the offline value as ready without a key or a request", async () => {
+      const { result, unmount } = renderHook(() => useConfigValue("max-items", 0), {
+        wrapper: wrapper({ mode: "offline", values: { "max-items": 20 } }),
+      });
+
+      await waitFor(() => expect(result.current.readyStatus).toBe("ready"));
+      expect(result.current.value).toBe(20);
+      unmount();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    test("reports ready again with the same value after the context prop changes", async () => {
+      let setContext: (context: { id: string }) => void = () => {};
+      const StatefulWrapper = ({ children }: { children: React.ReactNode }) => {
+        const [context, setStatefulContext] = React.useState({ id: "user-1" });
+        setContext = setStatefulContext;
+        return (
+          <ConfigDirectorProvider logger={logger} mode="offline" values={{ "max-items": 20 }} context={context}>
+            {children}
+          </ConfigDirectorProvider>
+        );
+      };
+      const { result, unmount } = renderHook(() => useConfigValue("max-items", 0), { wrapper: StatefulWrapper });
+      await waitFor(() => expect(result.current.readyStatus).toBe("ready"));
+
+      await act(async () => {
+        setContext({ id: "user-2" });
+      });
+
+      await waitFor(() => expect(result.current.readyStatus).toBe("ready"));
+      expect(result.current.value).toBe(20);
+      unmount();
+    });
+
+    test("reports ready when given a ready client and another context", async () => {
+      const client = createReactNativeClient(undefined, {
+        logger,
+        connection: { mode: "offline", values: { "max-items": 20 } },
+      });
+      await client.initialize({ id: "user-1" });
+
+      const { result, unmount } = renderHook(() => useConfigValue("max-items", 0), {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <ConfigDirectorProvider client={client} context={{ id: "user-2" }}>
+            {children}
+          </ConfigDirectorProvider>
+        ),
+      });
+
+      await waitFor(() => expect(client.context).toEqual({ id: "user-2" }));
+      await waitFor(() => expect(result.current.readyStatus).toBe("ready"));
+      unmount();
+      client.dispose();
+    });
+
+    test("fails without a key outside offline mode", () => {
+      expect(() =>
+        render(
+          <ConfigDirectorProvider logger={logger}>
+            <></>
+          </ConfigDirectorProvider>,
+        ),
+      ).toThrow(ConfigDirectorValidationError);
     });
   });
 });
