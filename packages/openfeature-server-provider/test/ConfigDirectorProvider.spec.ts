@@ -177,6 +177,24 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
     expect(await OpenFeature.getClient().getStringValue("greeting", "default")).toBe("from-pull");
   });
 
+  test("serves offline values to OpenFeature evaluations without an SDK key or a request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    await OpenFeature.setProviderAndWait(
+      new ConfigDirectorProvider({
+        logger,
+        connection: { mode: "offline", values: { "show-banner": true, greeting: "Bye", "max-items": 42 } },
+      }),
+    );
+    const client = OpenFeature.getClient();
+
+    expect(await client.getBooleanValue("show-banner", false, { targetingKey: "user-123" })).toBe(true);
+    expect(await client.getStringValue("greeting", "Hello")).toBe("Bye");
+    expect(await client.getNumberValue("max-items", 0)).toBe(42);
+    await OpenFeature.clearProviders();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   test("onClose disposes the underlying ConfigDirector client without throwing", async () => {
     server.use(sseHandler((controller) => controller.enqueue(message(fullBundle()))));
 

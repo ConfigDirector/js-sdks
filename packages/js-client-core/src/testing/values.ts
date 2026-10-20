@@ -1,11 +1,15 @@
 import type { ConfigState } from "../types";
-import { encodeTestValue as encodeShared } from "@shared/testing/values";
-import type { TestValue } from "@shared/testing/values";
+import { encodeNativeValue } from "@shared/native-values";
+import type { NativeValue } from "@shared/native-values";
 
-export type { TestJsonValue, TestValue, TestValues } from "@shared/testing/values";
+export type {
+  NativeJsonValue as TestJsonValue,
+  NativeValue as TestValue,
+  NativeValues as TestValues,
+} from "@shared/native-values";
 
-export const encodeTestValue = (key: string, value: TestValue, revision: number): ConfigState => {
-  const encoded = encodeShared(key, value);
+export const encodeTestValue = (key: string, value: NativeValue, revision: number): ConfigState => {
+  const encoded = encodeNativeValue(key, value);
   return {
     id: `test-config:${key}`,
     key,

@@ -1,22 +1,22 @@
-import type { ConfigType } from "../types";
-import { ConfigDirectorValidationError } from "../errors";
+import type { ConfigType } from "./types";
+import { ConfigDirectorValidationError } from "./errors";
 
-export type TestJsonValue = boolean | number | string | null | TestJsonValue[] | { [key: string]: TestJsonValue };
+export type NativeJsonValue = boolean | number | string | null | NativeJsonValue[] | { [key: string]: NativeJsonValue };
 
-export type TestValue = boolean | number | string | TestJsonValue[] | { [key: string]: TestJsonValue };
+export type NativeValue = boolean | number | string | NativeJsonValue[] | { [key: string]: NativeJsonValue };
 
-export type TestValues = Record<string, TestValue>;
+export type NativeValues = Record<string, NativeValue>;
 
-export type EncodedTestValue = { type: ConfigType; value: string };
+export type EncodedNativeValue = { type: ConfigType; value: string };
 
-export const encodeTestValue = (key: string, value: TestValue): EncodedTestValue => {
+export const encodeNativeValue = (key: string, value: NativeValue): EncodedNativeValue => {
   if (key.trim().length == 0) {
-    throw new ConfigDirectorValidationError("Invalid config key. The key of a test value cannot be empty.");
+    throw new ConfigDirectorValidationError("Invalid config key. The key of a value cannot be empty.");
   }
   return encode(key, value);
 };
 
-const encode = (key: string, value: TestValue): EncodedTestValue => {
+const encode = (key: string, value: NativeValue): EncodedNativeValue => {
   switch (typeof value) {
     case "boolean":
       return { type: "boolean", value: value ? "true" : "false" };
@@ -31,18 +31,18 @@ const encode = (key: string, value: TestValue): EncodedTestValue => {
       }
   }
   throw new ConfigDirectorValidationError(
-    `Invalid test value for '${key}': ${describe(value)}. Use a boolean, a number, a string, a plain object, or an array.`,
+    `Invalid value for '${key}': ${describe(value)}. Use a boolean, a number, a string, a plain object, or an array.`,
   );
 };
 
-const encodeNumber = (key: string, value: number): EncodedTestValue => {
+const encodeNumber = (key: string, value: number): EncodedNativeValue => {
   if (!Number.isFinite(value)) {
-    throw new ConfigDirectorValidationError(`Invalid test value for '${key}': ${describe(value)} is not a finite number.`);
+    throw new ConfigDirectorValidationError(`Invalid value for '${key}': ${describe(value)} is not a finite number.`);
   }
   if (Number.isInteger(value)) {
     if (!Number.isSafeInteger(value)) {
       throw new ConfigDirectorValidationError(
-        `Invalid test value for '${key}': ${value} is not a safe integer, so the SDK could not read it back exactly.`,
+        `Invalid value for '${key}': ${value} is not a safe integer, so the SDK could not read it back exactly.`,
       );
     }
     return { type: "integer", value: String(value) };
@@ -87,7 +87,7 @@ const assertJsonContents = (key: string, value: unknown, path: string): void => 
 
 const invalidJsonContents = (key: string, path: string, problem: string) =>
   new ConfigDirectorValidationError(
-    `Invalid test value for '${key}'${path ? ` at '${path}'` : ""}: ${problem}. JSON contents can hold booleans, finite numbers, strings, null, arrays, and plain objects.`,
+    `Invalid value for '${key}'${path ? ` at '${path}'` : ""}: ${problem}. JSON contents can hold booleans, finite numbers, strings, null, arrays, and plain objects.`,
   );
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {

@@ -9,6 +9,7 @@ import type {
   ConfigEvaluation,
 } from "@shared/types";
 import type { Config, Segments } from "@config-evaluator/types";
+import type { NativeValue, NativeValues } from "@shared/native-values";
 import type { ServerTelemetryClient } from "./telemetry/types";
 export type {
   ConfigDirectorLogger,
@@ -24,6 +25,81 @@ export type {
 } from "@shared/types";
 
 /**
+ * One value an offline client serves for a config key. The config type follows from the value: a
+ * boolean, an integral number (`integer`), any other number (`float`), a string, or a plain object
+ * or array (`json`).
+ */
+export type OfflineValue = NativeValue;
+
+/**
+ * The values an offline client serves, keyed by config key. See {@link OfflineValue} for how each
+ * value's config type is decided. Every context receives the same value.
+ */
+export type OfflineValues = NativeValues;
+
+/**
+ * Connection options of the {@link ConfigDirectorClient}
+ */
+export type ConnectionOptions = {
+  /**
+   * The connection mode to be used, one of `streaming` (default), `polling` or `offline`.
+   * If set to `streaming`, the connection will remain open and receive updates whenever
+   * config state is updated on the ConfigDirector dashboard.
+   * When set to `polling`, there will be an initial request to retrieve config state during
+   * initialization, and additional requests on a `pollingInterval`.
+   * When set to `offline`, the client never connects to ConfigDirector and sends nothing: it serves
+   * the values read from {@link file} or given in {@link values} to every context, or the in-code
+   * default values when neither is given. No SDK key is needed.
+   *
+   * Defaults to `streaming`
+   */
+  mode?: ConnectionMode;
+  /**
+   * The path of a JSON file holding the values to serve in `offline` mode, resolved against the
+   * process working directory. The file holds one object with a value per config key, such as
+   * `{ "new-checkout": true, "max-items": 20 }`; see {@link OfflineValue} for how the config type
+   * of each value is decided. A file that is missing, unreadable, not a JSON object, or holding a
+   * value such as `null` makes `initialize` reject with a `ConfigDirectorInitializationError`.
+   *
+   * Only one of `file` and `values` can be given, and only in `offline` mode; otherwise
+   * `initialize` rejects.
+   */
+  file?: string;
+  /**
+   * The values to serve in `offline` mode, keyed by config key. A value such as `null` makes
+   * `initialize` reject with a `ConfigDirectorInitializationError`.
+   *
+   * Only one of `file` and `values` can be given, and only in `offline` mode; otherwise
+   * `initialize` rejects.
+   */
+  values?: OfflineValues;
+  /**
+   * The polling interval in _seconds_ when the `mode` is set to `polling`. This option has no
+   * effect in the other modes.
+   *
+   * Defaults to 300 seconds (5 minutes). The minimum is 60 seconds. A value below the minimum is
+   * raised to the minimum and a warning is logged.
+   */
+  pollingInterval?: number;
+  /**
+   * The timeout, in milliseconds, to be used in initialization and when updating the context.
+   * If streaming is enabled, the operation (initialization or context update) may still succeed
+   * after it times out if no unrecoverable errors are encountered (like an invalid SDK key).
+   * If streaming is disabled, if the operation times out, it will not be retried. This option has
+   * no effect in `offline` mode.
+   *
+   * Defaults to 3,000 milliseconds (3 seconds)
+   */
+  timeout?: number;
+  /**
+   * The base URL to the ConfigDirector SDK server. To be used only when needing to route through a
+   * proxy to connect to the ConfigDirector SDK server. Please refer to the docs on how to configure
+   * a proxy for the client SDK. This option has no effect in `offline` mode.
+   */
+  url?: string;
+};
+
+/**
  * Configuration options for the {@link ConfigDirectorClient}
  */
 export type ConfigDirectorClientOptions = {
@@ -34,41 +110,7 @@ export type ConfigDirectorClientOptions = {
   /**
    * Connection options
    */
-  connection?: {
-    /**
-     * The connection mode to be used, one of `streaming` (default) or `polling`.
-     * If set to `streaming`, the connection will remain open and receive updates whenever
-     * config state is updated on the ConfigDirector dashboard.
-     * When set to `polling`, there will be an initial request to retrieve config state during
-     * initialization, and additional requests on a `pollingInterval`.
-     *
-     * Defaults to `streaming`
-     */
-    mode?: ConnectionMode;
-    /**
-     * The polling interval in _seconds_ when the `mode` is set to `polling`. This option has no
-     * effect when the `mode` is set to `streaming`.
-     *
-     * Defaults to 300 seconds (5 minutes). The minimum is 60 seconds. A value below the minimum is
-     * raised to the minimum and a warning is logged.
-     */
-    pollingInterval?: number;
-    /**
-     * The timeout, in milliseconds, to be used in initialization and when updating the context.
-     * If streaming is enabled, the operation (initialization or context update) may still succeed
-     * after it times out if no unrecoverable errors are encountered (like an invalid SDK key).
-     * If streaming is disabled, if the operation times out, it will not be retried.
-     *
-     * Defaults to 3,000 milliseconds (3 seconds)
-     */
-    timeout?: number;
-    /**
-     * The base URL to the ConfigDirector SDK server. To be used only when needing to route through a
-     * proxy to connect to the ConfigDirector SDK server. Please refer to the docs on how to configure
-     * a proxy for the client SDK.
-     */
-    url?: string;
-  };
+  connection?: ConnectionOptions;
   /**
    * A logger that implements {@link ConfigDirectorLogger}. It defaults to the ConfigDirector console
    * logger set to 'warn' level.
@@ -130,6 +172,13 @@ export type ConfigDirectorClientOptions = {
    * );
    */
   hooks?: ClientHooks;
+};
+
+/**
+ * The options of a client created without an SDK key: the connection mode is `offline`.
+ */
+export type OfflineClientOptions = ConfigDirectorClientOptions & {
+  connection: ConnectionOptions & { mode: "offline" };
 };
 
 export type ClientEvents = {

@@ -8,8 +8,10 @@ import type {
 } from "@openfeature/server-sdk";
 import { OpenFeatureEventEmitter, ProviderEvents } from "@openfeature/server-sdk";
 import type { ConfigDirectorContext, ConfigValueType } from "@shared/types";
-import type { ConfigDirectorClient, ConfigDirectorClientOptions } from "@js-server-sdk/index";
+import type { ConfigDirectorClient, ConfigDirectorClientOptions, OfflineClientOptions } from "@js-server-sdk/index";
 import { DefaultConfigDirectorClient } from "@js-server-sdk/DefaultConfigDirectorClient";
+
+const SDK_IDENTITY = { sdkName: "js-openfeature-server-provider", sdkVersion: "__VERSION__" };
 
 export class ConfigDirectorProvider implements Provider {
   private readonly client: ConfigDirectorClient;
@@ -21,15 +23,20 @@ export class ConfigDirectorProvider implements Provider {
   readonly runsOn: Paradigm = "server";
   readonly events = new OpenFeatureEventEmitter();
 
-  public constructor(clientSdkKey: string, clientOptions?: ConfigDirectorClientOptions) {
-    this.client = new DefaultConfigDirectorClient(
-      clientSdkKey,
-      {
-        sdkName: "js-openfeature-server-provider",
-        sdkVersion: "__VERSION__",
-      },
-      clientOptions,
-    );
+  /**
+   * Creates a provider connected to ConfigDirector with the given server SDK key.
+   */
+  public constructor(serverSdkKey: string, clientOptions?: ConfigDirectorClientOptions);
+  /**
+   * Creates a provider in `offline` mode, which needs no server SDK key: it never connects to
+   * ConfigDirector and serves `connection.file` or `connection.values` to every evaluation.
+   */
+  public constructor(clientOptions: OfflineClientOptions);
+  public constructor(
+    serverSdkKeyOrOptions: string | OfflineClientOptions,
+    clientOptions?: ConfigDirectorClientOptions,
+  ) {
+    this.client = DefaultConfigDirectorClient.from(serverSdkKeyOrOptions, SDK_IDENTITY, clientOptions);
     this.readyHandler = () => {
       this.events.emit(ProviderEvents.Ready);
     };

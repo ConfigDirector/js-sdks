@@ -78,6 +78,12 @@ describe("ConfigDirectorClient", () => {
         expect(() => createClient(validSdkKey)).not.toThrow();
       },
     );
+
+    test("throws when the base URL cannot be parsed", () => {
+      expect(() => createClient("sdk-key", { logger, connection: { url: "not a url" } })).toThrow(
+        "Invalid base URL 'not a url'",
+      );
+    });
   });
 
   test("returns from initialize if the timeout is reached, but eventually connects", async () => {

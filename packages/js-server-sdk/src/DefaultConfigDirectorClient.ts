@@ -1,5 +1,7 @@
 import { StreamingTransport } from "./StreamingTransport";
 import { PollingTransport } from "./PollingTransport";
+import { OfflineTransport } from "./OfflineTransport";
+import { planConnection, type ConnectionPlan, type LiveConnectionMode } from "./connection-plan";
 import { ConfigEvaluator } from "@config-evaluator/ConfigEvaluator";
 import { getRequestedType, parseConfigValue } from "@shared/value-parser";
 import type {
@@ -15,13 +17,13 @@ import type {
   ConfigBundle,
   ConfigDefinition,
   ConfigState,
-  ConnectionMode,
   ConfigEvaluation,
   HookHandler,
   InternalClientOptions,
+  OfflineClientOptions,
 } from "./types";
 import { createDefaultLogger } from "./logger";
-import { ConfigDirectorValidationError } from "@shared/errors";
+import { ConfigDirectorInitializationError, ConfigDirectorValidationError } from "@shared/errors";
 import EventEmitter from "node:events";
 import type { ConfigDirectorMetaContext, EvaluationReason } from "@shared/types";
 import { defaultUrlFactory } from "@shared/url";
@@ -36,11 +38,18 @@ import {
   type InvalidContextRecording,
 } from "@shared/telemetry/InvalidContextSubmissions";
 import { ServerTelemetryEventCollector, type ServerTelemetryClient } from "./telemetry";
+import { discardingTelemetryClient } from "./telemetry/discarding";
 import { generateValueId } from "./telemetry/value-id-generator";
 
-const defaultBaseUrl = new URL("https://server-sdk-api.configdirector.com");
 const DEFAULT_FLUSH_INTERVAL = 30_000;
 const DEFAULT_EVENT_QUEUE_LIMIT = 5_000;
+
+const liveTimeoutWarningDetails: { [M in LiveConnectionMode]: string } = {
+  streaming:
+    "The client will continue to retry since there were no fatal errors detected. Configs will return the default value until the connection succeeds.",
+  polling:
+    "Since the client was configured without streaming, configs may not update and always return the default value.",
+};
 
 type WatchHandlerWithOptions<T extends ConfigValueType> = {
   handler: WatchHandler<T>;
@@ -85,12 +94,23 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private readyPromise: Promise<void> | undefined;
   private readyResolve: ((cancelled: boolean) => void) | undefined;
   private readyTimer: ReturnType<typeof setTimeout> | undefined;
-  private connectionMode: ConnectionMode;
+  private readonly connectionPlan: ConnectionPlan;
   private configEvaluator: ConfigEvaluator;
   private metaContext: ConfigDirectorMetaContext;
 
+  public static from(
+    serverSdkKeyOrOptions: string | OfflineClientOptions,
+    sdkOptions: IdentifyingSdkOptions,
+    clientOptions: ConfigDirectorClientOptions | undefined,
+  ): DefaultConfigDirectorClient {
+    if (typeof serverSdkKeyOrOptions === "object") {
+      return new DefaultConfigDirectorClient(undefined, sdkOptions, serverSdkKeyOrOptions);
+    }
+    return new DefaultConfigDirectorClient(serverSdkKeyOrOptions, sdkOptions, clientOptions);
+  }
+
   constructor(
-    serverSdkKey: string,
+    serverSdkKey: string | undefined,
     sdkOptions: IdentifyingSdkOptions,
     clientOptions?: ConfigDirectorClientOptions,
     internalClientOptions?: InternalClientOptions,
@@ -98,16 +118,11 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.logger = clientOptions?.logger ?? createDefaultLogger();
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
     this.metaContext = clientOptions?.metadata ?? {};
-    this.validateSdkKeyPresence(serverSdkKey);
+    this.connectionPlan = planConnection(serverSdkKey, clientOptions?.connection);
     this.configEvaluator = new ConfigEvaluator(this.logger);
-    const baseUrl = this.parseUrl(clientOptions?.connection?.url) ?? defaultBaseUrl;
-    this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
     this.usageEventCollector =
-      internalClientOptions?.telemetry ??
-      this.buildTelemetryCollector(serverSdkKey, sdkOptions, baseUrl, clientOptions);
-    this.transport =
-      internalClientOptions?.transport ??
-      this.buildTransport(serverSdkKey, sdkOptions, baseUrl, clientOptions);
+      internalClientOptions?.telemetry ?? this.buildTelemetryClient(sdkOptions, clientOptions);
+    this.transport = internalClientOptions?.transport ?? this.buildTransport(sdkOptions, clientOptions);
 
     this.transport.on("configBundleReceived", (configBundle: ConfigBundle) => {
       this.readyResolve?.(false);
@@ -191,21 +206,32 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         this.clearReadyTimer();
       }
       if (!this.ready) {
-        const warningDetails =
-          this.connectionMode === "streaming"
-            ? "The client will continue to retry since there were no fatal errors detected. Configs will return the default value until the connection succeeds."
-            : "Since the client was configured without streaming, configs may not update and always return the default value.";
         this.logger.warn(
-          `[ConfigDirectorClient] Timed out waiting for initialization after ${this.timeout}ms. ${warningDetails}`,
+          `[ConfigDirectorClient] Timed out waiting for initialization after ${this.timeout}ms. ${this.timeoutWarningDetails()}`,
         );
       }
     } catch (error) {
+      if (error instanceof ConfigDirectorInitializationError) {
+        throw error;
+      }
       this.logger.error("[ConfigDirectorClient] An error occurred during initialization: ", error);
     }
   }
 
-  private resolvePollingIntervalForMode(configuredSeconds: number | undefined): number | undefined {
-    if (this.connectionMode !== "polling") {
+  private timeoutWarningDetails(): string {
+    switch (this.connectionPlan.kind) {
+      case "connect":
+        return liveTimeoutWarningDetails[this.connectionPlan.mode];
+      case "stay-offline":
+        return "The offline values were not delivered, so configs return the default value.";
+    }
+  }
+
+  private pollingIntervalFor(
+    mode: LiveConnectionMode,
+    configuredSeconds: number | undefined,
+  ): number | undefined {
+    if (mode !== "polling") {
       return undefined;
     }
     const resolved = resolvePollingInterval(configuredSeconds, {
@@ -218,52 +244,62 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     return resolved.seconds;
   }
 
-  private buildTelemetryCollector(
-    serverSdkKey: string,
+  private buildTelemetryClient(
     sdkOptions: IdentifyingSdkOptions,
-    baseUrl: URL,
     clientOptions: ConfigDirectorClientOptions | undefined,
   ): ServerTelemetryClient {
-    const queueLimit = clientOptions?.telemetry?.eventQueueLimit ?? DEFAULT_EVENT_QUEUE_LIMIT;
-    return new ServerTelemetryEventCollector({
-      sdkKey: serverSdkKey,
-      sdkIdentity: sdkOptions,
-      metaContext: clientOptions?.metadata ?? {},
-      logger: this.logger,
-      baseUrl,
-      flushIntervalDelay: clientOptions?.telemetry?.flushInterval ?? DEFAULT_FLUSH_INTERVAL,
-      evaluationQueueLimit: Math.ceil(queueLimit * 0.7),
-      contextLimit: Math.floor(queueLimit * 0.3),
-      urlFactory: defaultUrlFactory,
-      valueIdGenerator: generateValueId,
-    });
+    const plan = this.connectionPlan;
+    switch (plan.kind) {
+      case "stay-offline":
+        return discardingTelemetryClient;
+      case "connect": {
+        const queueLimit = clientOptions?.telemetry?.eventQueueLimit ?? DEFAULT_EVENT_QUEUE_LIMIT;
+        return new ServerTelemetryEventCollector({
+          sdkKey: plan.serverSdkKey,
+          sdkIdentity: sdkOptions,
+          metaContext: clientOptions?.metadata ?? {},
+          logger: this.logger,
+          baseUrl: plan.baseUrl,
+          flushIntervalDelay: clientOptions?.telemetry?.flushInterval ?? DEFAULT_FLUSH_INTERVAL,
+          evaluationQueueLimit: Math.ceil(queueLimit * 0.7),
+          contextLimit: Math.floor(queueLimit * 0.3),
+          urlFactory: defaultUrlFactory,
+          valueIdGenerator: generateValueId,
+        });
+      }
+    }
   }
 
   private buildTransport(
-    serverSdkKey: string,
     sdkOptions: IdentifyingSdkOptions,
-    baseUrl: URL,
     clientOptions: ConfigDirectorClientOptions | undefined,
   ): Transport {
-    const transportConstructor = this.getTransportConstructor(this.connectionMode);
-    return new transportConstructor({
-      serverSdkKey,
-      baseUrl,
-      metaContext: {
-        ...clientOptions?.metadata,
-        sdkName: sdkOptions.sdkName,
-        sdkVersion: sdkOptions.sdkVersion,
-      },
-      logger: this.logger,
-      pollingInterval: this.resolvePollingIntervalForMode(clientOptions?.connection?.pollingInterval),
-    });
+    const plan = this.connectionPlan;
+    switch (plan.kind) {
+      case "stay-offline":
+        return new OfflineTransport(plan.source);
+      case "connect": {
+        const transportConstructor = this.getTransportConstructor(plan.mode);
+        return new transportConstructor({
+          serverSdkKey: plan.serverSdkKey,
+          baseUrl: plan.baseUrl,
+          metaContext: {
+            ...clientOptions?.metadata,
+            sdkName: sdkOptions.sdkName,
+            sdkVersion: sdkOptions.sdkVersion,
+          },
+          logger: this.logger,
+          pollingInterval: this.pollingIntervalFor(plan.mode, clientOptions?.connection?.pollingInterval),
+        });
+      }
+    }
   }
 
-  private getTransportConstructor(mode: ConnectionMode) {
+  private getTransportConstructor(mode: LiveConnectionMode) {
     switch (mode) {
       case "polling":
         return PollingTransport;
-      default:
+      case "streaming":
         return StreamingTransport;
     }
   }
@@ -429,26 +465,6 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
 
   private dispatchEvaluationEvent(event: ConfigEvaluation) {
     setTimeout(() => this.eventEmitter.emit("configEvaluated", { evaluation: event }), 0);
-  }
-
-  private parseUrl(url: string | undefined): URL | undefined {
-    if (!url) {
-      return;
-    }
-
-    try {
-      return new URL(url);
-    } catch (error) {
-      throw new ConfigDirectorValidationError(`Invalid base URL '${url}'. Parsing failed: ${error}`);
-    }
-  }
-
-  private validateSdkKeyPresence(sdkKey: string | null | undefined) {
-    if (!sdkKey || sdkKey.trim().length == 0) {
-      throw new ConfigDirectorValidationError(
-        "No server SDK key was provided, the client cannot be instantiated without a valid server SDK key",
-      );
-    }
   }
 
   private validateDefaultValue<T extends ConfigValueType>(defaultValue: T) {

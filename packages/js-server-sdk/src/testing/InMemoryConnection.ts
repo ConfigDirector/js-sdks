@@ -1,7 +1,8 @@
 import EventEmitter from "node:events";
 import type { ConfigBundle, ConfigDefinition, ConfigDirectorLogger, Transport, TransportEvents } from "../types";
 import { ConfigDirectorConnectionError } from "@shared/errors";
-import { encodeTestValue, type TestValue, type TestValues } from "./values";
+import type { TestValue, TestValues } from "./values";
+import { unconditionalConfig } from "../native-values";
 
 type Armed = "nothing" | "hold" | "failure";
 
@@ -30,7 +31,7 @@ export class InMemoryConnection implements Transport {
   }
 
   public setValue(key: string, value: TestValue) {
-    const definition = encodeTestValue(key, value);
+    const definition = this.encode(key, value);
     this.configs.set(key, definition);
     this.deliverIfConnected({ ...TEST_ENVIRONMENT, kind: "delta", configs: { [key]: definition } });
   }
@@ -196,8 +197,12 @@ export class InMemoryConnection implements Transport {
   private encodeAll(values: TestValues): Map<string, ConfigDefinition> {
     const encoded = new Map<string, ConfigDefinition>();
     for (const [key, value] of Object.entries(values)) {
-      encoded.set(key, encodeTestValue(key, value));
+      encoded.set(key, this.encode(key, value));
     }
     return encoded;
+  }
+
+  private encode(key: string, value: TestValue): ConfigDefinition {
+    return unconditionalConfig(`test-config:${key}`, key, value);
   }
 }
