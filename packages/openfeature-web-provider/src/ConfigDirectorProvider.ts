@@ -12,8 +12,11 @@ import type {
   ConfigDirectorClientOptions,
   ConfigDirectorContext,
   ConfigValueType,
+  OfflineClientOptions,
 } from "@js-client-core/index";
 import { createBrowserClient } from "@js-browser-client/index";
+
+const SDK_IDENTITY = { sdkName: "js-openfeature-web-provider", sdkVersion: "__VERSION__" };
 
 export class ConfigDirectorProvider implements Provider {
   private readonly client: ConfigDirectorClient;
@@ -25,15 +28,17 @@ export class ConfigDirectorProvider implements Provider {
   readonly runsOn: Paradigm = "client";
   readonly events = new OpenFeatureEventEmitter();
 
-  public constructor(clientSdkKey: string, clientOptions?: ConfigDirectorClientOptions) {
-    this.client = createBrowserClient(
-      clientSdkKey,
-      {
-        sdkName: "js-openfeature-web-provider",
-        sdkVersion: "__VERSION__",
-      },
-      clientOptions,
-    );
+  /**
+   * Creates a provider connected to ConfigDirector with the given client SDK key.
+   */
+  public constructor(clientSdkKey: string, clientOptions?: ConfigDirectorClientOptions);
+  /**
+   * Creates a provider in `offline` mode, which needs no client SDK key: it never connects to
+   * ConfigDirector and serves `connection.values` to every evaluation.
+   */
+  public constructor(clientOptions: OfflineClientOptions);
+  public constructor(clientSdkKeyOrOptions: string | OfflineClientOptions, clientOptions?: ConfigDirectorClientOptions) {
+    this.client = createBrowserClient(clientSdkKeyOrOptions, SDK_IDENTITY, clientOptions);
     this.client.on("clientReady", () => {
       if (!this.awaitingRecovery) {
         return;

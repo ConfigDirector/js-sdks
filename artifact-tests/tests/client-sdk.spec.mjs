@@ -34,6 +34,15 @@ describe("@configdirector/client-sdk artifact", () => {
     expect(result, result.error).toEqual({ ok: true, values: { ready: true, ...EXPECTED_CLIENT_VALUES } });
   });
 
+  test("serves offline values from the ESM entry in a browser without a request", async () => {
+    const requestsBefore = server.sdkRequests.length;
+
+    const result = await runBrowserSmoke({ project, server, entry: "offline.mjs" });
+
+    expect(result, result.error).toEqual({ ok: true, values: { ready: true, ...EXPECTED_CLIENT_VALUES } });
+    expect(server.sdkRequests.slice(requestsBefore)).toEqual([]);
+  });
+
   test("serves test client values from the ESM testing entry in a browser", async () => {
     const result = await runBrowserSmoke({ project, server, entry: "testing.mjs" });
     expect(result, result.error).toEqual({ ok: true, values: { ...EXPECTED_TESTING_VALUES } });

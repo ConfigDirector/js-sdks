@@ -1,4 +1,8 @@
-export { ConfigDirectorConnectionError, ConfigDirectorValidationError } from "../../shared/src/errors";
+export {
+  ConfigDirectorConnectionError,
+  ConfigDirectorInitializationError,
+  ConfigDirectorValidationError,
+} from "../../shared/src/errors";
 
 export const isFetchErrorFatal = (fetchError: any): boolean => {
   if (fetchError?.name === "NotAllowedError") {

@@ -9,7 +9,8 @@ import type {
 } from "../types";
 import { Emitter } from "../Emitter";
 import { ConfigDirectorConnectionError } from "../errors";
-import { encodeTestValue, type TestValue, type TestValues } from "./values";
+import type { TestValue, TestValues } from "./values";
+import { nativeValueConfigState } from "../native-values";
 
 type ControlledAttempt = "initialize" | "updateContext";
 
@@ -59,7 +60,7 @@ export class InMemoryConnection implements Transport {
   }
 
   public setValue(key: string, value: TestValue) {
-    const configState = encodeTestValue(key, value, ++this.revision);
+    const configState = this.encode(key, value);
     this.configs.set(key, configState);
     this.deliverIfConnected({ ...TEST_ENVIRONMENT, kind: "delta", configs: { [key]: configState } });
   }
@@ -242,8 +243,12 @@ export class InMemoryConnection implements Transport {
   private encodeAll(values: TestValues): Map<string, ConfigState> {
     const encoded = new Map<string, ConfigState>();
     for (const [key, value] of Object.entries(values)) {
-      encoded.set(key, encodeTestValue(key, value, ++this.revision));
+      encoded.set(key, this.encode(key, value));
     }
     return encoded;
+  }
+
+  private encode(key: string, value: TestValue): ConfigState {
+    return nativeValueConfigState(`test-config:${key}`, key, value, `test-value:${key}:${++this.revision}`);
   }
 }

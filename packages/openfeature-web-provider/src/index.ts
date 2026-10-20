@@ -6,6 +6,10 @@ export type {
   ConfigDirectorLogger,
   ConfigDirectorLoggingLevel,
   ConfigDirectorLogMessageDecorator,
+  OfflineClientOptions,
+  OfflineValue,
+  OfflineValues,
 } from "@js-client-core/index";
+export { ConfigDirectorInitializationError } from "@shared/errors";
 
 export { ConfigDirectorProvider } from "./ConfigDirectorProvider";

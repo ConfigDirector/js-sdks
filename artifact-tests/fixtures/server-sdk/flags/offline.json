@@ -1,0 +1,6 @@
+{
+  "welcome-message": "Hello from ConfigDirector!",
+  "feature-enabled": true,
+  "item-count": 7,
+  "json-data": { "greeting": "hello", "count": 3 }
+}

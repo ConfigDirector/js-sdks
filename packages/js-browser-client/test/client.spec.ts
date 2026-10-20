@@ -253,7 +253,47 @@ describe("ConfigDirectorClient", () => {
 
   describe("constructor", () => {
     test("throws on an invalid connection URL", () => {
-      expect(() => createClient("sdk-key", { connection: { url: "not-a-url" } })).toThrow(/Invalid URL/);
+      expect(() => createClient("sdk-key", { connection: { url: "not-a-url" } })).toThrow(/Invalid base URL/);
+    });
+  });
+
+  describe("offline mode", () => {
+    test("serves the offline values without a client SDK key, a telemetry worker or a request", async () => {
+      const workerConstructions = { count: 0 };
+      vi.stubGlobal(
+        "Worker",
+        class extends Worker {
+          constructor(...args: ConstructorParameters<typeof Worker>) {
+            workerConstructions.count++;
+            super(...args);
+          }
+        },
+      );
+      try {
+        await commands.mswUseHandlers({ url: SSE_URL }, { url: POLLING_URL }, { url: TELEMETRY_URL });
+        const offlineClient = createBrowserClient(
+          {
+            logger,
+            metadata: { appName: "offline-app" },
+            connection: { mode: "offline", values: { "example-config": "Bye", "max-items": 20 } },
+          },
+          { sdkName: "test-sdk", sdkVersion: "1.2.0" },
+        );
+
+        await offlineClient.initialize({ id: "offline-user-1" });
+        await offlineClient.updateContext({ id: "offline-user-2" });
+        const values = [offlineClient.getValue("example-config", "Hello"), offlineClient.getValue("max-items", 0)];
+        await hidePageFor(100);
+        offlineClient.dispose();
+        await sleep(100);
+
+        expect(offlineClient.isReady).toBe(false);
+        expect(values).toEqual(["Bye", 20]);
+        expect(workerConstructions.count).toBe(0);
+        expect(JSON.stringify(await commands.mswGetPayloads())).not.toMatch(/offline-(app|user)/);
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
   });
 

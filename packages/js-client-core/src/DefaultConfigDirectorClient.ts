@@ -1,5 +1,7 @@
 import { Emitter } from "./Emitter";
 import { StreamingTransport } from "./StreamingTransport";
+import { OfflineTransport } from "./OfflineTransport";
+import { planConnection, type ConnectionPlan, type LiveConnectionMode } from "./connection-plan";
 import { getRequestedType, parseConfigValue } from "../../shared/src/value-parser";
 import type {
   ConfigSet,
@@ -15,21 +17,18 @@ import type {
   ClientConnectAction,
   IdentifyingSdkOptions,
   InternalClientOptions,
-  ConnectionMode,
   ConfigEvaluation,
   HookHandler,
   ClientSession,
+  OfflineClientOptions,
 } from "./types";
 import { createDefaultLogger } from "./logger";
-import { ConfigDirectorValidationError } from "./errors";
-import type { TelemetryClient } from "./telemetry";
+import { ConfigDirectorInitializationError, ConfigDirectorValidationError } from "./errors";
+import type { LiveTelemetryClientFactory, TelemetryClient } from "./telemetry";
+import { discardingTelemetryClient } from "./telemetry/discarding";
 import { defaultUrlFactory } from "@shared/url";
-import type { UrlFactory, UrlLike } from "@shared/url";
-import {
-  CLIENT_BASE_URL,
-  CLIENT_DEFAULT_POLLING_INTERVAL_SECONDS,
-  CLIENT_MIN_POLLING_INTERVAL_SECONDS,
-} from "@shared/constants";
+import type { UrlFactory } from "@shared/url";
+import { CLIENT_DEFAULT_POLLING_INTERVAL_SECONDS, CLIENT_MIN_POLLING_INTERVAL_SECONDS } from "@shared/constants";
 import { resolvePollingInterval } from "@shared/transport/pollingInterval";
 import { resolveClientSession } from "./client-session";
 import { PollingTransport } from "./PollingTransport";
@@ -60,12 +59,24 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private readyPromise: Promise<void> | undefined;
   private readyResolve: ((cancelled?: boolean) => void) | undefined;
   private currentContext?: ConfigDirectorContext;
-  private connectionMode: ConnectionMode;
+  private readonly connectionPlan: ConnectionPlan;
   private clientSession: Promise<ClientSession>;
 
+  public static from(
+    liveTelemetryClient: LiveTelemetryClientFactory,
+    clientSdkKeyOrOptions: string | OfflineClientOptions,
+    sdkOptions: IdentifyingSdkOptions,
+    clientOptions: ConfigDirectorClientOptions | undefined,
+  ): DefaultConfigDirectorClient {
+    if (typeof clientSdkKeyOrOptions === "object") {
+      return new DefaultConfigDirectorClient(liveTelemetryClient, undefined, sdkOptions, clientSdkKeyOrOptions);
+    }
+    return new DefaultConfigDirectorClient(liveTelemetryClient, clientSdkKeyOrOptions, sdkOptions, clientOptions);
+  }
+
   constructor(
-    telemetryClient: TelemetryClient,
-    clientSdkKey: string,
+    liveTelemetryClient: LiveTelemetryClientFactory,
+    clientSdkKey: string | undefined,
     sdkOptions: IdentifyingSdkOptions,
     clientOptions?: ConfigDirectorClientOptions,
     internalClientOptions?: InternalClientOptions,
@@ -73,14 +84,11 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.logger = clientOptions?.logger ?? createDefaultLogger();
     this.clientSession = resolveClientSession(this.logger, internalClientOptions?.instanceIdStorage);
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
-    this.validateSdkKeyPresence(clientSdkKey);
     const urlFactory: UrlFactory = internalClientOptions?.urlFactory ?? defaultUrlFactory;
-    const baseUrl = this.parseUrl(clientOptions?.connection?.url, urlFactory) ?? CLIENT_BASE_URL;
-    this.connectionMode = clientOptions?.connection?.mode ?? "streaming";
-    this.telemetryClient = telemetryClient;
+    this.connectionPlan = planConnection(clientSdkKey, clientOptions?.connection, urlFactory);
+    this.telemetryClient = this.buildTelemetryClient(liveTelemetryClient, clientOptions);
     this.transport =
-      internalClientOptions?.transport ??
-      this.buildTransport(clientSdkKey, sdkOptions, baseUrl, urlFactory, clientOptions, internalClientOptions);
+      internalClientOptions?.transport ?? this.buildTransport(sdkOptions, clientOptions, urlFactory, internalClientOptions);
 
     this.transport.on("configSetReceived", (configSet: ConfigSet) => {
       this.hasReceivedConfigSet = true;
@@ -132,8 +140,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     }
   }
 
-  private resolvePollingIntervalForMode(configuredSeconds: number | undefined): number | undefined {
-    if (this.connectionMode !== "polling") {
+  private pollingIntervalFor(mode: LiveConnectionMode, configuredSeconds: number | undefined): number | undefined {
+    if (mode !== "polling") {
       return undefined;
     }
     const resolved = resolvePollingInterval(configuredSeconds, {
@@ -146,44 +154,67 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     return resolved.seconds;
   }
 
-  private buildTransport(
-    clientSdkKey: string,
-    sdkOptions: IdentifyingSdkOptions,
-    baseUrl: UrlLike,
-    urlFactory: UrlFactory,
+  private buildTelemetryClient(
+    liveTelemetryClient: LiveTelemetryClientFactory,
     clientOptions: ConfigDirectorClientOptions | undefined,
-    internalClientOptions: InternalClientOptions | undefined,
-  ): Transport {
-    const transportConstructor = this.getTransportConstructor(this.connectionMode);
-    return new transportConstructor({
-      clientSession: this.clientSession,
-      clientSdkKey,
-      baseUrl,
-      resolveUrl: urlFactory,
-      metaContext: {
-        ...clientOptions?.metadata,
-        sdkName: sdkOptions.sdkName,
-        sdkVersion: sdkOptions.sdkVersion,
-        userAgent: readUserAgent(),
-        host: readHost(),
-      },
-      logger: this.logger,
-      fetch: internalClientOptions?.fetch,
-      connectionRetryDelay:
-        internalClientOptions?.connectionRetryDelay ??
-        ((attempt: number) => {
-          const seconds = Math.pow(2, Math.min(attempt, MAX_EXPONENTIAL_DELAY));
-          return seconds * 1_000;
-        }),
-      pollingInterval: this.resolvePollingIntervalForMode(clientOptions?.connection?.pollingInterval),
-    });
+  ): TelemetryClient {
+    const plan = this.connectionPlan;
+    switch (plan.kind) {
+      case "stay-offline":
+        return discardingTelemetryClient;
+      case "connect":
+        return liveTelemetryClient({
+          clientSdkKey: plan.clientSdkKey,
+          baseUrl: plan.baseUrl,
+          logger: this.logger,
+          metadata: clientOptions?.metadata,
+        });
+    }
   }
 
-  private getTransportConstructor(connectionMode?: ConnectionMode) {
-    switch (connectionMode) {
+  private buildTransport(
+    sdkOptions: IdentifyingSdkOptions,
+    clientOptions: ConfigDirectorClientOptions | undefined,
+    urlFactory: UrlFactory,
+    internalClientOptions: InternalClientOptions | undefined,
+  ): Transport {
+    const plan = this.connectionPlan;
+    switch (plan.kind) {
+      case "stay-offline":
+        return new OfflineTransport(plan.source);
+      case "connect": {
+        const transportConstructor = this.getTransportConstructor(plan.mode);
+        return new transportConstructor({
+          clientSession: this.clientSession,
+          clientSdkKey: plan.clientSdkKey,
+          baseUrl: plan.baseUrl,
+          resolveUrl: urlFactory,
+          metaContext: {
+            ...clientOptions?.metadata,
+            sdkName: sdkOptions.sdkName,
+            sdkVersion: sdkOptions.sdkVersion,
+            userAgent: readUserAgent(),
+            host: readHost(),
+          },
+          logger: this.logger,
+          fetch: internalClientOptions?.fetch,
+          connectionRetryDelay:
+            internalClientOptions?.connectionRetryDelay ??
+            ((attempt: number) => {
+              const seconds = Math.pow(2, Math.min(attempt, MAX_EXPONENTIAL_DELAY));
+              return seconds * 1_000;
+            }),
+          pollingInterval: this.pollingIntervalFor(plan.mode, clientOptions?.connection?.pollingInterval),
+        });
+      }
+    }
+  }
+
+  private getTransportConstructor(mode: LiveConnectionMode) {
+    switch (mode) {
       case "polling":
         return PollingTransport;
-      default:
+      case "streaming":
         return StreamingTransport;
     }
   }
@@ -196,14 +227,26 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   }
 
   public async updateContext(context: ConfigDirectorContext) {
-    await this.submitContext(context, "context update");
+    switch (this.connectionPlan.kind) {
+      case "connect":
+        await this.submitContext(context, "context update");
+        return;
+      case "stay-offline":
+        this.storeContext(this.admittedContextFor(context, "context update"));
+        return;
+    }
+  }
+
+  private storeContext(context: ConfigDirectorContext | undefined) {
+    this.currentContext = context;
+    this.emit("contextUpdated", { context });
   }
 
   private async submitContext(context: ConfigDirectorContext | undefined, submission: ContextSubmission) {
-    await this.connectToTransport(this.contextToConnectWith(context, submission), submission);
+    await this.connectToTransport(this.admittedContextFor(context, submission), submission);
   }
 
-  private contextToConnectWith(
+  private admittedContextFor(
     suppliedContext: ConfigDirectorContext | undefined,
     submission: ContextSubmission,
   ): ConfigDirectorContext | undefined {
@@ -213,7 +256,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         return admission.context;
       case "ignored":
         this.logger.error(
-          `[ConfigDirectorClient] Ignored the context supplied for ${submission} because its kind '${admission.kindSample}' is invalid; connecting as if no context was supplied. A context kind has 1 to 64 characters, using only lowercase letters, digits, '-' and '_'.`,
+          `[ConfigDirectorClient] Ignored the context supplied for ${submission} because its kind '${admission.kindSample}' is invalid; continuing as if no context was supplied. A context kind has 1 to 64 characters, using only lowercase letters, digits, '-' and '_'.`,
         );
         this.telemetryClient.recordInvalidContext(admission.kindSample);
         return undefined;
@@ -262,14 +305,25 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       }
 
       if (!this.ready) {
-        const warningDetails =
-          "The client will continue to retry since there were no fatal errors detected. Configs will return the default value until the connection succeeds.";
         this.logger.warn(
-          `[ConfigDirectorClient] Timed out waiting for ${caller} after ${this.timeout}ms. ${warningDetails}`,
+          `[ConfigDirectorClient] Timed out waiting for ${caller} after ${this.timeout}ms. ${this.timeoutWarningDetails()}`,
         );
       }
     } catch (error) {
+      if (error instanceof ConfigDirectorInitializationError) {
+        this.initializing = false;
+        throw error;
+      }
       this.logger.error(`[ConfigDirectorClient] An error occurred during ${caller}: `, error);
+    }
+  }
+
+  private timeoutWarningDetails(): string {
+    switch (this.connectionPlan.kind) {
+      case "connect":
+        return "The client will continue to retry since there were no fatal errors detected. Configs will return the default value until the connection succeeds.";
+      case "stay-offline":
+        return "The offline values were not delivered, so configs return the default value.";
     }
   }
 
@@ -394,26 +448,6 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     }
   }
 
-  private parseUrl(url: string | undefined, urlFactory: UrlFactory): UrlLike | undefined {
-    if (!url) {
-      return;
-    }
-
-    try {
-      return urlFactory(url);
-    } catch (error) {
-      throw new ConfigDirectorValidationError(`Invalid base URL '${url}'. Parsing failed: ${error}`);
-    }
-  }
-
-  private validateSdkKeyPresence(sdkKey: string | null | undefined) {
-    if (!sdkKey || sdkKey.trim().length == 0) {
-      throw new ConfigDirectorValidationError(
-        "No client SDK key was provided, the client cannot be instantiated without a valid client SDK key",
-      );
-    }
-  }
-
   private validateDefaultValue<T extends ConfigValueType>(defaultValue: T) {
     if (defaultValue === undefined || defaultValue === null) {
       throw new ConfigDirectorValidationError(
@@ -455,15 +489,27 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   }
 
   public pauseNetwork(): void {
-    this.logger.debug("[ConfigDirectorClient] pauseNetwork() called, pausing transport connection");
-    clearTimeout(this.timeoutTimer);
-    this.timeoutTimer = undefined;
-    this.transport.close();
-    this.ready = false;
+    switch (this.connectionPlan.kind) {
+      case "stay-offline":
+        return;
+      case "connect":
+        this.logger.debug("[ConfigDirectorClient] pauseNetwork() called, pausing transport connection");
+        clearTimeout(this.timeoutTimer);
+        this.timeoutTimer = undefined;
+        this.transport.close();
+        this.ready = false;
+        return;
+    }
   }
 
   public async resumeNetwork(): Promise<void> {
-    await this.connectToTransport(this.currentContext, "network resume");
+    switch (this.connectionPlan.kind) {
+      case "stay-offline":
+        return;
+      case "connect":
+        await this.connectToTransport(this.currentContext, "network resume");
+        return;
+    }
   }
 
   public async close() {

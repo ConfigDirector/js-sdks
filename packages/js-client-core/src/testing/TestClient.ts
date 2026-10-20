@@ -1,7 +1,7 @@
 import { DefaultConfigDirectorClient } from "../DefaultConfigDirectorClient";
 import { createDefaultLogger } from "../logger";
 import type { ConfigDirectorClient, ConfigDirectorContext, ConfigDirectorLogger, IdentifyingSdkOptions } from "../types";
-import type { TelemetryClient } from "../telemetry";
+import { discardingTelemetryClient } from "../telemetry/discarding";
 import { InMemoryConnection } from "./InMemoryConnection";
 import type { TestValue, TestValues } from "./values";
 
@@ -105,13 +105,6 @@ export interface TestClient {
   readonly contextUpdates: ConfigDirectorContext[];
 }
 
-const noopTelemetryClient: TelemetryClient = {
-  updateContext: async () => {},
-  evaluatedConfig: () => {},
-  recordInvalidContext: () => {},
-  close: async () => {},
-};
-
 class InMemoryTestClient implements TestClient {
   constructor(
     public readonly client: ConfigDirectorClient,
@@ -163,7 +156,7 @@ export const createTestClient = (sdkOptions: IdentifyingSdkOptions, options?: Te
   const logger = options?.logger ?? createDefaultLogger();
   const connection = new InMemoryConnection(logger, options?.values ?? {});
   const client = new DefaultConfigDirectorClient(
-    noopTelemetryClient,
+    () => discardingTelemetryClient,
     TEST_CLIENT_SDK_KEY,
     sdkOptions,
     { logger, connection: { timeout: options?.timeout } },

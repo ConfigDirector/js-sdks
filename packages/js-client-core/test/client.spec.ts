@@ -38,7 +38,7 @@ const createClient = (
   internalClientOptions?: InternalClientOptions,
 ) => {
   return new DefaultConfigDirectorClient(
-    telemetryClient,
+    () => telemetryClient,
     clientSdkKey,
     { sdkName: "test-sdk", sdkVersion: "1.2.0" },
     clientOptions,
@@ -655,7 +655,7 @@ describe("ConfigDirectorClient", () => {
 
       const createClientWithRejectingTelemetry = (transport: Transport, clientLogger = logger) =>
         new DefaultConfigDirectorClient(
-          rejectingTelemetryClient,
+          () => rejectingTelemetryClient,
           "sdk-key",
           { sdkName: "test-sdk", sdkVersion: "1.2.0" },
           { logger: clientLogger },
@@ -1371,7 +1371,7 @@ describe("ConfigDirectorClient", () => {
     test("emits connectionError when the stream dies with a fatal status after connecting", async () => {
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], { status: 401 }]);
       const failingClient = new DefaultConfigDirectorClient(
-        telemetryClient,
+        () => telemetryClient,
         "sdk-key",
         { sdkName: "test-sdk", sdkVersion: "1.2.0" },
         { logger },
@@ -1406,7 +1406,7 @@ describe("ConfigDirectorClient", () => {
         ],
       ]);
       const retryingClient = new DefaultConfigDirectorClient(
-        telemetryClient,
+        () => telemetryClient,
         "sdk-key",
         { sdkName: "test-sdk", sdkVersion: "1.2.0" },
         { logger },
@@ -2166,7 +2166,7 @@ describe("ConfigDirectorClient", () => {
     test("counts no invalid submission when the stream reconnects after a dropped connection", async () => {
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], { status: 429 }, [{ data: full() }]]);
       client = new DefaultConfigDirectorClient(
-        telemetryClient,
+        () => telemetryClient,
         "sdk-key",
         { sdkName: "test-sdk", sdkVersion: "1.2.0" },
         { logger: capturingLogger },

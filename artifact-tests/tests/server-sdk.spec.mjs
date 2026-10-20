@@ -41,6 +41,26 @@ describe("@configdirector/server-sdk artifact", () => {
     expect(parseReport(result.stdout)).toEqual({ ready: true, ...EXPECTED_SERVER_VALUES });
   });
 
+  test("serves offline values from a JSON file from the ESM entry without a request", async () => {
+    const requestsBefore = server.sdkRequests.length;
+
+    const result = await project.runNode("offline.mjs", { CONFIGDIRECTOR_BASE_URL: server.baseUrl });
+
+    expect(result.code, result.stderr).toBe(0);
+    expect(parseReport(result.stdout)).toEqual({ ready: true, ...EXPECTED_SERVER_VALUES });
+    expect(server.sdkRequests.slice(requestsBefore)).toEqual([]);
+  });
+
+  test("serves inline offline values from the CJS entry without a request", async () => {
+    const requestsBefore = server.sdkRequests.length;
+
+    const result = await project.runNode("offline.cjs", { CONFIGDIRECTOR_BASE_URL: server.baseUrl });
+
+    expect(result.code, result.stderr).toBe(0);
+    expect(parseReport(result.stdout)).toEqual({ ready: true, ...EXPECTED_SERVER_VALUES });
+    expect(server.sdkRequests.slice(requestsBefore)).toEqual([]);
+  });
+
   test("serves test client values from the ESM testing entry", async () => {
     const result = await project.runNode("testing.mjs");
     expect(result.code, result.stderr).toBe(0);

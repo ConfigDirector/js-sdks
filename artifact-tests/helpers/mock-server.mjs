@@ -49,6 +49,7 @@ const sendAccepted = (req, res) => {
 
 export const startMockServer = () => {
   let staticDir;
+  const sdkRequests = [];
 
   const serveStaticFile = async (pathname, res) => {
     const relativePath = normalize(pathname.replace(/^\/app\//, "")).replace(/^(\.\.[/\\])+/, "");
@@ -80,6 +81,7 @@ export const startMockServer = () => {
         return;
       }
 
+      sdkRequests.push(`${req.method} ${pathname}`);
       if (req.method !== "POST") {
         res.writeHead(405, CORS_HEADERS);
         res.end();
@@ -106,6 +108,7 @@ export const startMockServer = () => {
       const { port } = server.address();
       resolve({
         baseUrl: `http://127.0.0.1:${port}`,
+        sdkRequests,
         serveStatic: (dir) => {
           staticDir = dir;
         },

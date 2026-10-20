@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
-import { createClient } from "../src";
-import { SSE_URL, POLL_URL, createStubbedLogger } from "./helpers";
+import { createClient, ConfigDirectorInitializationError } from "../src";
+import { SSE_URL, POLL_URL, createStubbedLogger, sleep } from "./helpers";
 import { commands } from "vitest/browser";
 
 const full = (configs: object = {}) => ({
@@ -41,6 +41,33 @@ describe("ConfigDirectorClient", () => {
         userAgent: expect.stringContaining("Mozilla"),
       }),
     );
+  });
+
+  test("serves offline values to every context without a client SDK key or a request", async () => {
+    await commands.mswUseHandlers({ url: SSE_URL }, { url: POLL_URL });
+    const client = createClient({
+      logger,
+      metadata: { appName: "offline-app" },
+      connection: { mode: "offline", values: { "example-config": "Bye", "feature-enabled": true } },
+    });
+
+    await client.initialize({ id: "offline-user-1" });
+
+    expect(client.isReady).toBe(true);
+    expect(client.getValue("example-config", "Hello")).toBe("Bye");
+    expect(client.getValue("feature-enabled", false)).toBe(true);
+    client.dispose();
+    await sleep(100);
+    expect(JSON.stringify(await commands.mswGetPayloads())).not.toMatch(/offline-(app|user)/);
+  });
+
+  test("rejects initialize with ConfigDirectorInitializationError when an offline value is refused", async () => {
+    const client = createClient({ logger, connection: { mode: "offline", values: { "example-config": null as any } } });
+
+    const initialization = client.initialize();
+
+    await expect(initialization).rejects.toBeInstanceOf(ConfigDirectorInitializationError);
+    expect(client.isReady).toBe(false);
   });
 
   test("returns the default value when the config was not sent from the server", async () => {

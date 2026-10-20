@@ -8,7 +8,6 @@ import { asyncStorageInstanceIdStorage } from "./instanceIdStorage";
 import { createConsoleLogger } from "./logger";
 import { reactNativeStreamingFetch } from "./reactNativeStreamingFetch";
 import { ReactNativeTelemetryClient } from "./ReactNativeTelemetryClient";
-import { CLIENT_BASE_URL } from "@shared/constants";
 import { urlFactory } from "./url";
 
 export const createClient = (
@@ -18,17 +17,16 @@ export const createClient = (
   const sdkIdentity = { sdkName: "react-native-sdk", sdkVersion: "__VERSION__" };
   const logger = clientOptions?.logger ?? createConsoleLogger("warn");
   const metadata = resolveMetadata(clientOptions?.metadata, logger);
-  const baseUrl = clientOptions?.connection?.url ? urlFactory(clientOptions.connection.url) : CLIENT_BASE_URL;
-  const telemetryClient = new ReactNativeTelemetryClient({
-    sdkKey: clientSdkKey,
-    sdkIdentity,
-    metaContext: metadata,
-    baseUrl,
-    logger,
-    urlFactory,
-  });
   return new DefaultConfigDirectorClient(
-    telemetryClient,
+    (liveTelemetry) =>
+      new ReactNativeTelemetryClient({
+        sdkKey: liveTelemetry.clientSdkKey,
+        sdkIdentity,
+        metaContext: metadata,
+        baseUrl: liveTelemetry.baseUrl,
+        logger,
+        urlFactory,
+      }),
     clientSdkKey,
     sdkIdentity,
     { ...clientOptions, logger, metadata },

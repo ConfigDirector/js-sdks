@@ -85,6 +85,27 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
     });
   });
 
+  test("serves offline values to OpenFeature evaluations without a client SDK key or a request", async () => {
+    await commands.mswUseHandlers({ url: SSE_URL }, { url: POLL_URL });
+
+    await OpenFeature.setProviderAndWait(
+      new ConfigDirectorProvider({
+        logger,
+        metadata: { appName: "offline-app" },
+        connection: { mode: "offline", values: { "show-banner": true, greeting: "Bye", "max-items": 42 } },
+      }),
+      { targetingKey: "offline-user-123" },
+    );
+    const client = OpenFeature.getClient();
+
+    expect(client.getBooleanValue("show-banner", false)).toBe(true);
+    expect(client.getStringValue("greeting", "Hello")).toBe("Bye");
+    expect(client.getNumberValue("max-items", 0)).toBe(42);
+    await OpenFeature.clearProviders();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(JSON.stringify(await commands.mswGetPayloads())).not.toMatch(/offline-(app|user)/);
+  });
+
   test("returns the caller-supplied default value when a flag was not sent by the server", async () => {
     await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
 

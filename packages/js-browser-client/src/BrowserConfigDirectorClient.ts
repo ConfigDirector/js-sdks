@@ -2,39 +2,41 @@ import {
   type ConfigDirectorClientOptions,
   type ConfigDirectorClient,
   type IdentifyingSdkOptions,
-  createDefaultLogger,
+  type OfflineClientOptions,
 } from "@js-client-core/index";
 import { WebWorkerTelemetryClient } from "./telemetry/WebWorkerTelemetryClient";
 import { DefaultConfigDirectorClient } from "@js-client-core/DefaultConfigDirectorClient";
-import { defaultUrlFactory, parseUrl } from "@shared/url";
-import { CLIENT_BASE_URL } from "@shared/constants";
+import { defaultUrlFactory } from "@shared/url";
 import { generateValueId } from "./telemetry/value-id-generator";
 
+/**
+ * Creates a browser client. With a client SDK key it connects to ConfigDirector; with
+ * {@link OfflineClientOptions} alone it runs in `offline` mode and serves `connection.values`.
+ */
 export const createBrowserClient = (
-  clientSdkKey: string,
+  clientSdkKeyOrOptions: string | OfflineClientOptions,
   sdkOptions: IdentifyingSdkOptions,
   clientOptions?: ConfigDirectorClientOptions,
 ): ConfigDirectorClient => {
-  const logger = clientOptions?.logger ?? createDefaultLogger();
-  const baseUrl = parseUrl(clientOptions?.connection?.url) ?? CLIENT_BASE_URL;
-  const telemetryClient = new WebWorkerTelemetryClient({
-    sdkKey: clientSdkKey,
-    sdkIdentity: {
-      sdkName: sdkOptions.sdkName,
-      sdkVersion: sdkOptions.sdkVersion,
-    },
-    metaContext: {
-      appName: clientOptions?.metadata?.appName,
-      appVersion: clientOptions?.metadata?.appVersion,
-    },
-    logger: logger,
-    baseUrl,
-    urlFactory: defaultUrlFactory,
-    valueIdGenerator: generateValueId,
-  });
-
-  return new DefaultConfigDirectorClient(telemetryClient, clientSdkKey, sdkOptions, {
-    ...clientOptions,
-    logger,
-  });
+  return DefaultConfigDirectorClient.from(
+    ({ clientSdkKey, baseUrl, logger, metadata }) =>
+      new WebWorkerTelemetryClient({
+        sdkKey: clientSdkKey,
+        sdkIdentity: {
+          sdkName: sdkOptions.sdkName,
+          sdkVersion: sdkOptions.sdkVersion,
+        },
+        metaContext: {
+          appName: metadata?.appName,
+          appVersion: metadata?.appVersion,
+        },
+        logger,
+        baseUrl,
+        urlFactory: defaultUrlFactory,
+        valueIdGenerator: generateValueId,
+      }),
+    clientSdkKeyOrOptions,
+    sdkOptions,
+    clientOptions,
+  );
 };
