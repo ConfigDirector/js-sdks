@@ -64,7 +64,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
 
   public static from(
     liveTelemetryClient: LiveTelemetryClientFactory,
-    clientSdkKeyOrOptions: string | OfflineClientOptions,
+    clientSdkKeyOrOptions: string | OfflineClientOptions | undefined,
     sdkOptions: IdentifyingSdkOptions,
     clientOptions: ConfigDirectorClientOptions | undefined,
   ): DefaultConfigDirectorClient {

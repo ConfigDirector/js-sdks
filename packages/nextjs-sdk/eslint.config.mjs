@@ -11,7 +11,14 @@ export default defineConfig([
     extends: ["js/recommended"],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
-  { ignores: ["dist/*", "test/fixtures/app/.next/**", "test/fixtures/app/next-env.d.ts"] },
+  {
+    ignores: [
+      "dist/*",
+      "test/fixtures/app/.next/**",
+      "test/fixtures/app/next-env.d.ts",
+      "test/fixtures/app-offline-cell/**",
+    ],
+  },
   tseslint.configs.strict,
   {
     plugins: { "@stylistic": stylistic },

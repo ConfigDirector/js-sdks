@@ -18,10 +18,16 @@ export async function setup() {
     NEXT_PUBLIC_CONFIGDIRECTOR_BASE_URL: mockServer.baseUrl,
   });
 
-  // Expose the fixture base URL so test files can build request URLs and Playwright page.goto()
+  const offlineNextServer = await startNextServer(
+    { CONFIGDIRECTOR_OFFLINE_FILE: "./flags/offline-cell.json" },
+    "app-offline-cell",
+  );
+
   process.env["NEXTJS_SDK_TEST_URL"] = nextServer.baseUrl;
+  process.env["NEXTJS_SDK_OFFLINE_TEST_URL"] = offlineNextServer.baseUrl;
 
   return async () => {
+    await offlineNextServer.close();
     await nextServer.close();
     await mockServer.close();
   };

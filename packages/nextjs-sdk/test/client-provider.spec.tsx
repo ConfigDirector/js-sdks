@@ -110,4 +110,22 @@ describe("client ConfigDirectorProvider lifecycle", () => {
       pollingInterval: 120,
     });
   });
+
+  test("builds an offline browser client from values without a key", async () => {
+    render(
+      <ConfigDirectorProvider mode="offline" values={{ "new-checkout": true, "max-items": 20 }}>
+        <div />
+      </ConfigDirectorProvider>,
+    );
+
+    await vi.waitFor(() => expect(createdClients).toHaveLength(1));
+
+    const [clientSdkKey, , clientOptions] = vi.mocked(createBrowserClient).mock.lastCall as [
+      unknown,
+      unknown,
+      { connection: Record<string, unknown> },
+    ];
+    expect(clientSdkKey).toBeUndefined();
+    expect(clientOptions.connection).toEqual({ mode: "offline", values: { "new-checkout": true, "max-items": 20 } });
+  });
 });

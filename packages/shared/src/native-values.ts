@@ -16,6 +16,19 @@ export const encodeNativeValue = (key: string, value: NativeValue): EncodedNativ
   return encode(key, value);
 };
 
+const decoders: { [T in ConfigType]: (value: string) => NativeValue } = {
+  boolean: (value) => value === "true",
+  integer: Number,
+  float: Number,
+  string: (value) => value,
+  enum: (value) => value,
+  url: (value) => value,
+  custom: (value) => value,
+  json: (value) => JSON.parse(value),
+};
+
+export const decodeNativeValue = (type: ConfigType, value: string): NativeValue => decoders[type](value);
+
 const encode = (key: string, value: NativeValue): EncodedNativeValue => {
   switch (typeof value) {
     case "boolean":

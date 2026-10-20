@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { encodeNativeValue } from "../src/native-values";
+import { decodeNativeValue, encodeNativeValue } from "../src/native-values";
 import { ConfigDirectorValidationError } from "../src/errors";
 
 describe("encodeNativeValue", () => {
@@ -77,5 +77,41 @@ describe("encodeNativeValue", () => {
 
   test("names the key in the error message for an empty key", () => {
     expect(() => encodeNativeValue(" ", true)).toThrow("The key of a value cannot be empty.");
+  });
+});
+
+describe("decodeNativeValue", () => {
+  test("decodes a boolean config as a boolean", () => {
+    expect(decodeNativeValue("boolean", "true")).toBe(true);
+    expect(decodeNativeValue("boolean", "false")).toBe(false);
+  });
+
+  test("decodes an integer config as a number", () => {
+    expect(decodeNativeValue("integer", "20")).toBe(20);
+    expect(decodeNativeValue("integer", "-7")).toBe(-7);
+  });
+
+  test("decodes a float config as a number", () => {
+    expect(decodeNativeValue("float", "2.5")).toBe(2.5);
+    expect(decodeNativeValue("float", "0.0000001")).toBe(1e-7);
+  });
+
+  test("decodes a string config as the string itself, including an empty string", () => {
+    expect(decodeNativeValue("string", "hello")).toBe("hello");
+    expect(decodeNativeValue("string", "")).toBe("");
+  });
+
+  test("decodes a json config as the parsed object or array", () => {
+    expect(decodeNativeValue("json", '{"b":1,"a":[true,"x",null,{"c":2.5}]}')).toEqual({
+      b: 1,
+      a: [true, "x", null, { c: 2.5 }],
+    });
+    expect(decodeNativeValue("json", "[1,2]")).toEqual([1, 2]);
+  });
+
+  test("decodes the enum, url and custom configs as the string they hold", () => {
+    expect(decodeNativeValue("enum", "blue")).toBe("blue");
+    expect(decodeNativeValue("url", "https://example.test/")).toBe("https://example.test/");
+    expect(decodeNativeValue("custom", "raw")).toBe("raw");
   });
 });

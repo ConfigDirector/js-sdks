@@ -80,7 +80,7 @@ export const useClient = () => {
  * Returns the current connection status of the browser client.
  *
  * - `"loading"` — client is initializing
- * - `"ready"` — client received configs from the server
+ * - `"ready"` — client received configs from the server, or loaded its offline values
  * - `"default"` — initialization timed out; hooks return default or initial values
  *
  * Must be used inside a `<ConfigDirectorProvider>`.

@@ -11,10 +11,12 @@ import { generateValueId } from "./telemetry/value-id-generator";
 
 /**
  * Creates a browser client. With a client SDK key it connects to ConfigDirector; with
- * {@link OfflineClientOptions} alone it runs in `offline` mode and serves `connection.values`.
+ * {@link OfflineClientOptions} alone it runs in `offline` mode and serves `connection.values`. An
+ * absent key with `clientOptions` is the same as the options alone when their mode is `offline`,
+ * and fails like a missing key otherwise.
  */
 export const createBrowserClient = (
-  clientSdkKeyOrOptions: string | OfflineClientOptions,
+  clientSdkKeyOrOptions: string | OfflineClientOptions | undefined,
   sdkOptions: IdentifyingSdkOptions,
   clientOptions?: ConfigDirectorClientOptions,
 ): ConfigDirectorClient => {

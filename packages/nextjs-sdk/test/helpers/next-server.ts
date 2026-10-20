@@ -1,13 +1,23 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { cpSync, existsSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AddressInfo } from "node:net";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const FIXTURE_DIR = resolve(__dirname, "../fixtures/app");
+
+const copyFixtureBeside = (name: string): string => {
+  const copy = resolve(FIXTURE_DIR, "..", name);
+  rmSync(copy, { recursive: true, force: true });
+  cpSync(FIXTURE_DIR, copy, {
+    recursive: true,
+    filter: (source) => ![".next", "node_modules"].includes(basename(source)),
+  });
+  return copy;
+};
 
 // next may be hoisted to the workspace root or kept in this package's own node_modules
 const NEXT_BIN = (() => {
@@ -51,12 +61,15 @@ export interface NextServer {
   close(): Promise<void>;
 }
 
-export const startNextServer = async (env: Record<string, string>): Promise<NextServer> => {
+export const startNextServer = async (
+  env: Record<string, string>,
+  fixtureCopyName?: string,
+): Promise<NextServer> => {
   const port = await getFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
 
   const proc = spawn(NEXT_BIN, ["dev", "--port", String(port), "--hostname", "127.0.0.1"], {
-    cwd: FIXTURE_DIR,
+    cwd: fixtureCopyName ? copyFixtureBeside(fixtureCopyName) : FIXTURE_DIR,
     env: { ...process.env, ...env, PORT: String(port) },
     stdio: "pipe",
     shell: false,

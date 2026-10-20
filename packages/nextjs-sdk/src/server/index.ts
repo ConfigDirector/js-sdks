@@ -8,6 +8,7 @@ export { ConfigDirectorProvider } from "./ConfigDirectorProvider";
 export type { ConfigDirectorProviderProps } from "./ConfigDirectorProvider";
 
 export { createConsoleLogger } from "./logger";
+export { ConfigDirectorInitializationError } from "@shared/errors";
 
 export type {
   ConfigDirectorClient,
@@ -17,4 +18,7 @@ export type {
   ConfigValueType,
   ConfigDirectorMetaContext,
   ConnectionMode,
+  OfflineClientOptions,
+  OfflineValue,
+  OfflineValues,
 } from "@js-server-sdk/types";

@@ -1,8 +1,10 @@
 import type { PropsWithChildren } from "react";
 import { ConfigDirectorProvider as ClientProvider } from "@configdirector/nextjs-sdk/client";
 import type { ConfigDirectorProviderOptions } from "../client/types";
+import type { ConfigState } from "@js-server-sdk/types";
 import { generateSsrConfigSet } from "./ssr";
-import { getAppMeta } from "./singleton";
+import { getAppMeta, getServerConnectionMode } from "./singleton";
+import { decideBrowserHalfSource, offlineValuesOf } from "./browser-half";
 
 /**
  * Props for {@link ConfigDirectorProvider}. Identical to the client provider options
@@ -84,6 +86,7 @@ export async function ConfigDirectorProvider({
   return (
     <ClientProvider
       {...props}
+      {...browserHalfConnectionProps(initialConfigs, props)}
       appName={props.appName ?? appMeta.appName}
       appVersion={props.appVersion ?? appMeta.appVersion}
       initialConfigs={initialConfigs}>
@@ -91,3 +94,17 @@ export async function ConfigDirectorProvider({
     </ClientProvider>
   );
 }
+
+const browserHalfConnectionProps = (
+  initialConfigs: Record<string, ConfigState>,
+  props: ConfigDirectorProviderProps,
+): Pick<ConfigDirectorProviderOptions, "mode" | "values"> => {
+  switch (decideBrowserHalfSource(props, getServerConnectionMode())) {
+    case "as-given":
+      return {};
+    case "inherit-offline":
+      return { mode: "offline", values: offlineValuesOf(initialConfigs) };
+    case "connect":
+      return {};
+  }
+};

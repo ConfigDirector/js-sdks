@@ -9,6 +9,8 @@ export type {
   ConfigDirectorClientProviderClientProps,
   ConfigDirectorClientProviderProps,
   ConfigDirectorLoggingLevel,
+  OfflineValue,
+  OfflineValues,
 } from "./types";
 export type {
   ConfigDirectorClient,

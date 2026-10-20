@@ -4,10 +4,12 @@ import type {
   ConfigDirectorContext,
   ConfigDirectorLoggingLevel,
   ConnectionMode,
+  OfflineValue,
+  OfflineValues,
 } from "@js-browser-client/index";
 import type { ConfigState } from "@shared/types";
 
-export type { ConfigDirectorLoggingLevel };
+export type { ConfigDirectorLoggingLevel, OfflineValue, OfflineValues };
 
 export type ClientStatus = "loading" | "ready" | "default";
 
@@ -22,9 +24,10 @@ export type ConfigDirectorProviderState = Omit<ConfigDirectorContextData, "initi
 
 export type ConfigDirectorProviderOptions = {
   /**
-   * Your ConfigDirector Client SDK key. This is a public value safe for the browser.
+   * Your ConfigDirector Client SDK key. This is a public value safe for the browser. Required
+   * unless `mode` is `offline`.
    */
-  sdkKey: string;
+  sdkKey?: string;
   appName?: string;
   appVersion?: string;
   /**
@@ -36,11 +39,23 @@ export type ConfigDirectorProviderOptions = {
    */
   timeout?: number;
   /**
-   * The connection mode, one of `streaming` or `polling`. In `streaming` mode the connection stays
-   * open and receives config updates as they happen. In `polling` mode configs are fetched once during
-   * initialization and then again on every `pollingInterval`. Defaults to `streaming`.
+   * The connection mode, one of `streaming`, `polling` or `offline`. In `streaming` mode the connection
+   * stays open and receives config updates as they happen. In `polling` mode configs are fetched once
+   * during initialization and then again on every `pollingInterval`. In `offline` mode the browser
+   * client never connects to ConfigDirector and sends nothing: it serves `values` to every context,
+   * or the in-code default values when none are given, and needs no `sdkKey`. Defaults to `streaming`.
+   *
+   * The server `ConfigDirectorProvider` sets `offline` and `values` for you when `register()` ran in
+   * `offline` mode and you give neither prop.
    */
   mode?: ConnectionMode;
+  /**
+   * The values to serve in `offline` mode, keyed by config key. The config type of each value follows
+   * from the value: a boolean, an integral number (`integer`), any other number (`float`), a string, or
+   * a plain object or array (`json`). Can be given only in `offline` mode; otherwise the client fails
+   * to initialize.
+   */
+  values?: OfflineValues;
   /**
    * The polling interval in seconds when `mode` is `polling`. Has no effect in `streaming` mode.
    * Defaults to 60 seconds. A value below the minimum of 30 seconds is raised to 30 seconds and a
