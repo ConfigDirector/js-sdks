@@ -9,6 +9,7 @@ import { deepEqual } from "@shared/deepEqual";
 import { reactContext } from "./context";
 import { createConsoleLogger } from "./logger";
 import type {
+  ClientStatus,
   ConfigDirectorClientProviderProps,
   ConfigDirectorProviderOptions,
   ConfigDirectorProviderState,
@@ -16,6 +17,8 @@ import type {
 
 const hasGivenClient = (props: ConfigDirectorClientProviderProps): props is { client: ConfigDirectorClient } =>
   "client" in props && props.client !== undefined;
+
+const settledStatusOf = (client: ConfigDirectorClient): ClientStatus => (client.isReady ? "ready" : "default");
 
 /**
  * Initializes the ConfigDirector browser client and provides it to all descendant hooks.
@@ -107,8 +110,8 @@ export class ConfigDirectorProvider extends Component<
       case "none":
         return;
     }
-    if (this.client === client && !client.isReady) {
-      this.setState({ status: "default" });
+    if (this.client === client) {
+      this.setState({ status: settledStatusOf(client) });
     }
   }
 
@@ -125,8 +128,8 @@ export class ConfigDirectorProvider extends Component<
       if (!client) return;
       this.setState({ status: "loading" });
       await client.updateContext(this.props.context ?? {});
-      if (this.client === client && !client.isReady) {
-        this.setState({ status: "default" });
+      if (this.client === client) {
+        this.setState({ status: settledStatusOf(client) });
       }
     }
   }
