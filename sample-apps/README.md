@@ -34,15 +34,20 @@ tarballs.
 
 Each sample app has tests that run with `yarn test`, without a network connection or an SDK key:
 
-- `js-client`, `nextjs`, and `react-native` test their screens and routes with the SDK's testing
-  entry point (`@configdirector/client-sdk/testing`, `@configdirector/nextjs-sdk/client/testing`
-  and `/server/testing`, `@configdirector/react-native-sdk/testing`), which gives the code under
-  test a real client connected to an in-memory server.
+- `js-client`, `nextjs`, `nuxt`, and `react-native` test their screens and routes with the SDK's
+  testing entry point (`@configdirector/client-sdk/testing`, `@configdirector/nextjs-sdk/client/testing`
+  and `/server/testing`, `@configdirector/nuxt-sdk/testing`, `@configdirector/react-native-sdk/testing`),
+  which gives the code under test a real client connected to an in-memory server. The Nuxt SDK's
+  testing entry covers only the browser client, so `nuxt` tests its API route with
+  `@configdirector/server-sdk/testing`, the client that the SDK's Nitro plugin runs.
 - `openfeature-web` and `openfeature-server` test against OpenFeature's `TypedInMemoryProvider`,
   since code that uses a provider talks to the OpenFeature API.
 
 `js-client` and `openfeature-web` run under vitest with jsdom against the markup in `index.html`.
 `nextjs` renders its pages with React Testing Library and calls its route handler directly.
+`nuxt` mounts its pages with `mountSuspended` in the `nuxt` vitest environment of `@nuxt/test-utils`,
+which creates the app once per test file, so the test client is installed at module level; its API
+tests call `resolveConfigs` from `server/utils/configs.ts`, the function behind `GET /api/configs`.
 `openfeature-server` starts the server from `src/app.ts` on a free port. `react-native` runs under
 `jest-expo` and also renders the whole app through `renderRouter` with an installed test client;
 its `jest.config.js` shows the transform the SDK's `.mjs` files need.
