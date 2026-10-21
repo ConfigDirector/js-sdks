@@ -1,5 +1,11 @@
 # @configdirector/nuxt-sdk
 
+## 1.11.1
+
+### Patch Changes
+
+- b9e1cf2: `useConfigDirectorServerClient()` and `useConfigDirectorServerHooks()` throw an `Error` with the message "The ConfigDirector Nitro plugin was not initialized" when the ConfigDirector Nitro plugin has not run. Before, `useConfigDirectorServerClient()` threw a plain string, so code that read `error.message` got `undefined`.
+
 ## 1.11.0
 
 ### Minor Changes
