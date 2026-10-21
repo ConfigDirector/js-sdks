@@ -14,13 +14,13 @@
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
   "dependencies": {
-    "@configdirector/nuxt-sdk": "^1.11.0",
+    "@configdirector/nuxt-sdk": "^1.11.1",
     "nuxt": "^4.6.2",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0"
   },
   "devDependencies": {
-    "@configdirector/server-sdk": "^1.10.0",
+    "@configdirector/server-sdk": "^1.11.0",
     "@nuxt/test-utils": "^4.3.4",
     "@vue/test-utils": "^2.5.1",
     "jsdom": "^30.1.1",
@@ -31,8 +31,8 @@
   "packageManager": "yarn@4.13.0",
   "configdirector": {
     "npmDependencies": {
-      "@configdirector/nuxt-sdk": "^1.11.0",
-      "@configdirector/server-sdk": "^1.10.0"
+      "@configdirector/nuxt-sdk": "^1.11.1",
+      "@configdirector/server-sdk": "^1.11.0"
     }
   }
 }
