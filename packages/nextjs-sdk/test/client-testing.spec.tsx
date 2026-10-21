@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { StrictMode } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { ConfigDirectorProvider, useClient, useConfigValue } from "../src/client";
 import type { ConfigDirectorClient } from "../src/client";
@@ -235,6 +236,37 @@ describe("@configdirector/nextjs-sdk/client/testing", () => {
     expect(await screen.findByText("hello")).toBeDefined();
     expect(screen.getByTestId("status").textContent).toBe("ready");
     expect(testClient.contextUpdates).toEqual([{ id: "user-a" }]);
+  });
+
+  test("a provider given a client that is not ready reports ready after a StrictMode remount", async () => {
+    const testClient = create({ values: { greeting: "hello" } });
+
+    render(
+      <StrictMode>
+        <ConfigDirectorProvider client={testClient.client}>
+          <Greeting />
+        </ConfigDirectorProvider>
+      </StrictMode>,
+    );
+
+    await vi.waitFor(() => expect(screen.getByTestId("status").textContent).toBe("ready"));
+    expect(screen.getByTestId("value").textContent).toBe("hello");
+  });
+
+  test("a provider given a ready client re-renders on setValue after a StrictMode remount", async () => {
+    const testClient = create({ values: { greeting: "hello" } });
+    await testClient.client.initialize();
+
+    render(
+      <StrictMode>
+        <ConfigDirectorProvider client={testClient.client}>
+          <Greeting />
+        </ConfigDirectorProvider>
+      </StrictMode>,
+    );
+    act(() => testClient.setValue("greeting", "changed"));
+
+    expect(screen.getByTestId("value").textContent).toBe("changed");
   });
 
   test("a later render with a deeply equal context does not update the context", async () => {

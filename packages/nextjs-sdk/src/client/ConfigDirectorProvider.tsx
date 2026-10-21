@@ -139,8 +139,8 @@ export class ConfigDirectorProvider extends Component<
     this.handlers = undefined;
     if (this.ownsClient) {
       this.client?.dispose();
+      this.client = undefined;
     }
-    this.client = undefined;
   }
 
   override render() {
