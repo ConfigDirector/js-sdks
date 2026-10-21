@@ -181,6 +181,7 @@ const handleTelemetryRequest = (
 export interface MockSseServer {
   port: number;
   baseUrl: string;
+  requestedPaths: string[];
   close(): Promise<void>;
 }
 
@@ -191,9 +192,13 @@ export const releaseHeldServerBundles = async (mockServerBaseUrl: string): Promi
 export const startMockSseServer = (): Promise<MockSseServer> => {
   return new Promise((resolve, reject) => {
     const heldStreams = new Set<ServerResponse>();
+    const requestedPaths: string[] = [];
     const server: Server = createServer(
       (req: IncomingMessage, res: ServerResponse) => {
         const { pathname } = new URL(req.url!, "http://localhost");
+        if (pathname !== RELEASE_HELD_BUNDLES_PATH) {
+          requestedPaths.push(pathname);
+        }
 
         if (req.method === "OPTIONS") {
           handlePreflight(req, res);
@@ -234,6 +239,7 @@ export const startMockSseServer = (): Promise<MockSseServer> => {
       resolve({
         port,
         baseUrl,
+        requestedPaths,
         close: () =>
           new Promise<void>((res, rej) =>
             server.close((err) => (err ? rej(err) : res())),

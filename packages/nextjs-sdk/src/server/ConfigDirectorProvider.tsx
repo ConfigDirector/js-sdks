@@ -4,7 +4,7 @@ import type { ConfigDirectorProviderOptions } from "../client/types";
 import type { ConfigState } from "@js-server-sdk/types";
 import { generateSsrConfigSet } from "./ssr";
 import { getAppMeta, getServerConnectionMode } from "./singleton";
-import { decideBrowserHalfSource, offlineValuesOf } from "./browser-half";
+import { decideBrowserHalfSource, offlineValuesOf } from "@shared/browser-half";
 
 /**
  * Props for {@link ConfigDirectorProvider}. Identical to the client provider options

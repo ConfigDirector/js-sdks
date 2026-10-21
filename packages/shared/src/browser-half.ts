@@ -1,13 +1,13 @@
-import type { ConfigState, ConnectionMode, OfflineValues } from "@js-server-sdk/types";
-import { decodeNativeValue } from "@shared/native-values";
+import type { ConfigState, ConnectionMode } from "./types";
+import { decodeNativeValue, type NativeValues } from "./native-values";
 
 type BrowserHalfSource = "as-given" | "inherit-offline" | "connect";
 
 export const decideBrowserHalfSource = (
-  browserProps: { mode?: ConnectionMode; values?: OfflineValues },
+  browserHalf: { mode?: ConnectionMode; values?: NativeValues },
   serverConnectionMode: ConnectionMode | undefined,
 ): BrowserHalfSource => {
-  if (browserProps.mode !== undefined || browserProps.values !== undefined) {
+  if (browserHalf.mode !== undefined || browserHalf.values !== undefined) {
     return "as-given";
   }
   if (serverConnectionMode === "offline") {
@@ -19,7 +19,7 @@ export const decideBrowserHalfSource = (
 const holdsAValue = (config: ConfigState): config is ConfigState & { value: string } =>
   typeof config.value === "string";
 
-export const offlineValuesOf = (configs: Record<string, ConfigState>): OfflineValues =>
+export const offlineValuesOf = (configs: Record<string, ConfigState>): NativeValues =>
   Object.fromEntries(
     Object.values(configs)
       .filter(holdsAValue)

@@ -5,7 +5,11 @@ import middleware from "../src/runtime/nitro/middleware";
 
 const { runtimeConfig, nitroApp } = vi.hoisted(() => ({
   runtimeConfig: { configdirector: {} as Record<string, unknown> },
-  nitroApp: {} as { configDirectorClient: unknown; configDirectorInitialization: Promise<void> },
+  nitroApp: {} as {
+    configDirectorClient: unknown;
+    configDirectorConnectionMode: string;
+    configDirectorInitialization: Promise<void>;
+  },
 }));
 
 vi.mock("nitropack/runtime", () => ({
@@ -30,6 +34,7 @@ describe("ConfigDirector Nitro middleware", () => {
 
   beforeEach(() => {
     nitroApp.configDirectorClient = client;
+    nitroApp.configDirectorConnectionMode = "streaming";
     nitroApp.configDirectorInitialization = new Promise<void>((resolve) => {
       releaseInitialization = resolve;
     });
@@ -54,5 +59,17 @@ describe("ConfigDirector Nitro middleware", () => {
     await result;
 
     expect(event.context.configDirectorClient).toBe(client);
+  });
+
+  test("fails the request with the initialization error when the offline values could not be loaded, even without waitForInitialization", async () => {
+    runtimeConfig.configdirector = { waitForInitialization: false };
+    nitroApp.configDirectorConnectionMode = "offline";
+    const initializationError = new Error("The offline values file could not be read");
+    nitroApp.configDirectorInitialization = Promise.reject(initializationError);
+
+    const { event, result } = runMiddleware();
+
+    await expect(result).rejects.toBe(initializationError);
+    expect(event.context.configDirectorClient).toBeUndefined();
   });
 });

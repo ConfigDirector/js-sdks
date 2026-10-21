@@ -3,20 +3,27 @@ import { toRaw, shallowRef, readonly } from "vue";
 import { createBrowserClient } from "@js-browser-client/index";
 import { readInstalledTestClient } from "@js-client-core/installedTestClient";
 import { decideMountAction } from "@js-client-core/mountAction";
-import type { ConfigDirectorClient, ConfigDirectorLogger } from "@js-client-core/types";
+import type {
+  ConfigDirectorClient,
+  ConfigDirectorLogger,
+  ConnectionMode,
+  OfflineValues,
+} from "@js-client-core/types";
+import { decideBrowserHalfSource } from "@shared/browser-half";
 import { useConfigDirectorContext } from "./app/composables/useConfigDirectorContext";
 import { createDefaultLogger } from "./logger";
+import { OFFLINE_VALUES_ROUTE } from "./offline-values-route";
 import { ConfigDirectorInitializationError } from "@shared/errors";
 import type { ClientStatus } from "./types";
 
 const DEFAULT_INITIALIZATION_TIMEOUT_MILLISECONDS = 2_000;
 
-export default defineNuxtPlugin((nuxtApp) => {
+export default defineNuxtPlugin(async (nuxtApp) => {
   const runtimeConfig = useRuntimeConfig();
   const logger = createDefaultLogger(runtimeConfig.public?.configdirector?.logLevel);
 
   const installedTestClient = readInstalledTestClient();
-  const client = installedTestClient ?? buildClient(runtimeConfig.public?.configdirector, logger);
+  const client = installedTestClient ?? (await buildClient(runtimeConfig.public?.configdirector, logger));
   logger.debug(installedTestClient ? "Installed ConfigDirector Nuxt plugin with a test client" : "Installed ConfigDirector Nuxt plugin");
 
   const readyStatus = shallowRef<ClientStatus>(client.isReady ? "ready" : "loading");
@@ -50,30 +57,68 @@ export default defineNuxtPlugin((nuxtApp) => {
 
 type PublicConfigDirectorRuntimeConfig = ReturnType<typeof useRuntimeConfig>["public"]["configdirector"];
 
-const buildClient = (
+type BrowserHalfConnection = { mode: ConnectionMode | undefined; values: OfflineValues | undefined };
+
+const buildClient = async (
   configdirector: PublicConfigDirectorRuntimeConfig | undefined,
   logger: ConfigDirectorLogger,
-): ConfigDirectorClient => {
-  if (!configdirector?.clientSdkKey) {
+): Promise<ConfigDirectorClient> => {
+  const browserHalf = await browserHalfConnectionOf(configdirector, logger);
+  if (browserHalf.mode !== "offline" && !configdirector?.clientSdkKey) {
     const message =
       "The ConfigDirector clientSdkKey must be configured for the plugin to initialize. You can provide it in nuxt.config.ts under 'runtimeConfig.public.configdirector.clientSdkKey' or as a runtime environment variable named NUXT_PUBLIC_CONFIGDIRECTOR_CLIENT_SDK_KEY";
     logger.error(message);
     throw new ConfigDirectorInitializationError(message);
   }
 
-  const { clientSdkKey, appName, appVersion, baseUrl, connection } = configdirector;
   return createBrowserClient(
-    clientSdkKey,
+    configdirector?.clientSdkKey || undefined,
     { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
     {
-      metadata: { appName, appVersion },
+      metadata: { appName: configdirector?.appName, appVersion: configdirector?.appVersion },
       connection: {
-        url: baseUrl || undefined,
-        mode: connection?.mode || undefined,
-        pollingInterval: connection?.pollingInterval || undefined,
-        timeout: connection?.timeout || DEFAULT_INITIALIZATION_TIMEOUT_MILLISECONDS,
+        url: configdirector?.baseUrl || undefined,
+        mode: browserHalf.mode,
+        values: browserHalf.values,
+        pollingInterval: configdirector?.connection?.pollingInterval || undefined,
+        timeout: configdirector?.connection?.timeout || DEFAULT_INITIALIZATION_TIMEOUT_MILLISECONDS,
       },
       logger,
     },
   );
+};
+
+const browserHalfConnectionOf = async (
+  configdirector: PublicConfigDirectorRuntimeConfig | undefined,
+  logger: ConfigDirectorLogger,
+): Promise<BrowserHalfConnection> => {
+  const givenConnection: BrowserHalfConnection = {
+    mode: configdirector?.connection?.mode || undefined,
+    values: configdirector?.connection?.values,
+  };
+  const source = decideBrowserHalfSource(givenConnection, configdirector?.serverConnectionMode);
+  logger.debug(`Browser half source: ${source}`);
+  switch (source) {
+    case "as-given":
+      return givenConnection;
+    case "inherit-offline":
+      return { mode: "offline", values: await fetchServerOfflineValues(logger) };
+    case "connect":
+      return { mode: undefined, values: undefined };
+  }
+};
+
+const fetchServerOfflineValues = async (logger: ConfigDirectorLogger): Promise<OfflineValues> => {
+  try {
+    return await $fetch<OfflineValues>(OFFLINE_VALUES_ROUTE);
+  }
+  catch (error) {
+    const message =
+      "The server runs ConfigDirector in offline mode, but its values could not be fetched from "
+      + `${OFFLINE_VALUES_ROUTE}: ${error instanceof Error ? error.message : String(error)}. A statically `
+      + "generated site has no server to serve them; set 'runtimeConfig.public.configdirector.connection' "
+      + "to { mode: \"offline\", values } in nuxt.config.ts to give the browser its own values.";
+    logger.error(message);
+    throw new ConfigDirectorInitializationError(message);
+  }
 };

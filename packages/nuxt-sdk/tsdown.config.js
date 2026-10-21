@@ -106,6 +106,7 @@ export default defineConfig([
       "app/composables/useConfigDirectorClientHooks": "src/runtime/app/composables/useConfigDirectorClientHooks.ts",
       "nitro/plugin": "src/runtime/nitro/plugin.ts",
       "nitro/middleware": "src/runtime/nitro/middleware.ts",
+      "nitro/offline-values": "src/runtime/nitro/offline-values.ts",
       "server/composables/useConfigDirectorClient": "src/runtime/server/composables/useConfigDirectorClient.ts",
       "server/composables/useConfigDirectorServerHooks": "src/runtime/server/composables/useConfigDirectorServerHooks.ts",
     },

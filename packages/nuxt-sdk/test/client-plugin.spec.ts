@@ -4,12 +4,15 @@ import type { ConfigDirectorContext } from "@js-client-core/types";
 import plugin from "../src/runtime/plugin.client";
 import { createTestClient, installTestClient } from "../src/testing";
 import type { TestClient } from "../src/testing";
+import { OFFLINE_VALUES_ROUTE } from "../src/runtime/offline-values-route";
+import { ConfigDirectorInitializationError } from "@shared/errors";
 
-const { runtimeConfig, createBrowserClient, initialize, appContext } = vi.hoisted(() => ({
+const { runtimeConfig, createBrowserClient, initialize, appContext, fetchFromApp } = vi.hoisted(() => ({
   runtimeConfig: { public: { configdirector: {} as Record<string, unknown> } },
   createBrowserClient: vi.fn(),
   initialize: vi.fn(),
   appContext: { value: undefined as ConfigDirectorContext | undefined },
+  fetchFromApp: vi.fn(),
 }));
 
 vi.mock("#app", () => ({
@@ -36,7 +39,7 @@ const createNuxtApp = () => ({ hooks: { hook: vi.fn() } }) as unknown as NuxtApp
 
 const runPlugin = (configdirector: Record<string, unknown>, nuxtApp = createNuxtApp()) => {
   runtimeConfig.public.configdirector = configdirector;
-  return (plugin as unknown as (nuxtApp: NuxtApp) => unknown)(nuxtApp);
+  return (plugin as unknown as (nuxtApp: NuxtApp) => Promise<unknown>)(nuxtApp);
 };
 
 const runAppCreatedHook = async (nuxtApp: NuxtApp): Promise<void> => {
@@ -53,10 +56,16 @@ describe("ConfigDirector client plugin", () => {
     createBrowserClient.mockReset();
     initialize.mockReset();
     initialize.mockResolvedValue(undefined);
+    fetchFromApp.mockReset();
+    vi.stubGlobal("$fetch", fetchFromApp);
   });
 
-  test("passes the configured connection options through to the browser client", () => {
-    runPlugin({
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("passes the configured connection options through to the browser client", async () => {
+    await runPlugin({
       clientSdkKey: "client-key",
       baseUrl: "http://proxy.test",
       connection: { mode: "polling", pollingInterval: 120, timeout: 8_000 },
@@ -71,8 +80,8 @@ describe("ConfigDirector client plugin", () => {
     );
   });
 
-  test("leaves unset connection options undefined and keeps the 2 second timeout default", () => {
-    runPlugin({
+  test("leaves unset connection options undefined and keeps the 2 second timeout default", async () => {
+    await runPlugin({
       clientSdkKey: "client-key",
       baseUrl: "",
       connection: { mode: "streaming", pollingInterval: 0, timeout: 0 },
@@ -81,14 +90,101 @@ describe("ConfigDirector client plugin", () => {
     expect(clientOptions().connection).toEqual({ mode: "streaming", timeout: 2_000 });
   });
 
-  test("applies the defaults when no connection config is present", () => {
-    runPlugin({ clientSdkKey: "client-key", baseUrl: "" });
+  test("applies the defaults when no connection config is present", async () => {
+    await runPlugin({ clientSdkKey: "client-key", baseUrl: "" });
 
     expect(clientOptions().connection).toEqual({ timeout: 2_000 });
   });
 
-  test("provides the client and its ready status", () => {
-    const provided = runPlugin({ clientSdkKey: "client-key", baseUrl: "" }) as ProvidedByPlugin;
+  test("throws when the clientSdkKey is missing and the server half is live", async () => {
+    await expect(runPlugin({ clientSdkKey: "", baseUrl: "", serverConnectionMode: "streaming" })).rejects.toThrow(
+      ConfigDirectorInitializationError,
+    );
+    expect(createBrowserClient).not.toHaveBeenCalled();
+    expect(fetchFromApp).not.toHaveBeenCalled();
+  });
+
+  test("builds an offline browser client from explicit public values without a clientSdkKey", async () => {
+    await runPlugin({
+      clientSdkKey: "",
+      baseUrl: "",
+      connection: { mode: "offline", values: { "new-checkout": true }, pollingInterval: 0, timeout: 0 },
+      serverConnectionMode: "streaming",
+    });
+
+    expect(createBrowserClient).toHaveBeenCalledWith(
+      undefined,
+      { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
+      expect.objectContaining({
+        connection: { mode: "offline", values: { "new-checkout": true }, timeout: 2_000 },
+      }),
+    );
+    expect(fetchFromApp).not.toHaveBeenCalled();
+  });
+
+  test("inherits the server's offline values from the module's route when given neither mode nor values", async () => {
+    fetchFromApp.mockResolvedValue({ "welcome-message": "Hello from the offline cell!", "item-count": 3 });
+
+    await runPlugin({
+      clientSdkKey: "",
+      baseUrl: "",
+      connection: { mode: "", pollingInterval: 0, timeout: 0 },
+      serverConnectionMode: "offline",
+    });
+
+    expect(fetchFromApp).toHaveBeenCalledWith(OFFLINE_VALUES_ROUTE);
+    expect(createBrowserClient).toHaveBeenCalledWith(
+      undefined,
+      { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
+      expect.objectContaining({
+        connection: {
+          mode: "offline",
+          values: { "welcome-message": "Hello from the offline cell!", "item-count": 3 },
+          timeout: 2_000,
+        },
+      }),
+    );
+  });
+
+  test("serves explicit public values instead of the server's offline values", async () => {
+    await runPlugin({
+      clientSdkKey: "",
+      baseUrl: "",
+      connection: { mode: "offline", values: { "new-checkout": false }, pollingInterval: 0, timeout: 0 },
+      serverConnectionMode: "offline",
+    });
+
+    expect(fetchFromApp).not.toHaveBeenCalled();
+    expect(clientOptions().connection).toEqual({ mode: "offline", values: { "new-checkout": false }, timeout: 2_000 });
+  });
+
+  test("connects with its own key when the public mode is set while the server half is offline", async () => {
+    await runPlugin({
+      clientSdkKey: "client-key",
+      baseUrl: "",
+      connection: { mode: "streaming", pollingInterval: 0, timeout: 0 },
+      serverConnectionMode: "offline",
+    });
+
+    expect(fetchFromApp).not.toHaveBeenCalled();
+    expect(createBrowserClient).toHaveBeenCalledWith(
+      "client-key",
+      { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
+      expect.objectContaining({ connection: { mode: "streaming", timeout: 2_000 } }),
+    );
+  });
+
+  test("fails with an initialization error when the server's offline values cannot be fetched", async () => {
+    fetchFromApp.mockRejectedValue(new Error("404 Not Found"));
+
+    await expect(
+      runPlugin({ clientSdkKey: "", baseUrl: "", connection: { mode: "" }, serverConnectionMode: "offline" }),
+    ).rejects.toThrow(ConfigDirectorInitializationError);
+    expect(createBrowserClient).not.toHaveBeenCalled();
+  });
+
+  test("provides the client and its ready status", async () => {
+    const provided = await runPlugin({ clientSdkKey: "client-key", baseUrl: "" }) as ProvidedByPlugin;
 
     expect(provided.provide.configDirectorClient).toBeDefined();
     expect(provided.provide.configDirectorClientReadyStatus.value).toBe("loading");
@@ -109,8 +205,8 @@ describe("ConfigDirector client plugin", () => {
       testClient.client.dispose();
     });
 
-    test("provides the installed client instead of building one, and needs no clientSdkKey", () => {
-      const provided = runPlugin({ clientSdkKey: "", baseUrl: "" }) as ProvidedByPlugin;
+    test("provides the installed client instead of building one, and needs no clientSdkKey", async () => {
+      const provided = await runPlugin({ clientSdkKey: "", baseUrl: "" }) as ProvidedByPlugin;
 
       expect(createBrowserClient).not.toHaveBeenCalled();
       expect(provided.provide.configDirectorClient).toBe(testClient.client);
@@ -120,7 +216,7 @@ describe("ConfigDirector client plugin", () => {
     test("initializes the installed client with the app context when the app is created", async () => {
       appContext.value = { id: "user-1" };
       const nuxtApp = createNuxtApp();
-      const provided = runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
+      const provided = await runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
 
       await runAppCreatedHook(nuxtApp);
 
@@ -133,7 +229,7 @@ describe("ConfigDirector client plugin", () => {
     test("initializes the installed client with no context when the app context has an invalid kind", async () => {
       appContext.value = { id: "42", kind: "Device" };
       const nuxtApp = createNuxtApp();
-      runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp);
+      await runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp);
 
       await runAppCreatedHook(nuxtApp);
 
@@ -146,7 +242,7 @@ describe("ConfigDirector client plugin", () => {
       appContext.value = { id: "user-1" };
       await testClient.client.initialize({ id: "user-1" });
       const nuxtApp = createNuxtApp();
-      const provided = runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
+      const provided = await runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
 
       expect(provided.provide.configDirectorClientReadyStatus.value).toBe("ready");
       await runAppCreatedHook(nuxtApp);
@@ -159,7 +255,7 @@ describe("ConfigDirector client plugin", () => {
       await testClient.client.initialize({ id: "user-1" });
       const initializeSpy = vi.spyOn(testClient.client, "initialize");
       const nuxtApp = createNuxtApp();
-      runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp);
+      await runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp);
 
       await runAppCreatedHook(nuxtApp);
 
@@ -170,7 +266,7 @@ describe("ConfigDirector client plugin", () => {
     test("reports the default status when the installed client's initialization times out", async () => {
       testClient.holdInitialization();
       const nuxtApp = createNuxtApp();
-      const provided = runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
+      const provided = await runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
 
       await runAppCreatedHook(nuxtApp);
 

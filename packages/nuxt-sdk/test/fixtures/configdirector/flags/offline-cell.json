@@ -1,0 +1,7 @@
+{
+  "welcome-message": "Hello from the offline cell!",
+  "feature-enabled": false,
+  "item-count": 3,
+  "json-data": { "greeting": "offline", "count": 1 },
+  "json-data-raw": { "greeting": "offline" }
+}
