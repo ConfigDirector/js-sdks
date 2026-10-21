@@ -5,7 +5,7 @@ import type { TestClient } from "@configdirector/server-sdk/testing";
 import { resolveConfigs } from "../../server/utils/configs";
 
 // The Nitro plugin of the Nuxt SDK runs the server SDK's client, so the server SDK's test client
-// stands in for the client that useConfigDirectorClient() returns in GET /api/configs.
+// stands in for the client that useConfigDirectorServerClient() returns in GET /api/configs.
 
 const SAMPLE_VALUES = {
   "temporary-feature-flag": false,
