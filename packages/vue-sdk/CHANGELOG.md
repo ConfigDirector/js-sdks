@@ -1,5 +1,11 @@
 # @configdirector/vue-sdk
 
+## 1.8.0
+
+### Minor Changes
+
+- a0702a0: The `ConfigDirectorPlugin` options and `initializeClient` accept `mode: "offline"`, a mode in which the client never connects to ConfigDirector and sends nothing, and a new `values` option. In offline mode the client serves `values`, one value per config key, to every context, with the config type of each value decided by the value itself, or the in-code default values when no `values` are given. `sdkKey` is now optional: `app.use(ConfigDirectorPlugin, { mode: "offline", values: { "new-checkout": true } })` needs no key. In every other mode a missing key still fails `app.use`, now with the browser client's `ConfigDirectorValidationError` ("No client SDK key was provided, …") instead of the plugin's own `ConfigDirectorInitializationError`. A value such as `null`, or `values` given in `streaming` or `polling` mode, keeps the client from becoming ready: every config returns its in-code default value, the plugin's status stays `loading` and reports a `ConfigDirectorInitializationError` as an unhandled promise rejection, and `initializeClient` rejects with it. The `OfflineValues` and `OfflineValue` types describe the values.
+
 ## 1.7.0
 
 ### Minor Changes

@@ -1,5 +1,0 @@
----
-"@configdirector/react-web-sdk": minor
----
-
-`ConfigDirectorProvider` and `withProvider` accept `mode="offline"`, a mode in which the client never connects to ConfigDirector and sends nothing, and a new `values` prop. In offline mode the client serves `values`, one value per config key, to every context, with the config type of each value decided by the value itself, or the in-code default values when no `values` are given. A change to the `context` prop stores the new context, keeps the values, and returns the status to `ready`. `sdkKey` is now optional: `<ConfigDirectorProvider mode="offline" values={{ "new-checkout": true }}>` needs no key, while every other mode still fails without one as before. A value such as `null`, or `values` given in `streaming` or `polling` mode, keeps the client from becoming ready: every config returns its in-code default value, the provider's status stays `loading` and reports a `ConfigDirectorInitializationError` as an unhandled promise rejection, and `withProvider` rejects with it. The `OfflineValues` and `OfflineValue` types describe the values.

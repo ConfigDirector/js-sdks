@@ -1,5 +1,11 @@
 # @configdirector/server-sdk
 
+## 1.11.0
+
+### Minor Changes
+
+- d0ef5ba: `connection.mode` accepts `offline`, a mode in which the client never connects to ConfigDirector and sends nothing. It serves the values of a JSON file named by the new `connection.file` option, resolved against the working directory, or the values given inline in the new `connection.values` option, to every context, with the config type of each value decided as the test client decides it. With neither option every config returns its in-code default value. An offline client needs no server SDK key: `createClient({ connection: { mode: "offline", file: "./flags/cell.json" } })` takes the options alone, while every other mode still requires the key as before. `initialize` now rejects with `ConfigDirectorInitializationError`, exported from the package, when the offline values cannot be loaded: a missing, unreadable or non-object file, a value such as `null`, `file` and `values` given together, or either given in `streaming` or `polling` mode. The `OfflineValues` and `OfflineValue` types describe the values, and `OfflineClientOptions` the options of a client created without a key. The messages of the errors the test client throws for a refused value now say "Invalid value" instead of "Invalid test value".
+
 ## 1.10.0
 
 ### Minor Changes

@@ -1,5 +1,15 @@
 # @configdirector/nextjs-sdk
 
+## 1.11.0
+
+### Minor Changes
+
+- 71291eb: The server and the browser halves run from one offline source. `register()` accepts `connection: { mode: "offline", file }` or `connection: { mode: "offline", values }` without a `serverSdkKey`: the server singleton never connects to ConfigDirector, sends nothing, and serves those values to every context, or the in-code default values when neither is given. `register()` now rejects with `ConfigDirectorInitializationError`, exported from `@configdirector/nextjs-sdk/server` along with the `OfflineClientOptions`, `OfflineValues` and `OfflineValue` types, when the offline values cannot be loaded: a missing, unreadable or non-object file, a value such as `null`, `file` and `values` given together, or either given in `streaming` or `polling` mode; the singleton is not installed in that case. A missing key in any other mode fails as before. When `register()` ran offline, the server `ConfigDirectorProvider` hands the server's values to the client provider as `mode="offline"` and `values`, narrowed by `configKeys`, unless the provider is given its own `mode` or `values` props, which are forwarded unchanged. Both providers now take `sdkKey` optionally, accept `mode="offline"`, and take a `values` prop, one value per config key, which the browser client serves without connecting; `@configdirector/nextjs-sdk/client` exports the `OfflineValues` and `OfflineValue` types. In offline mode `useConfigDirectorStatus` reports `loading` during server rendering and hydration and `ready` once the provider mounts, and `url`, `timeout` and `pollingInterval` have no effect. A change to the `context` prop of an offline provider stores the new context, keeps the values, and returns the status to `ready`.
+
+### Patch Changes
+
+- 5e0d51d: The client `ConfigDirectorProvider` now keeps its status and values updating for a client passed in the `client` prop, or an installed test client, after React StrictMode remounts it in development. Previously, in `next dev` and in tests rendered under `<StrictMode>`, `useConfigDirectorStatus` stayed `loading` and `useConfigValue` returned the in-code default value when the client was not ready yet, and config changes never re-rendered the components that read them when it was. The `hooks` passed to the provider also stopped firing, and a change to its `context` prop never reached the client. Production builds were not affected.
+
 ## 1.10.0
 
 ### Minor Changes

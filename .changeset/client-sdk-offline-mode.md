@@ -1,5 +1,0 @@
----
-"@configdirector/client-sdk": minor
----
-
-`connection.mode` accepts `offline`, a mode in which the client never connects to ConfigDirector and sends nothing. It serves the values given in the new `connection.values` option to every context, with the config type of each value decided as the test client decides it. Without `values` every config returns its in-code default value. An offline client needs no client SDK key: `createClient({ connection: { mode: "offline", values: { "new-checkout": true } } })` takes the options alone, while every other mode still requires the key as before. `initialize` now rejects with `ConfigDirectorInitializationError`, exported from the package, when the offline values cannot be loaded: a value such as `null`, or `values` given in `streaming` or `polling` mode. In offline mode `updateContext` stores the context and changes no value, and `pauseNetwork` and `resumeNetwork` do nothing. The `OfflineValues` and `OfflineValue` types describe the values, and `OfflineClientOptions` the options of a client created without a key.
