@@ -37,7 +37,7 @@ export const createFixtureProject = async ({ packageName, dependencies = {}, fix
     dir,
     packageName,
     packageDir: join(dir, "node_modules", ...packageName.split("/")),
-    runNode: (script, env = {}) => run(process.execPath, [script], dir, env),
+    runNode: (script, env = {}, args = []) => run(process.execPath, [script, ...args], dir, env),
     cleanup: async () => {
       if (!process.env.KEEP_ARTIFACT_FIXTURES) {
         await rm(dir, { recursive: true, force: true });

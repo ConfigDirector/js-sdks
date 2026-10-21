@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { packagingTests } from "../helpers/artifact-checks.mjs";
 import { EXPECTED_CLIENT_VALUES, EXPECTED_SERVER_VALUES } from "../helpers/bundles.mjs";
@@ -51,6 +53,18 @@ describe("@configdirector/nextjs-sdk artifact", () => {
   test("renders an installed test client's values through the client provider in a browser", async () => {
     const result = await runBrowserSmoke({ project, server, entry: "testing.jsx" });
     expect(result, result.error).toEqual({ ok: true, values: { ...EXPECTED_CLIENT_VALUES, itemCount: 8 } });
+  });
+
+  // webpack, the default bundler before Next.js 16 and opt-in since, fails the edge compile of
+  // instrumentation.js when it can reach the Node-only server client.
+  test("builds a Next.js app with middleware, whose instrumentation also compiles for the edge runtime", async () => {
+    const result = await project.runNode(
+      "node_modules/next/dist/bin/next",
+      { NEXT_TELEMETRY_DISABLED: "1" },
+      ["build", "next-app", "--webpack"],
+    );
+    expect(result.code, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(existsSync(join(project.dir, "next-app", ".next", "server", "edge-instrumentation.js"))).toBe(true);
   });
 
   test("serves a server test client's values from the server ESM testing entry", async () => {

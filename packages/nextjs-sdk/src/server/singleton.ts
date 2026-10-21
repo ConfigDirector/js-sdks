@@ -50,40 +50,41 @@ export type RegisterOptions =
  * mode, or when the offline file or values cannot be loaded.
  */
 export async function register(options: RegisterOptions): Promise<void> {
-  if (process.env["NEXT_RUNTIME"] !== "nodejs") {
-    return;
-  }
+  // Next.js also compiles instrumentation.ts for the edge runtime, with NEXT_RUNTIME replaced by "edge".
+  // Keep all of the work inside this branch, not after an early return, so webpack drops it from that
+  // compile: the server client it imports needs Node-only modules such as node:crypto.
+  if (process.env["NEXT_RUNTIME"] === "nodejs") {
+    const connectionMode = options.connection?.mode ?? "streaming";
+    if (connectionMode !== "offline" && !options.serverSdkKey) {
+      const message =
+        "The ConfigDirector serverSdkKey must be provided to register(). You can pass it via process.env.CONFIGDIRECTOR_SERVER_KEY.";
+      createDefaultLogger().error(message);
+      throw new ConfigDirectorInitializationError(message);
+    }
 
-  const connectionMode = options.connection?.mode ?? "streaming";
-  if (connectionMode !== "offline" && !options.serverSdkKey) {
-    const message =
-      "The ConfigDirector serverSdkKey must be provided to register(). You can pass it via process.env.CONFIGDIRECTOR_SERVER_KEY.";
-    createDefaultLogger().error(message);
-    throw new ConfigDirectorInitializationError(message);
-  }
-
-  if (!globalThis.__configDirectorServerClient) {
-    const { DefaultConfigDirectorClient } = await import("@js-server-sdk/DefaultConfigDirectorClient");
-    const { serverSdkKey, ...clientOptions } = options;
-    globalThis.__configDirectorAppMeta = {
-      appName: options.metadata?.appName,
-      appVersion: options.metadata?.appVersion,
-    };
-    globalThis.__configDirectorServerConnectionMode = connectionMode;
-    const client = new DefaultConfigDirectorClient(
-      serverSdkKey,
-      { sdkName: "nextjs-sdk", sdkVersion: "__VERSION__" },
-      clientOptions,
-    );
-    globalThis.__configDirectorServerClient = client;
-    try {
-      await client.initialize();
-    } catch (error) {
-      globalThis.__configDirectorServerClient = undefined;
-      globalThis.__configDirectorServerConnectionMode = undefined;
-      globalThis.__configDirectorAppMeta = undefined;
-      client.dispose();
-      throw error;
+    if (!globalThis.__configDirectorServerClient) {
+      const { DefaultConfigDirectorClient } = await import("@js-server-sdk/DefaultConfigDirectorClient");
+      const { serverSdkKey, ...clientOptions } = options;
+      globalThis.__configDirectorAppMeta = {
+        appName: options.metadata?.appName,
+        appVersion: options.metadata?.appVersion,
+      };
+      globalThis.__configDirectorServerConnectionMode = connectionMode;
+      const client = new DefaultConfigDirectorClient(
+        serverSdkKey,
+        { sdkName: "nextjs-sdk", sdkVersion: "__VERSION__" },
+        clientOptions,
+      );
+      globalThis.__configDirectorServerClient = client;
+      try {
+        await client.initialize();
+      } catch (error) {
+        globalThis.__configDirectorServerClient = undefined;
+        globalThis.__configDirectorServerConnectionMode = undefined;
+        globalThis.__configDirectorAppMeta = undefined;
+        client.dispose();
+        throw error;
+      }
     }
   }
 }
