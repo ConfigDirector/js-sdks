@@ -55,7 +55,7 @@ describe("ConfigDirector Nuxt SDK — SSR and server composables", async () => {
     });
   });
 
-  describe("Server composable (useConfigDirectorClient) in a Nitro event handler", () => {
+  describe("Server composable (useConfigDirectorServerClient) in a Nitro event handler", () => {
     test("returns config values from the server SDK client", async () => {
       const data = await $fetch<{
         welcomeMessage: string;

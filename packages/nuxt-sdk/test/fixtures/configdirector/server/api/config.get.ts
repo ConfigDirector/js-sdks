@@ -1,5 +1,5 @@
 export default defineEventHandler(() => {
-  const client = useConfigDirectorClient();
+  const client = useConfigDirectorServerClient();
   return {
     welcomeMessage: client.getValue("welcome-message", "default-message"),
     featureEnabled: client.getValue("feature-enabled", false),

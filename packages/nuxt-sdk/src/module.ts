@@ -245,9 +245,9 @@ export default defineNuxtModule<ModuleOptions>({
     });
     addServerImports([
       {
-        name: "useConfigDirectorClient",
-        as: "useConfigDirectorClient",
-        from: resolver.resolve("./runtime/server/composables/useConfigDirectorClient"),
+        name: "useConfigDirectorServerClient",
+        as: "useConfigDirectorServerClient",
+        from: resolver.resolve("./runtime/server/composables/useConfigDirectorServerClient"),
       },
       {
         name: "useConfigDirectorServerHooks",
