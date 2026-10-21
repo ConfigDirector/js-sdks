@@ -4,7 +4,7 @@ import { useNitroApp } from "nitropack/runtime";
 export const useConfigDirectorServerClient = (): ConfigDirectorClient => {
   const serverSdkClient = useNitroApp().configDirectorClient;
   if (!serverSdkClient) {
-    throw "The nitro ConfigDirector plugin was not initialized";
+    throw new Error("The ConfigDirector Nitro plugin was not initialized");
   }
   return serverSdkClient;
 };

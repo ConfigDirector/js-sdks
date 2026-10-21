@@ -1,12 +1,8 @@
-import type { ConfigDirectorClient, ClientEvents, HookHandler, ClientHooks } from "@js-server-sdk/types";
-import { useNitroApp } from "nitropack/runtime";
+import type { ClientEvents, HookHandler, ClientHooks } from "@js-server-sdk/types";
+import { useConfigDirectorServerClient } from "./useConfigDirectorServerClient";
 
 export const useConfigDirectorServerHooks = (hooks: ClientHooks): void => {
-  const client = useNitroApp().configDirectorClient as ConfigDirectorClient;
-
-  if (!client) {
-    throw new Error("The ConfigDirector Nitro plugin was not initialized");
-  }
+  const client = useConfigDirectorServerClient();
 
   const entries = Object.entries(hooks) as [keyof ClientHooks, ClientHooks[keyof ClientHooks]][];
 
