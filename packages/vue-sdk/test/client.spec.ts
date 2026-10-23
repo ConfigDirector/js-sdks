@@ -52,4 +52,12 @@ describe("createClientFromPluginOptions", () => {
       values: { "new-checkout": true, "max-items": 20 },
     });
   });
+
+  test("passes the caching options through to the browser client", () => {
+    const caching = { enabled: true, provider: { read: () => undefined, write: () => {}, remove: () => {}, sizeLimit: () => 10 } };
+
+    createClientFromPluginOptions({ sdkKey: "dummy-key", logger, caching });
+
+    expect((vi.mocked(createBrowserClient).mock.lastCall?.[2] as { caching: unknown }).caching).toBe(caching);
+  });
 });

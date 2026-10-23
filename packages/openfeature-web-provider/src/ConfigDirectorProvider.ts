@@ -18,9 +18,15 @@ import { createBrowserClient } from "@js-browser-client/index";
 
 const SDK_IDENTITY = { sdkName: "js-openfeature-web-provider", sdkVersion: "__VERSION__" };
 
+type StatusReport = "stale" | "as the SDK recorded it";
+
+const decideStatusReport = (servingCachedValues: boolean, awaitingRecovery: boolean): StatusReport =>
+  servingCachedValues && awaitingRecovery ? "stale" : "as the SDK recorded it";
+
 export class ConfigDirectorProvider implements Provider {
   private readonly client: ConfigDirectorClient;
   private awaitingRecovery = false;
+  private servingCachedValues = false;
 
   readonly metadata: ProviderMetadata = {
     name: ConfigDirectorProvider.name,
@@ -40,11 +46,16 @@ export class ConfigDirectorProvider implements Provider {
   public constructor(clientSdkKeyOrOptions: string | OfflineClientOptions, clientOptions?: ConfigDirectorClientOptions) {
     this.client = createBrowserClient(clientSdkKeyOrOptions, SDK_IDENTITY, clientOptions);
     this.client.on("clientReady", () => {
+      this.servingCachedValues = false;
       if (!this.awaitingRecovery) {
         return;
       }
       this.awaitingRecovery = false;
       this.events.emit(ProviderEvents.Ready);
+    });
+    this.client.on("cachedValuesLoaded", () => {
+      this.servingCachedValues = true;
+      this.reportStatusOnceTheSdkRecordedTheOutcome();
     });
     this.client.on("configsUpdated", ({ keys, removedKeys }) => {
       this.events.emit(ProviderEvents.ConfigurationChanged, { flagsChanged: [...keys, ...removedKeys] });
@@ -95,7 +106,20 @@ export class ConfigDirectorProvider implements Provider {
       return;
     }
     this.awaitingRecovery = true;
+    this.reportStatusOnceTheSdkRecordedTheOutcome();
     throw new ProviderNotReadyError(message);
+  }
+
+  private reportStatusOnceTheSdkRecordedTheOutcome() {
+    setTimeout(() => {
+      switch (decideStatusReport(this.servingCachedValues, this.awaitingRecovery)) {
+        case "stale":
+          this.events.emit(ProviderEvents.Stale);
+          return;
+        case "as the SDK recorded it":
+          return;
+      }
+    }, 0);
   }
 
   private evaluate<T extends ConfigValueType>(configKey: string, defaultValue: T): ResolutionDetails<T> {

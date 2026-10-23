@@ -79,4 +79,16 @@ describe("connection options", () => {
       pollingInterval: 120,
     });
   });
+
+  test("ConfigDirectorProvider passes the caching options through to the client", () => {
+    const caching = { enabled: true, provider: { read: () => undefined, write: () => {}, remove: () => {}, sizeLimit: () => 10 } };
+
+    render(
+      <ConfigDirectorProvider sdkKey="dummy-key" logger={logger} caching={caching}>
+        <div />
+      </ConfigDirectorProvider>,
+    );
+
+    expect((vi.mocked(createClient).mock.lastCall?.[1] as { caching: unknown }).caching).toBe(caching);
+  });
 });

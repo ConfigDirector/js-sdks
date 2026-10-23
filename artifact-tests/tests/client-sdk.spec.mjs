@@ -43,6 +43,28 @@ describe("@configdirector/client-sdk artifact", () => {
     expect(server.sdkRequests.slice(requestsBefore)).toEqual([]);
   });
 
+  test("serves the last values with reason cached when the page reloads with the network blocked", async () => {
+    const { firstLoad, reload } = await runBrowserSmoke({
+      project,
+      server,
+      entry: "cached.mjs",
+      reloadWithSdkRequestsBlocked: true,
+    });
+
+    expect(firstLoad, firstLoad.error).toEqual({
+      ok: true,
+      values: { ready: true, ...EXPECTED_CLIENT_VALUES },
+      cachedValuesLoaded: false,
+      reasons: { "welcome-message": "found-match", "feature-enabled": "found-match", "item-count": "found-match" },
+    });
+    expect(reload, reload.error).toEqual({
+      ok: true,
+      values: { ready: false, ...EXPECTED_CLIENT_VALUES },
+      cachedValuesLoaded: true,
+      reasons: { "welcome-message": "cached", "feature-enabled": "cached", "item-count": "cached" },
+    });
+  });
+
   test("serves test client values from the ESM testing entry in a browser", async () => {
     const result = await runBrowserSmoke({ project, server, entry: "testing.mjs" });
     expect(result, result.error).toEqual({ ok: true, values: { ...EXPECTED_TESTING_VALUES } });

@@ -13,6 +13,8 @@ export type {
 export { ConfigDirectorReactContextError } from "./errors";
 export { createConsoleLogger } from "./logger";
 export {
+  type CachingOptions,
+  type CachingProvider,
   type ConfigDirectorClient,
   type ConfigDirectorContext,
   type ConfigDirectorClientOptions,

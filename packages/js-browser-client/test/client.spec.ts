@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
-import type { ConfigDirectorClient, ConfigDirectorClientOptions } from "../src";
+import type { ConfigDirectorClient, ConfigDirectorClientOptions, ConfigEvaluation } from "../src";
 import { createBrowserClient } from "../src";
 import {
   SSE_URL,
@@ -9,6 +9,7 @@ import {
   captureUnhandledRejections,
   createCapturingLogger,
   createStubbedLogger,
+  forgetCachedValues,
   hidePageFor,
   removeWorker,
   sleep,
@@ -39,6 +40,13 @@ const delta = (configs: object) => ({
   configs,
 });
 
+const stringConfig = (key: string, value: string) => ({
+  [key]: { id: `id-${key}`, key, type: "string", value, valueId: `value-id-${key}` },
+});
+
+const CACHED_VALUES_STORAGE_KEY =
+  "configdirector-sdk:cached-values:cc677751b8441e282621773a9be4622b11cd5bcffce54caabdd19f60e07d556c";
+
 describe("ConfigDirectorClient", () => {
   let client: ConfigDirectorClient;
 
@@ -50,6 +58,10 @@ describe("ConfigDirectorClient", () => {
     await commands.mswTeardown();
     client?.dispose();
   });
+
+  beforeEach(forgetCachedValues);
+
+  afterEach(forgetCachedValues);
 
   test("establishes a valid connection on initialize", async () => {
     await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
@@ -573,5 +585,62 @@ describe("ConfigDirectorClient", () => {
 
     expect(client.isReady).toBe(false);
     await vi.waitFor(() => expect(client.isReady).toBe(true), { timeout: 2_000 });
+  });
+
+  describe("cached values", () => {
+    test("keeps the last values in localStorage under a key derived from the SDK key and serves them with reason cached on a launch that cannot connect", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(stringConfig("my-config", "from-server")) }]]);
+      const firstRun = createClient("sdk-key", { logger });
+      await firstRun.initialize({ id: "user-1" });
+      await vi.waitFor(() => expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).not.toBeNull());
+      firstRun.dispose();
+      expect(JSON.parse(localStorage.getItem(CACHED_VALUES_STORAGE_KEY) as string)).toMatchObject({
+        clientSdkKey: "sdk-key",
+        contextTag: { contextKind: "user", contextId: "user-1" },
+        configs: stringConfig("my-config", "from-server"),
+      });
+      await commands.mswUseHandlers({ url: SSE_URL, status: 503 });
+      const relaunch = createClient("sdk-key", { logger, connection: { timeout: 100 } });
+      const evaluations: ConfigEvaluation[] = [];
+      relaunch.on("configEvaluated", ({ evaluation }) => evaluations.push(evaluation));
+
+      await relaunch.initialize({ id: "user-1" });
+
+      expect(relaunch.isReady).toBe(false);
+      expect(relaunch.getValue("my-config", "default")).toBe("from-server");
+      await vi.waitFor(() =>
+        expect(evaluations).toContainEqual(
+          expect.objectContaining({ key: "my-config", value: "from-server", isDefaultValue: false, reason: "cached" }),
+        ),
+      );
+      relaunch.dispose();
+    });
+
+    test("keeps nothing in localStorage when the values exceed the default limit of 256 KB", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [{ data: full(stringConfig("small", "x")) }, { data: delta(stringConfig("large", "y".repeat(256 * 1024))) }],
+      ]);
+      const capturingLogger = createCapturingLogger();
+      client = createClient("sdk-key", { logger: capturingLogger });
+      await client.initialize({ id: "user-1" });
+
+      await vi.waitFor(() => expect(client.getValue("large", "default")).toHaveLength(256 * 1024));
+      await vi.waitFor(() =>
+        expect(capturingLogger.warn).toHaveBeenCalledWith(
+          expect.stringMatching(/exceed the caching provider's limit of 262144 bytes/),
+        ),
+      );
+
+      expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).toBeNull();
+    });
+
+    test("keeps nothing in localStorage when caching is turned off", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(stringConfig("my-config", "from-server")) }]]);
+      client = createClient("sdk-key", { logger, caching: { enabled: false } });
+      await client.initialize({ id: "user-1" });
+      await sleep(100);
+
+      expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).toBeNull();
+    });
   });
 });

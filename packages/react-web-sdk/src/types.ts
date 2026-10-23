@@ -1,4 +1,5 @@
 import type {
+  CachingOptions,
   ClientHooks,
   ConfigDirectorClient,
   ConfigDirectorContext,
@@ -56,6 +57,12 @@ export type ConfigDirectorProviderOptions = {
   context?: ConfigDirectorContext;
   logger?: ConfigDirectorLogger;
   hooks?: ClientHooks;
+  /**
+   * Options for the values the client keeps on the device between launches. The last values received
+   * are kept by default and served, with the evaluation reason `cached`, on the next launch of the same
+   * context until live values arrive.
+   */
+  caching?: CachingOptions;
 };
 
 /**

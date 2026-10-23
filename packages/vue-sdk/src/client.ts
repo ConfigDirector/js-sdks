@@ -22,6 +22,7 @@ export const createClientFromPluginOptions = (options: ConfigDirectorPluginOptio
     metadata: { appName: options.appName, appVersion: options.appVersion },
     logger: options.logger ?? createConsoleLogger("warn"),
     hooks: options.hooks,
+    caching: options.caching,
   });
 };
 

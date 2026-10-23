@@ -1,6 +1,7 @@
 type BrowserGlobals = {
   navigator?: { userAgent?: string };
   location?: { host?: string };
+  localStorage?: Storage;
 };
 
 const read = (readValue: (globals: BrowserGlobals) => string | undefined): string | undefined => {
@@ -14,3 +15,11 @@ const read = (readValue: (globals: BrowserGlobals) => string | undefined): strin
 export const readUserAgent = (): string | undefined => read((globals) => globals.navigator?.userAgent);
 
 export const readHost = (): string | undefined => read((globals) => globals.location?.host);
+
+export const localStorageIfAvailable = (): Storage | undefined => {
+  try {
+    return (globalThis as BrowserGlobals).localStorage ?? undefined;
+  } catch {
+    return undefined;
+  }
+};

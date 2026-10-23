@@ -10,4 +10,10 @@ export type {
   OfflineValue,
   OfflineValues,
 } from "./types";
-export type { ConfigDirectorClient, ConfigDirectorContext, ConnectionMode } from "@js-browser-client/index";
+export type {
+  CachingOptions,
+  CachingProvider,
+  ConfigDirectorClient,
+  ConfigDirectorContext,
+  ConnectionMode,
+} from "@js-browser-client/index";

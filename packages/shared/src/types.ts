@@ -51,7 +51,8 @@ export type EvaluationReason =
   | "value-missing"
   | "invalid-number"
   | "invalid-json"
-  | "invalid-boolean";
+  | "invalid-boolean"
+  | "cached";
 
 export type ConfigEvaluation = {
   key: string;

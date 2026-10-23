@@ -1,8 +1,8 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
 import { OpenFeature, ProviderEvents, ProviderNotReadyError, ProviderStatus } from "@openfeature/web-sdk";
 import { ConfigDirectorProvider } from "../src";
-import { SSE_URL, POLL_URL, createCapturingLogger, createStubbedLogger } from "./helpers";
+import { SSE_URL, POLL_URL, createCapturingLogger, createStubbedLogger, deferred, forgetCachedValues } from "./helpers";
 
 const full = (configs: object = {}) => ({
   environmentId: "10000000-0000-0000-0000-000000000000",
@@ -36,6 +36,9 @@ const jsonConfig = (key: string, value: unknown) => ({
 
 const logger = createStubbedLogger();
 
+const CACHED_VALUES_STORAGE_KEY =
+  "configdirector-sdk:cached-values:cc677751b8441e282621773a9be4622b11cd5bcffce54caabdd19f60e07d556c";
+
 // These tests exercise ConfigDirectorProvider the way a real consumer would: registered with the
 // OpenFeature web SDK and evaluated through an OpenFeature client, with the ConfigDirector SDK
 // server stubbed out via msw.
@@ -44,11 +47,14 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
     await commands.mswSetup();
   });
 
+  beforeEach(forgetCachedValues);
+
   afterEach(async () => {
     await OpenFeature.clearProviders();
     await OpenFeature.clearContexts();
     OpenFeature.clearHandlers();
     await OpenFeature.close();
+    forgetCachedValues();
   });
 
   afterAll(async () => {
@@ -386,6 +392,88 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
       await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.READY), { timeout: 2_000 });
 
       expect(client.getStringValue("greeting", "default")).toBe("Bye");
+    });
+  });
+
+  describe("with values kept on the device", () => {
+    test("reports the stale status and serves the device's values after a timeout, then ready once live values arrive", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(boolConfig("dark-mode", true)) }]]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      await vi.waitFor(() => expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).not.toBeNull());
+      await OpenFeature.clearProviders();
+      await commands.mswUseSseHandler(SSE_URL, [[{ delay: 400, data: full(boolConfig("dark-mode", false)) }]]);
+      const client = OpenFeature.getClient();
+      const statusEvents: string[] = [];
+      client.addHandler(ProviderEvents.Error, () => statusEvents.push("error"));
+      client.addHandler(ProviderEvents.Stale, () => statusEvents.push("stale"));
+      client.addHandler(ProviderEvents.Ready, () => statusEvents.push("ready"));
+
+      await expect(
+        OpenFeature.setProviderAndWait(
+          new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+        ),
+      ).rejects.toThrow(ProviderNotReadyError);
+
+      await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.STALE));
+      expect(client.getBooleanValue("dark-mode", false)).toBe(true);
+
+      await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.READY), { timeout: 2_000 });
+
+      expect(client.getBooleanValue("dark-mode", true)).toBe(false);
+      expect(statusEvents).toEqual(["error", "stale", "ready"]);
+    });
+
+    test("reports the stale status when a slow provider delivers the device's values after the timeout", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(boolConfig("dark-mode", true)) }]]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      await vi.waitFor(() => expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).not.toBeNull());
+      await OpenFeature.clearProviders();
+      await commands.mswUseHandlers({ url: SSE_URL, status: 503 });
+      const storedEntryRead = deferred<string | null>();
+      const slowProvider = {
+        read: () => storedEntryRead.promise,
+        write: () => {},
+        remove: () => {},
+        sizeLimit: () => 256 * 1024,
+      };
+      const client = OpenFeature.getClient();
+      await expect(
+        OpenFeature.setProviderAndWait(
+          new ConfigDirectorProvider("sdk-key", {
+            logger,
+            connection: { timeout: 100 },
+            caching: { provider: slowProvider },
+          }),
+        ),
+      ).rejects.toThrow(ProviderNotReadyError);
+      expect(client.providerStatus).toBe(ProviderStatus.ERROR);
+      expect(client.getBooleanValue("dark-mode", false)).toBe(false);
+
+      storedEntryRead.resolve(localStorage.getItem(CACHED_VALUES_STORAGE_KEY));
+
+      await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.STALE));
+      expect(client.getBooleanValue("dark-mode", false)).toBe(true);
+    });
+
+    test("reports the stale status again when a context change cannot connect", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(boolConfig("dark-mode", true)) }]]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      await vi.waitFor(() => expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).not.toBeNull());
+      await OpenFeature.clearProviders();
+      await commands.mswUseHandlers({ url: SSE_URL, status: 503 });
+      const client = OpenFeature.getClient();
+      await expect(
+        OpenFeature.setProviderAndWait(
+          new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+        ),
+      ).rejects.toThrow(ProviderNotReadyError);
+      await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.STALE));
+
+      await OpenFeature.setContext({ targetingKey: "user-1" });
+
+      expect(client.providerStatus).toBe(ProviderStatus.ERROR);
+      await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.STALE));
+      expect(client.getBooleanValue("dark-mode", false)).toBe(true);
     });
   });
 });

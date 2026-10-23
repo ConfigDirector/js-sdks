@@ -41,12 +41,56 @@ export type ClientSession = {
   ephemeral?: true;
 };
 
+/**
+ * A store for the values the client keeps on the device between launches. One provider instance
+ * serves one client: the provider decides where the entry lives, and the SDK owns the entry's
+ * format, which may change between SDK versions.
+ */
+export type CachingProvider = {
+  /**
+   * Returns the stored entry, or `null` or `undefined` when nothing is stored.
+   */
+  read(): string | null | undefined | Promise<string | null | undefined>;
+  /**
+   * Replaces the stored entry. The SDK never writes an entry larger than {@link sizeLimit}.
+   */
+  write(value: string): void | Promise<void>;
+  /**
+   * Removes the stored entry.
+   */
+  remove(): void | Promise<void>;
+  /**
+   * The largest entry, in UTF-8 bytes, the provider accepts. When the values received from
+   * ConfigDirector exceed it, the SDK removes the stored entry and keeps nothing on the device.
+   */
+  sizeLimit(): number;
+};
+
+/**
+ * Options for the values the client keeps on the device, served on the next launch of the same
+ * context until live values arrive. Ignored in `offline` mode.
+ */
+export type CachingOptions = {
+  /**
+   * Whether to keep the last values received on the device. Defaults to `true`.
+   */
+  enabled?: boolean;
+  /**
+   * The store for the values. Defaults to the platform's own store: `localStorage` in the
+   * browser, AsyncStorage on React Native.
+   */
+  provider?: CachingProvider;
+};
+
+export type PlatformCachingProvider = (clientSdkKey: string) => CachingProvider | undefined;
+
 export type InternalClientOptions = {
   fetch?: (url: string, init: RequestInit) => Promise<Response>;
   connectionRetryDelay?: ConnectionRetryDelayCalculator;
   urlFactory?: UrlFactory;
   transport?: Transport;
   instanceIdStorage?: InstanceIdStorage;
+  platformCachingProvider?: PlatformCachingProvider;
 };
 
 /**
@@ -123,6 +167,12 @@ export type ConfigDirectorClientOptions = {
    */
   connection?: ConnectionOptions;
   /**
+   * Options for the values the client keeps on the device between launches. The last values
+   * received are kept by default and served, with the evaluation reason `cached`, on the next
+   * launch of the same context until live values arrive. See {@link CachingOptions}.
+   */
+  caching?: CachingOptions;
+  /**
    * A logger that implements {@link ConfigDirectorLogger}. It defaults to the ConfigDirector console
    * logger set to 'warn' level.
    *
@@ -168,6 +218,7 @@ export type ClientHooks = {
   contextUpdated?: HookHandler<"contextUpdated"> | HookHandler<"contextUpdated">[];
   configEvaluated?: HookHandler<"configEvaluated"> | HookHandler<"configEvaluated">[];
   connectionError?: HookHandler<"connectionError"> | HookHandler<"connectionError">[];
+  cachedValuesLoaded?: HookHandler<"cachedValuesLoaded"> | HookHandler<"cachedValuesLoaded">[];
 };
 
 export type ClientConnectAction = "initialization" | "context update" | "network resume";
@@ -180,6 +231,7 @@ export type ClientEvents = {
   contextUpdated: { context: ConfigDirectorContext | undefined };
   configEvaluated: { evaluation: ConfigEvaluation };
   connectionError: { error: Error };
+  cachedValuesLoaded: Record<string, never>;
 };
 
 export type WatchHandler<T extends ConfigValueType> = (message: T) => void;

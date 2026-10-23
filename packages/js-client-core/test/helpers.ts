@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 import type { ConfigDirectorLogger } from "@shared/types";
+import type { ClientConnectAction, ConfigDirectorContext, ConfigSet, Transport, TransportEvents } from "../src";
+import { Emitter } from "../src/Emitter";
 
 export const sleep = async (time: number) => await new Promise<void>((r) => setTimeout(() => r(), time));
 
@@ -45,3 +47,28 @@ export const captureUnhandledRejections = () => {
     stop: () => window.removeEventListener("unhandledrejection", listener),
   };
 };
+
+type ConnectCall = { context: ConfigDirectorContext; timeout: number; reason: ClientConnectAction };
+
+export class RecordingTransport implements Transport {
+  private emitter = new Emitter<TransportEvents>();
+  public connectCalls: ConnectCall[] = [];
+  public closeCount = 0;
+
+  async connect(context: ConfigDirectorContext, timeout: number, reason: ClientConnectAction): Promise<this> {
+    this.connectCalls.push({ context, timeout, reason });
+    return this;
+  }
+
+  deliver(configSet: ConfigSet) {
+    this.emitter.emit("configSetReceived", configSet);
+  }
+
+  on: Transport["on"] = (name, handler) => this.emitter.on(name, handler);
+  off: Transport["off"] = (name, handler) => this.emitter.off(name, handler);
+  clear = () => this.emitter.clear();
+  close = () => {
+    this.closeCount++;
+  };
+  dispose = () => this.close();
+}

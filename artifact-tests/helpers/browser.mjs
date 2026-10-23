@@ -9,7 +9,16 @@ const HTML = [
   '<body><div id="app"></div><script type="module" src="./app.js"></script></body></html>',
 ].join("");
 
-export const runBrowserSmoke = async ({ project, server, entry, define = {} }) => {
+const waitForSmokeResult = async (page, messages) => {
+  try {
+    await page.waitForFunction(() => window.__SMOKE__ !== undefined, undefined, { timeout: 30_000 });
+  } catch {
+    throw new Error(`The page reported no smoke result within 30s.\n${messages.join("\n")}`);
+  }
+  return await page.evaluate(() => window.__SMOKE__);
+};
+
+export const runBrowserSmoke = async ({ project, server, entry, define = {}, reloadWithSdkRequestsBlocked = false }) => {
   const webDir = join(project.dir, "web");
   await mkdir(webDir, { recursive: true });
   await build({
@@ -32,12 +41,14 @@ export const runBrowserSmoke = async ({ project, server, entry, define = {} }) =
     page.on("console", (message) => messages.push(`[${message.type()}] ${message.text()}`));
     page.on("pageerror", (error) => messages.push(`[pageerror] ${error.message}`));
     await page.goto(`${server.baseUrl}/app/index.html`);
-    try {
-      await page.waitForFunction(() => window.__SMOKE__ !== undefined, undefined, { timeout: 30_000 });
-    } catch {
-      throw new Error(`The page reported no smoke result within 30s.\n${messages.join("\n")}`);
+    const firstLoad = await waitForSmokeResult(page, messages);
+    if (!reloadWithSdkRequestsBlocked) {
+      return firstLoad;
     }
-    return await page.evaluate(() => window.__SMOKE__);
+    await page.route(`${server.baseUrl}/client/**`, (route) => route.abort());
+    await page.reload();
+    const reload = await waitForSmokeResult(page, messages);
+    return { firstLoad, reload };
   } finally {
     await browser.close();
   }

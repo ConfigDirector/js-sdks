@@ -1,4 +1,6 @@
 export type {
+  CachingOptions,
+  CachingProvider,
   ConfigDirectorClient,
   ConfigDirectorClientOptions,
   ConfigDirectorContext,

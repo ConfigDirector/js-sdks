@@ -18,6 +18,7 @@ export const buildClient = (options: ConfigDirectorProviderOptions): ConfigDirec
     metadata: { appName: options.appName, appVersion: options.appVersion },
     logger: options.logger ?? createConsoleLogger("warn"),
     hooks: options.hooks,
+    caching: options.caching,
   });
 
 export const hasGivenClient = (props: ConfigDirectorProviderProps): props is { client: ConfigDirectorClient } =>

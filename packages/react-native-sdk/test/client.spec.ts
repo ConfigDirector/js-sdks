@@ -171,9 +171,34 @@ describe("createClient", () => {
       instanceId: expect.stringMatching(UUID_V4_PATTERN),
       ephemeral: true,
     });
-    expect(warnings.filter((message) => message.includes("@react-native-async-storage/async-storage"))).toHaveLength(1);
+    expect(warnings.filter((message) => message.includes("@react-native-async-storage/async-storage"))).toEqual([
+      expect.stringContaining("no values are kept on the device between app starts"),
+    ]);
 
     client.dispose();
+  });
+
+  test("runs without a cache and warns once per client when AsyncStorage is not installed", async () => {
+    const warnings: string[] = [];
+    const recordingLogger = { ...logger, warn: (message: string) => warnings.push(message) };
+    const firstRun = createClient("sdk-key", { logger: recordingLogger });
+    await firstRun.initialize({ id: "user-1" });
+    firstRun.dispose();
+    const events: string[] = [];
+    const relaunch = createClient("sdk-key", { logger: recordingLogger, connection: { timeout: 100 } });
+    relaunch.on("cachedValuesLoaded", () => events.push("cachedValuesLoaded"));
+    requests.length = 0;
+    fetchSpy.mockImplementationOnce(async () => {
+      throw new TypeError("Network request failed");
+    });
+
+    await relaunch.initialize({ id: "user-1" });
+
+    expect(relaunch.getValue("my-config", "default")).toBe("default");
+    expect(events).toEqual([]);
+    expect(warnings.filter((message) => message.includes("@react-native-async-storage/async-storage"))).toHaveLength(2);
+    expect(warnings.filter((message) => message.includes("the device"))).toHaveLength(2);
+    relaunch.dispose();
   });
 
   test("gives every client its own instance id when AsyncStorage is not installed", async () => {

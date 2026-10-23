@@ -1,22 +1,19 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
 import type {
-  ClientConnectAction,
   ConfigDirectorClient,
   ConfigDirectorClientOptions,
-  ConfigDirectorContext,
   ConfigSet,
   InstanceIdStorage,
   InternalClientOptions,
   Transport,
-  TransportEvents,
 } from "../src";
 import { DefaultConfigDirectorClient } from "../src";
 import { type TelemetryClient } from "../src";
-import { Emitter } from "../src/Emitter";
 import {
   SSE_URL,
   POLL_URL,
+  RecordingTransport,
   sleep,
   captureUnhandledRejections,
   createCapturingLogger,
@@ -45,31 +42,6 @@ const createClient = (
     internalClientOptions,
   );
 };
-
-type ConnectCall = { context: ConfigDirectorContext; timeout: number; reason: ClientConnectAction };
-
-class RecordingTransport implements Transport {
-  private emitter = new Emitter<TransportEvents>();
-  public connectCalls: ConnectCall[] = [];
-  public closeCount = 0;
-
-  async connect(context: ConfigDirectorContext, timeout: number, reason: ClientConnectAction): Promise<this> {
-    this.connectCalls.push({ context, timeout, reason });
-    return this;
-  }
-
-  deliver(configSet: ConfigSet) {
-    this.emitter.emit("configSetReceived", configSet);
-  }
-
-  on: Transport["on"] = (name, handler) => this.emitter.on(name, handler);
-  off: Transport["off"] = (name, handler) => this.emitter.off(name, handler);
-  clear = () => this.emitter.clear();
-  close = () => {
-    this.closeCount++;
-  };
-  dispose = () => this.close();
-}
 
 const INSTANCE_ID_STORAGE_KEY = "configdirector-sdk:instance-id";
 const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

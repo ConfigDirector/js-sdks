@@ -1,4 +1,5 @@
 import { generateInstanceId } from "@shared/instance-id";
+import { localStorageIfAvailable } from "./browser-globals";
 import type { ClientSession, ConfigDirectorLogger, InstanceIdStorage } from "./types";
 
 const STORAGE_KEY = "configdirector-sdk:instance-id";
@@ -35,14 +36,6 @@ const checksumFor = (id: string, createdAt: number): string => {
   const low = fnv1a(payload, 0x811c9dc5);
   const high = fnv1a(`${low}|${payload}`, 0x01000193);
   return high.toString(16).padStart(8, "0") + low.toString(16).padStart(8, "0");
-};
-
-const localStorageIfAvailable = (): InstanceIdStorage | undefined => {
-  try {
-    return (globalThis as { localStorage?: Storage }).localStorage ?? undefined;
-  } catch {
-    return undefined;
-  }
 };
 
 const isUsableRecord = (record: unknown): record is StoredInstanceId => {

@@ -1,33 +1,9 @@
 import type { InstanceIdStorage } from "@js-client-core/index";
-import type { ConfigDirectorLogger } from "@shared/types";
+import type { AsyncStorageLookup } from "./asyncStorage";
 
-type AsyncStorageLookup =
-  | { outcome: "installed"; storage: InstanceIdStorage }
-  | { outcome: "not installed" };
-
-const lookUpAsyncStorage = async (): Promise<AsyncStorageLookup> => {
-  try {
-    const { default: storage } = await import("@react-native-async-storage/async-storage");
-    return { outcome: "installed", storage };
-  } catch {
-    return { outcome: "not installed" };
-  }
-};
-
-export const asyncStorageInstanceIdStorage = (logger: ConfigDirectorLogger): InstanceIdStorage => {
-  const asyncStorageLookup = lookUpAsyncStorage().then((lookup) => {
-    if (lookup.outcome === "not installed") {
-      logger.warn(
-        "The ConfigDirector SDK could not find @react-native-async-storage/async-storage, so every app start looks like a new install to ConfigDirector " +
-          "and a context without an id gets a new identifier each time. " +
-          "Install it for the SDK to recognize the install across app starts.",
-      );
-    }
-    return lookup;
-  });
-
+export const asyncStorageInstanceIdStorage = (asyncStorage: Promise<AsyncStorageLookup>): InstanceIdStorage => {
   const installedAsyncStorage = async (): Promise<InstanceIdStorage> => {
-    const lookup = await asyncStorageLookup;
+    const lookup = await asyncStorage;
     switch (lookup.outcome) {
       case "installed":
         return lookup.storage;

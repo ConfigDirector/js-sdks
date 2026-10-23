@@ -21,6 +21,7 @@ import type {
   HookHandler,
   ClientSession,
   OfflineClientOptions,
+  EvaluationReason,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorInitializationError, ConfigDirectorValidationError } from "./errors";
@@ -34,6 +35,14 @@ import { resolveClientSession } from "./client-session";
 import { PollingTransport } from "./PollingTransport";
 import { readHost, readUserAgent } from "./browser-globals";
 import { admitContext } from "@shared/context-kind";
+import {
+  CachedValuesStore,
+  contextTagFor,
+  decideCachedValuesAdoption,
+  planCaching,
+  type CachedValues,
+  type CachingPlan,
+} from "./cached-values";
 const MAX_EXPONENTIAL_DELAY = 9; // 2^9 = 512 seconds, to cap it to under 10min
 
 type ContextSubmission = Exclude<ClientConnectAction, "network resume">;
@@ -59,19 +68,36 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private readyPromise: Promise<void> | undefined;
   private readyResolve: ((cancelled?: boolean) => void) | undefined;
   private currentContext?: ConfigDirectorContext;
+  private submittedContext?: ConfigDirectorContext;
   private readonly connectionPlan: ConnectionPlan;
   private clientSession: Promise<ClientSession>;
+  private readonly cachedValuesStore: CachedValuesStore | undefined;
+  private servingCachedValues = false;
+  private cachedValuesAdoptionStarted = false;
 
   public static from(
     liveTelemetryClient: LiveTelemetryClientFactory,
     clientSdkKeyOrOptions: string | OfflineClientOptions | undefined,
     sdkOptions: IdentifyingSdkOptions,
     clientOptions: ConfigDirectorClientOptions | undefined,
+    internalClientOptions?: InternalClientOptions,
   ): DefaultConfigDirectorClient {
     if (typeof clientSdkKeyOrOptions === "object") {
-      return new DefaultConfigDirectorClient(liveTelemetryClient, undefined, sdkOptions, clientSdkKeyOrOptions);
+      return new DefaultConfigDirectorClient(
+        liveTelemetryClient,
+        undefined,
+        sdkOptions,
+        clientSdkKeyOrOptions,
+        internalClientOptions,
+      );
     }
-    return new DefaultConfigDirectorClient(liveTelemetryClient, clientSdkKeyOrOptions, sdkOptions, clientOptions);
+    return new DefaultConfigDirectorClient(
+      liveTelemetryClient,
+      clientSdkKeyOrOptions,
+      sdkOptions,
+      clientOptions,
+      internalClientOptions,
+    );
   }
 
   constructor(
@@ -86,12 +112,16 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.timeout = clientOptions?.connection?.timeout ?? 3_000;
     const urlFactory: UrlFactory = internalClientOptions?.urlFactory ?? defaultUrlFactory;
     this.connectionPlan = planConnection(clientSdkKey, clientOptions?.connection, urlFactory);
+    this.cachedValuesStore = this.buildCachedValuesStore(
+      planCaching(this.connectionPlan, clientOptions?.caching, internalClientOptions?.platformCachingProvider),
+    );
     this.telemetryClient = this.buildTelemetryClient(liveTelemetryClient, clientOptions);
     this.transport =
       internalClientOptions?.transport ?? this.buildTransport(sdkOptions, clientOptions, urlFactory, internalClientOptions);
 
     this.transport.on("configSetReceived", (configSet: ConfigSet) => {
       this.hasReceivedConfigSet = true;
+      this.servingCachedValues = false;
       this.readyResolve?.();
       const removedKeys = this.findKeysRemovedBy(configSet);
       if (!this.configSet || configSet.kind == "full") {
@@ -102,6 +132,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           ...configSet.configs,
         };
       }
+      this.keepValuesOnTheDevice(this.configSet);
       const keys = Object.keys(configSet.configs);
       this.emit("configsUpdated", { keys, removedKeys });
       this.updateWatchers([...keys, ...removedKeys]);
@@ -122,6 +153,86 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.registerHandler("configsUpdated", clientOptions?.hooks?.configsUpdated);
     this.registerHandler("contextUpdated", clientOptions?.hooks?.contextUpdated);
     this.registerHandler("connectionError", clientOptions?.hooks?.connectionError);
+    this.registerHandler("cachedValuesLoaded", clientOptions?.hooks?.cachedValuesLoaded);
+  }
+
+  private buildCachedValuesStore(cachingPlan: CachingPlan): CachedValuesStore | undefined {
+    switch (cachingPlan.kind) {
+      case "no cache":
+        this.logger.debug(`[ConfigDirectorClient] No values are kept on the device: ${cachingPlan.reason}`);
+        return undefined;
+      case "cache": {
+        const store = new CachedValuesStore(cachingPlan.provider, cachingPlan.clientSdkKey, this.logger);
+        void store.read();
+        return store;
+      }
+    }
+  }
+
+  private startCachedValuesAdoption() {
+    const store = this.cachedValuesStore;
+    if (!store || this.cachedValuesAdoptionStarted) {
+      return;
+    }
+    this.cachedValuesAdoptionStarted = true;
+    void this.adoptCachedValues(store);
+  }
+
+  private async adoptCachedValues(store: CachedValuesStore) {
+    const read = await store.read();
+    switch (read.outcome) {
+      case "nothing stored":
+      case "unreadable":
+      case "failed":
+        return;
+      case "stored":
+        break;
+    }
+    const { instanceId } = await this.clientSession;
+    const launchContextTag = contextTagFor(this.submittedContext, instanceId);
+    const adoption = decideCachedValuesAdoption(read.cachedValues, launchContextTag, this.hasReceivedConfigSet);
+    switch (adoption) {
+      case "adopt":
+        this.serveCachedValues(read.cachedValues);
+        return;
+      case "live values already arrived":
+      case "context mismatch":
+        this.logger.debug(`[ConfigDirectorClient] The values kept on the device were not adopted: ${adoption}`);
+        return;
+    }
+  }
+
+  private serveCachedValues(cachedValues: CachedValues) {
+    const { environmentId, projectId, configs } = cachedValues;
+    this.configSet = { environmentId, projectId, configs, kind: "full" };
+    this.servingCachedValues = true;
+    const keys = Object.keys(configs);
+    this.emit("cachedValuesLoaded", {});
+    this.emit("configsUpdated", { keys, removedKeys: [] });
+    this.updateWatchers(keys);
+    this.logger.debug("[ConfigDirectorClient] Serving the values kept on the device until live values arrive:", { keys });
+  }
+
+  private keepValuesOnTheDevice(configSet: ConfigSet) {
+    const store = this.cachedValuesStore;
+    if (!store) {
+      return;
+    }
+    const context = this.submittedContext;
+    const receivedAt = Date.now();
+    void this.clientSession.then(({ instanceId }) =>
+      store.replace({
+        contextTag: contextTagFor(context, instanceId),
+        environmentId: configSet.environmentId,
+        projectId: configSet.projectId,
+        configs: configSet.configs,
+        receivedAt,
+      }),
+    );
+  }
+
+  private servedReason(reason: EvaluationReason): EvaluationReason {
+    return this.servingCachedValues && reason === "found-match" ? "cached" : reason;
   }
 
   private registerHandler<T extends keyof ClientEvents>(
@@ -268,6 +379,10 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   }
 
   private async connectToTransport(context: ConfigDirectorContext | undefined, caller: ClientConnectAction) {
+    this.submittedContext = context;
+    if (caller === "initialization") {
+      this.startCachedValuesAdoption();
+    }
     try {
       this.ready = false;
       this.readyPromise = new Promise<boolean | undefined>((resolve) => {
@@ -413,6 +528,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     }
 
     const parseResult = parseConfigValue<T>(configState, defaultValue);
+    const reason = this.servedReason(parseResult.reason);
     this.telemetryClient.evaluatedConfig({
       contextId: this.currentContext?.id,
       type: configState.type,
@@ -422,14 +538,14 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       evaluatedValue: parseResult.parsedValue,
       evaluatedValueId: parseResult.parsedValueId,
       usedDefault: parseResult.usedDefault,
-      evaluationReason: parseResult.reason,
+      evaluationReason: reason,
     });
     this.dispatchEvaluationEvent({
       key: configKey,
       value: parseResult.parsedValue,
       valueId: parseResult.parsedValueId ?? undefined,
       isDefaultValue: parseResult.usedDefault,
-      reason: parseResult.reason,
+      reason,
       context: this.context,
     });
     this.logger.debug(`[ConfigDirectorClient] Evaluated '${configKey}' to '${parseResult.parsedValue}'`);

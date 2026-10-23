@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { createClient, ConfigDirectorInitializationError } from "../src";
-import { SSE_URL, POLL_URL, createStubbedLogger, sleep } from "./helpers";
+import { SSE_URL, POLL_URL, createStubbedLogger, sleep, forgetCachedValues } from "./helpers";
 import { commands } from "vitest/browser";
 
 const full = (configs: object = {}) => ({
@@ -24,6 +24,10 @@ describe("ConfigDirectorClient", () => {
     await commands.mswSetup();
   });
   afterAll(async () => await commands.mswTeardown());
+
+  beforeEach(forgetCachedValues);
+
+  afterEach(forgetCachedValues);
 
   test("establishes a valid connection on initialize", async () => {
     await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
