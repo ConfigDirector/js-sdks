@@ -2,15 +2,17 @@ import { defineNuxtPlugin, useRuntimeConfig } from "#app";
 import { toRaw, shallowRef, readonly } from "vue";
 import { createBrowserClient } from "@js-browser-client/index";
 import { readInstalledTestClient } from "@js-client-core/installedTestClient";
-import { decideMountAction } from "@js-client-core/mountAction";
 import type {
   ConfigDirectorClient,
+  ConfigDirectorContext,
   ConfigDirectorLogger,
   ConnectionMode,
   OfflineValues,
 } from "@js-client-core/types";
 import { decideBrowserHalfSource } from "@shared/browser-half";
 import { useConfigDirectorContext } from "./app/composables/useConfigDirectorContext";
+import { decideStartupAction } from "./client-startup";
+import type { ClientStartup } from "./client-startup";
 import { createDefaultLogger } from "./logger";
 import { OFFLINE_VALUES_ROUTE } from "./offline-values-route";
 import { ConfigDirectorInitializationError } from "@shared/errors";
@@ -20,37 +22,60 @@ const DEFAULT_INITIALIZATION_TIMEOUT_MILLISECONDS = 2_000;
 
 export default defineNuxtPlugin(async (nuxtApp) => {
   const runtimeConfig = useRuntimeConfig();
-  const logger = createDefaultLogger(runtimeConfig.public?.configdirector?.logLevel);
+  const configdirector = runtimeConfig.public?.configdirector;
+  const logger = createDefaultLogger(configdirector?.logLevel);
 
   const installedTestClient = readInstalledTestClient();
-  const client = installedTestClient ?? (await buildClient(runtimeConfig.public?.configdirector, logger));
+  const { client, runsOffline } = installedTestClient
+    ? { client: installedTestClient, runsOffline: false }
+    : await buildClient(configdirector, logger);
   logger.debug(installedTestClient ? "Installed ConfigDirector Nuxt plugin with a test client" : "Installed ConfigDirector Nuxt plugin");
 
   const readyStatus = shallowRef<ClientStatus>(client.isReady ? "ready" : "loading");
   client.on("clientReady", () => {
     readyStatus.value = "ready";
   });
-  nuxtApp.hooks.hook("app:created", async () => {
-    const { context } = useConfigDirectorContext();
-    const rawContext = toRaw(context.value);
-    const mountAction = decideMountAction(client, rawContext);
-    logger.debug(`Browser client mount action: ${mountAction}`);
-    if (mountAction === "initialize") {
-      await client.initialize(rawContext);
-    }
-    else if (mountAction === "updateContext" && rawContext !== undefined) {
-      await client.updateContext(rawContext);
-    }
+  const settleReadyStatus = () => {
     if (!client.isReady) {
       readyStatus.value = "default";
     }
-    logger.debug(`Browser client mount action awaited, ready status: ${client.isReady}`);
+  };
+  const startup: ClientStartup = {
+    waitsForFirstContext: configdirector?.deferInitialization === true && !runsOffline,
+    start: async (context) => {
+      await client.initialize(context);
+      settleReadyStatus();
+    },
+  };
+
+  nuxtApp.hooks.hook("app:created", async () => {
+    const { context } = useConfigDirectorContext();
+    const rawContext = toRaw(context.value);
+    const startupAction = decideStartupAction(client, rawContext, startup.waitsForFirstContext);
+    logger.debug(`Browser client startup action: ${startupAction}`);
+    switch (startupAction) {
+      case "waitForContext":
+        return;
+      case "firstStartInFlight":
+        return;
+      case "initialize":
+        await client.initialize(rawContext);
+        break;
+      case "updateContext":
+        await client.updateContext(rawContext as ConfigDirectorContext);
+        break;
+      case "none":
+        break;
+    }
+    settleReadyStatus();
+    logger.debug(`Browser client startup action awaited, ready status: ${client.isReady}`);
   });
 
   return {
     provide: {
       configDirectorClient: client,
       configDirectorClientReadyStatus: readonly(readyStatus),
+      configDirectorClientStartup: startup,
     },
   };
 });
@@ -59,10 +84,12 @@ type PublicConfigDirectorRuntimeConfig = ReturnType<typeof useRuntimeConfig>["pu
 
 type BrowserHalfConnection = { mode: ConnectionMode | undefined; values: OfflineValues | undefined };
 
+type BuiltClient = { client: ConfigDirectorClient; runsOffline: boolean };
+
 const buildClient = async (
   configdirector: PublicConfigDirectorRuntimeConfig | undefined,
   logger: ConfigDirectorLogger,
-): Promise<ConfigDirectorClient> => {
+): Promise<BuiltClient> => {
   const browserHalf = await browserHalfConnectionOf(configdirector, logger);
   if (browserHalf.mode !== "offline" && !configdirector?.clientSdkKey) {
     const message =
@@ -71,7 +98,7 @@ const buildClient = async (
     throw new ConfigDirectorInitializationError(message);
   }
 
-  return createBrowserClient(
+  const client = createBrowserClient(
     configdirector?.clientSdkKey || undefined,
     { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
     {
@@ -86,6 +113,7 @@ const buildClient = async (
       logger,
     },
   );
+  return { client, runsOffline: browserHalf.mode === "offline" };
 };
 
 const browserHalfConnectionOf = async (

@@ -9,6 +9,7 @@ import { shallowRef, readonly } from "vue";
 import { defineNuxtPlugin, useRuntimeConfig } from "#app";
 import { useConfigDirectorContext } from "./app/composables/useConfigDirectorContext";
 import type { ClientStatus } from "./types";
+import type { ClientStartup } from "./client-startup";
 import { admittedContextOrNone } from "@shared/context-kind";
 
 export default defineNuxtPlugin((nuxtApp) => {
@@ -25,6 +26,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   const client: ConfigDirectorClient = createSsrClient(serverSdkClient);
   const readyStatus = shallowRef<ClientStatus>(serverSdkClient.isReady ? "ready" : "default");
+  const startup: ClientStartup = { waitsForFirstContext: false, start: (context) => client.initialize(context) };
 
   nuxtApp.hooks.hook("app:created", async () => {
     logger.debug("Updating ConfigDirector context for SSR evaluation");
@@ -36,6 +38,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     provide: {
       configDirectorClient: client,
       configDirectorClientReadyStatus: readonly(readyStatus),
+      configDirectorClientStartup: startup,
     },
   };
 });

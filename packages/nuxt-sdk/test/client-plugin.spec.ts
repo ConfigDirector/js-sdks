@@ -32,7 +32,11 @@ vi.mock("../src/runtime/app/composables/useConfigDirectorContext", () => ({
 }));
 
 type ProvidedByPlugin = {
-  provide: { configDirectorClient: unknown; configDirectorClientReadyStatus: { value: string } };
+  provide: {
+    configDirectorClient: unknown;
+    configDirectorClientReadyStatus: { value: string };
+    configDirectorClientStartup: { waitsForFirstContext: boolean; start: (context: ConfigDirectorContext) => Promise<void> };
+  };
 };
 
 const createNuxtApp = () => ({ hooks: { hook: vi.fn() } }) as unknown as NuxtApp;
@@ -190,6 +194,34 @@ describe("ConfigDirector client plugin", () => {
     expect(provided.provide.configDirectorClientReadyStatus.value).toBe("loading");
   });
 
+  describe("with deferInitialization on", () => {
+    test("does not initialize the built client when the app is created without a context", async () => {
+      appContext.value = undefined;
+      const nuxtApp = createNuxtApp();
+      const provided = await runPlugin({ clientSdkKey: "client-key", baseUrl: "", deferInitialization: true }, nuxtApp) as ProvidedByPlugin;
+
+      await runAppCreatedHook(nuxtApp);
+
+      expect(initialize).not.toHaveBeenCalled();
+      expect(provided.provide.configDirectorClientReadyStatus.value).toBe("loading");
+    });
+
+    test("initializes an offline browser client at once, without waiting for a context", async () => {
+      appContext.value = undefined;
+      const nuxtApp = createNuxtApp();
+      await runPlugin({
+        clientSdkKey: "",
+        baseUrl: "",
+        connection: { mode: "offline", values: { "new-checkout": true } },
+        deferInitialization: true,
+      }, nuxtApp);
+
+      await runAppCreatedHook(nuxtApp);
+
+      expect(initialize).toHaveBeenCalledWith(undefined);
+    });
+  });
+
   describe("with an installed test client", () => {
     let testClient: TestClient;
     let uninstallTestClient: () => void;
@@ -272,6 +304,71 @@ describe("ConfigDirector client plugin", () => {
 
       expect(testClient.client.isReady).toBe(false);
       expect(provided.provide.configDirectorClientReadyStatus.value).toBe("default");
+    });
+
+    describe("with deferInitialization on", () => {
+      test("waits for its first context without starting the installed client when the app has no context", async () => {
+        const nuxtApp = createNuxtApp();
+        const provided = await runPlugin({ clientSdkKey: "", baseUrl: "", deferInitialization: true }, nuxtApp) as ProvidedByPlugin;
+
+        await runAppCreatedHook(nuxtApp);
+
+        expect(testClient.contextUpdates).toEqual([]);
+        expect(testClient.client.isInitializing).toBe(false);
+        expect(provided.provide.configDirectorClientReadyStatus.value).toBe("loading");
+      });
+
+      test("initializes the installed client when the app is created with a context", async () => {
+        appContext.value = { id: "user-1" };
+        const nuxtApp = createNuxtApp();
+        const provided = await runPlugin({ clientSdkKey: "", baseUrl: "", deferInitialization: true }, nuxtApp) as ProvidedByPlugin;
+
+        await runAppCreatedHook(nuxtApp);
+
+        expect(testClient.contextUpdates).toEqual([{ id: "user-1" }]);
+        expect(provided.provide.configDirectorClientReadyStatus.value).toBe("ready");
+      });
+
+      test("starts the waiting client with the first context it is given and reports ready", async () => {
+        const nuxtApp = createNuxtApp();
+        const provided = await runPlugin({ clientSdkKey: "", baseUrl: "", deferInitialization: true }, nuxtApp) as ProvidedByPlugin;
+        await runAppCreatedHook(nuxtApp);
+
+        await provided.provide.configDirectorClientStartup.start({ id: "user-1" });
+
+        expect(testClient.contextUpdates).toEqual([{ id: "user-1" }]);
+        expect(testClient.client.getValue("welcome-message", "fallback")).toBe("Hello from the test client");
+        expect(provided.provide.configDirectorClientReadyStatus.value).toBe("ready");
+      });
+
+      test("keeps loading while a first start made before the app is created is still in flight", async () => {
+        testClient.holdInitialization();
+        const nuxtApp = createNuxtApp();
+        const provided = await runPlugin({ clientSdkKey: "", baseUrl: "", deferInitialization: true }, nuxtApp) as ProvidedByPlugin;
+        const firstStart = provided.provide.configDirectorClientStartup.start({ id: "user-1" });
+
+        await runAppCreatedHook(nuxtApp);
+
+        expect(provided.provide.configDirectorClientReadyStatus.value).toBe("loading");
+
+        testClient.completeInitialization();
+        await firstStart;
+
+        expect(testClient.contextUpdates).toEqual([{ id: "user-1" }]);
+        expect(provided.provide.configDirectorClientReadyStatus.value).toBe("ready");
+      });
+
+      test("reports the default status when the first context's start times out", async () => {
+        testClient.holdInitialization();
+        const nuxtApp = createNuxtApp();
+        const provided = await runPlugin({ clientSdkKey: "", baseUrl: "", deferInitialization: true }, nuxtApp) as ProvidedByPlugin;
+        await runAppCreatedHook(nuxtApp);
+
+        await provided.provide.configDirectorClientStartup.start({ id: "user-1" });
+
+        expect(testClient.client.isReady).toBe(false);
+        expect(provided.provide.configDirectorClientReadyStatus.value).toBe("default");
+      });
     });
   });
 });

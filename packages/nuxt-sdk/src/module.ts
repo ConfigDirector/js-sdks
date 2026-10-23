@@ -164,6 +164,19 @@ interface ConfigDirectorPublicRuntimeConfig {
     timeout?: number;
   };
   /**
+   * Whether the browser client waits for its first context before it connects. With it on, the client
+   * opens no connection and `useConfigDirectorStatus` reports `loading` until the app calls
+   * `updateContext` from `useConfigDirectorContext`; that first call starts the client with the context
+   * it was given. A context set during server-side rendering starts the client when the app is created,
+   * as with the option off. Turn it on when the app knows its context only after startup, such as with
+   * `ssr: false` or a context fetched in the browser, so the first connection carries the context
+   * instead of a connection with no context, whose visitor counts as a monthly active user on its own.
+   * It has no effect in `offline` mode, where the client is ready at once.
+   *
+   * Defaults to `false`. Can be set via the NUXT_PUBLIC_CONFIGDIRECTOR_DEFER_INITIALIZATION environment variable.
+   */
+  deferInitialization?: boolean;
+  /**
    * The connection mode the server runs in, written by the module on every request so the browser
    * knows whether to follow the server into `offline` mode. Not an option: any value set here is
    * overwritten on every request.
@@ -225,6 +238,7 @@ export default defineNuxtModule<ModuleOptions>({
       clientSdkKey: "",
       baseUrl: "",
       connection: { mode: "", pollingInterval: 0, timeout: 0 },
+      deferInitialization: false,
     };
     nuxt.options.runtimeConfig.public.configdirector = defu(
       nuxt.options.runtimeConfig.public.configdirector,
