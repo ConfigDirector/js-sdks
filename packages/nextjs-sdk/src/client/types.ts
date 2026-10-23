@@ -18,9 +18,10 @@ export interface ConfigDirectorContextData {
   updatedAt?: Date;
   status: ClientStatus;
   initialConfigs?: Record<string, ConfigState>;
+  updateContext: (context: ConfigDirectorContext) => Promise<void>;
 }
 
-export type ConfigDirectorProviderState = Omit<ConfigDirectorContextData, "initialConfigs">;
+export type ConfigDirectorProviderState = Omit<ConfigDirectorContextData, "initialConfigs" | "updateContext">;
 
 export type ConfigDirectorProviderOptions = {
   /**
@@ -67,6 +68,14 @@ export type ConfigDirectorProviderOptions = {
    */
   context?: ConfigDirectorContext;
   /**
+   * Holds the browser connection until the provider is given a context, through the `context` prop
+   * or through `updateContext` from the `useContext` hook. Until then nothing connects and nothing is
+   * sent, `useConfigDirectorStatus` reports `loading`, and the hooks serve `initialConfigs` or the
+   * in-code default values. The first context opens one connection carrying it; a page that never
+   * gives a context never connects. Defaults to `false`. Has no effect in `offline` mode.
+   */
+  deferInitialization?: boolean;
+  /**
    * Log level for the console logger. Defaults to "warn".
    */
   logLevel?: ConfigDirectorLoggingLevel;
@@ -98,6 +107,12 @@ export type ConfigDirectorClientProviderClientProps = {
    */
   client: ConfigDirectorClient;
   context?: ConfigDirectorContext;
+  /**
+   * Leaves a client that is neither ready nor initializing untouched until the provider is given a
+   * context, through the `context` prop or through `updateContext`; the first context initializes
+   * it. Defaults to `false`.
+   */
+  deferInitialization?: boolean;
   /**
    * Event handlers registered on the client while the provider is mounted, and removed when it
    * unmounts.

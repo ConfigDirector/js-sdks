@@ -64,6 +64,21 @@ describe("client ConfigDirectorProvider in offline mode", () => {
     expect(lastObservation()).toEqual({ status: "ready", greeting: "hello offline" });
   });
 
+  test("is ready at once with deferInitialization on, with no context and no request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    render(
+      <ConfigDirectorProvider mode="offline" values={{ greeting: "hello offline" }} deferInitialization>
+        <Greeting />
+      </ConfigDirectorProvider>,
+    );
+
+    await vi.waitFor(() => expect(lastObservation()?.status).toBe("ready"));
+    expect(lastObservation()).toEqual({ status: "ready", greeting: "hello offline" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
   test("reports ready when given a ready client and another context", async () => {
     const client = createBrowserClient(
       { connection: { mode: "offline", values: { greeting: "hello offline" } } },

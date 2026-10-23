@@ -23,7 +23,34 @@ const textOf = (page: Page, selector: string) =>
     timeout: 15_000,
   });
 
+const BROWSER_INITIALIZATION_TIMEOUT_MILLISECONDS = 2_000;
+
+const letPendingConnectionsOpen = (page: Page) => page.waitForTimeout(500);
+
+type ConnectionRequest = { givenContext?: Record<string, unknown> };
+
+const serveClientBundle = async (page: Page, connectionRequests: ConnectionRequest[]) => {
+  await page.route("**/client/sse/v1", async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: CORS_PREFLIGHT_HEADERS });
+      return;
+    }
+    const rawBody = route.request().postData();
+    if (rawBody) connectionRequests.push(JSON.parse(rawBody));
+    await route.fulfill({ status: 200, headers: SSE_HEADERS, body: sseBody(CLIENT_BUNDLE) });
+  });
+  await page.route("**/client/telemetry/v1", async (route) => {
+    await route.fulfill({ status: 202, headers: { "access-control-allow-origin": "*" } });
+  });
+};
+
 let browser: Browser;
+
+const pageWithCookies = async (cookies: Record<string, string>): Promise<Page> => {
+  const browserContext = await browser.newContext();
+  await browserContext.addCookies(Object.entries(cookies).map(([name, value]) => ({ name, value, url: url("/") })));
+  return browserContext.newPage();
+};
 
 beforeAll(async () => {
   browser = await chromium.launch({ headless: true });
@@ -412,6 +439,83 @@ describe("ConfigDirector Next.js SDK — Browser client (hydration and live upda
       });
 
       await page.close();
+    },
+  );
+
+  test(
+    "opens one connection carrying the context of a mount-effect updateContext under a provider without a context",
+    { timeout: 30_000 },
+    async () => {
+      const page = await browser.newPage();
+      const connectionRequests: ConnectionRequest[] = [];
+      await serveClientBundle(page, connectionRequests);
+
+      await page.goto(url("/context-on-mount"));
+
+      await textOf(page, '[data-testid="status"]').toBe("ready");
+      await textOf(page, '[data-testid="client-context-id"]').toBe("mount-user");
+      await letPendingConnectionsOpen(page);
+      expect(connectionRequests.map((request) => request.givenContext)).toEqual([{ id: "mount-user" }]);
+
+      await page.close();
+    },
+  );
+
+  test("opens one connection with the context prop when no effect updates the context", { timeout: 30_000 }, async () => {
+    const page = await pageWithCookies({ userId: "prop-user" });
+    const connectionRequests: ConnectionRequest[] = [];
+    await serveClientBundle(page, connectionRequests);
+
+    await page.goto(url("/context-test"));
+
+    await textOf(page, '[data-testid="status"]').toBe("ready");
+    await textOf(page, '[data-testid="client-context-id"]').toBe("prop-user");
+    await letPendingConnectionsOpen(page);
+    expect(connectionRequests.map((request) => request.givenContext)).toEqual([{ id: "prop-user" }]);
+
+    await page.context().close();
+  });
+
+  test("opens no new connection for an updateContext with the context the provider already has", { timeout: 30_000 }, async () => {
+    const page = await browser.newPage();
+    const connectionRequests: ConnectionRequest[] = [];
+    await serveClientBundle(page, connectionRequests);
+    await page.goto(url("/context-on-mount"));
+    await textOf(page, '[data-testid="client-context-id"]').toBe("mount-user");
+
+    await page.locator('[data-testid="update-same-context-btn"]').click();
+
+    await letPendingConnectionsOpen(page);
+    expect(connectionRequests.map((request) => request.givenContext)).toEqual([{ id: "mount-user" }]);
+    await textOf(page, '[data-testid="status"]').toBe("ready");
+
+    await page.close();
+  });
+
+  test(
+    "with deferInitialization on, opens no connection and stays loading until the first context opens exactly one",
+    { timeout: 30_000 },
+    async () => {
+      const page = await pageWithCookies({ deferInitialization: "true" });
+      const connectionRequests: ConnectionRequest[] = [];
+      await serveClientBundle(page, connectionRequests);
+      await page.goto(url("/context-test"));
+      await page.waitForTimeout(BROWSER_INITIALIZATION_TIMEOUT_MILLISECONDS + 500);
+
+      expect(connectionRequests).toEqual([]);
+      await textOf(page, '[data-testid="status"]').toBe("loading");
+      await textOf(page, '[data-testid="welcome"]').toBe("Hello from ConfigDirector!");
+
+      await page.locator('[data-testid="set-context-btn"]').click();
+
+      await textOf(page, '[data-testid="status"]').toBe("ready");
+      await textOf(page, '[data-testid="client-context-id"]').toBe("test-user-1");
+      await letPendingConnectionsOpen(page);
+      expect(connectionRequests.map((request) => request.givenContext)).toEqual([
+        { id: "test-user-1", name: "Test User" },
+      ]);
+
+      await page.context().close();
     },
   );
 });

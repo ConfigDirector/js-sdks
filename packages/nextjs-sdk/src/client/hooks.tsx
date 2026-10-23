@@ -51,18 +51,18 @@ export const useConfigValue = <T extends ConfigValueType>(
  * Returns an `updateContext` function to update the user context on the browser client.
  * Triggers re-evaluation of all watched config values.
  *
+ * The function keeps one identity across renders, so it is safe in an effect's dependency list. A
+ * call made before the browser client has started, for example from a mount effect, becomes the
+ * context the client starts with, so the first connection carries it. A context equal to the one the
+ * provider already has opens no new connection.
+ *
  * Must be used inside a `<ConfigDirectorProvider>`.
  */
 export const useContext = (): { updateContext: (context: ConfigDirectorContext) => Promise<void> } => {
   const configDirectorReactContext = useReactContext(reactContext);
   if (!configDirectorReactContext) throw noContextError();
 
-  return {
-    // client is undefined during SSR and briefly before componentDidMount; no-op until ready
-    updateContext: async (context: ConfigDirectorContext) => {
-      await configDirectorReactContext.client?.updateContext(context);
-    },
-  };
+  return { updateContext: configDirectorReactContext.updateContext };
 };
 
 /**

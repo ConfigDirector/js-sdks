@@ -1,11 +1,12 @@
 "use client";
 
-import { Component, type PropsWithChildren } from "react";
+import { Component, useEffect, type PropsWithChildren } from "react";
 import { createBrowserClient, type ConfigDirectorClient, type ConfigDirectorContext } from "@js-browser-client/index";
 import { ClientHandlers } from "@js-client-core/clientHandlers";
 import { readInstalledTestClient } from "@js-client-core/installedTestClient";
-import { decideMountAction } from "@js-client-core/mountAction";
 import { deepEqual } from "@shared/deepEqual";
+import { decideGivenContextAction, decideStartupAction, startupPhaseAfter } from "./client-startup";
+import type { StartupPhase } from "./client-startup";
 import { reactContext } from "./context";
 import { createConsoleLogger } from "./logger";
 import type {
@@ -20,6 +21,18 @@ const hasGivenClient = (props: ConfigDirectorClientProviderProps): props is { cl
 
 const settledStatusOf = (client: ConfigDirectorClient): ClientStatus => (client.isReady ? "ready" : "default");
 
+const decideWaitsForFirstContext = (props: ConfigDirectorClientProviderProps, ownsClient: boolean): boolean => {
+  const runsOffline = ownsClient && !hasGivenClient(props) && props.mode === "offline";
+  return props.deferInitialization === true && !runsOffline;
+};
+
+const RunAfterFirstRenderEffects = ({ run }: { run: () => void }) => {
+  useEffect(() => {
+    run();
+  }, [run]);
+  return null;
+};
+
 /**
  * Initializes the ConfigDirector browser client and provides it to all descendant hooks.
  *
@@ -32,6 +45,11 @@ const settledStatusOf = (client: ConfigDirectorClient): ClientStatus => (client.
  * the server provider) any `sdkKey` sourced from `process.env` must use the `NEXT_PUBLIC_`
  * prefix — Next.js only exposes prefixed variables to code that runs in the browser.
  *
+ * The browser client starts after the effects of the provider's first render, including its
+ * children's, have run, with the latest context given by then: one given through `updateContext`
+ * during those effects, otherwise the `context` prop. A context equal to the one the provider
+ * already has, given through either, opens no new connection.
+ *
  * Given a `client` prop, or while a test client is installed from
  * `@configdirector/nextjs-sdk/client/testing`, the provider provides that client from its first
  * render instead of building one, and never disposes it.
@@ -42,13 +60,18 @@ export class ConfigDirectorProvider extends Component<
 > {
   private client: ConfigDirectorClient | undefined;
   private readonly ownsClient: boolean;
+  private readonly waitsForFirstContext: boolean;
   private handlers: ClientHandlers | undefined;
+  private startupPhase: StartupPhase = { kind: "beforeFirstRenderEffects" };
+  private lastGivenContext: ConfigDirectorContext | undefined;
 
   constructor(props: PropsWithChildren<ConfigDirectorClientProviderProps>) {
     super(props);
     const givenClient = hasGivenClient(props) ? props.client : readInstalledTestClient();
     this.ownsClient = givenClient === undefined;
+    this.waitsForFirstContext = decideWaitsForFirstContext(props, this.ownsClient);
     this.client = givenClient;
+    this.lastGivenContext = props.context;
     this.state = givenClient
       ? { client: givenClient, status: givenClient.isReady ? "ready" : "loading" }
       : { status: "loading" };
@@ -74,7 +97,7 @@ export class ConfigDirectorProvider extends Component<
     );
   }
 
-  override async componentDidMount(): Promise<void> {
+  override componentDidMount(): void {
     let client = this.client;
     if (this.ownsClient) {
       client = this.buildClient();
@@ -95,25 +118,64 @@ export class ConfigDirectorProvider extends Component<
     if (!this.ownsClient) {
       this.handlers.registerHooks(this.props.hooks);
     }
-    await this.connect(client, this.props.context);
   }
 
-  private async connect(client: ConfigDirectorClient, context: ConfigDirectorContext | undefined): Promise<void> {
-    switch (decideMountAction(client, context)) {
+  private readonly startAfterFirstRenderEffects = (): void => {
+    const client = this.client;
+    if (!client) {
+      return;
+    }
+    void this.startClient(client, this.lastGivenContext);
+  };
+
+  private async startClient(client: ConfigDirectorClient, context: ConfigDirectorContext | undefined): Promise<void> {
+    const startupAction = decideStartupAction(client, context, this.waitsForFirstContext);
+    this.startupPhase = startupPhaseAfter(startupAction, client);
+    switch (startupAction) {
+      case "waitForContext":
+        return;
       case "initialize":
         await client.initialize(context);
-        break;
+        this.settleStatus(client);
+        return;
       case "updateContext":
-        this.setState({ status: "loading" });
-        await client.updateContext(context as ConfigDirectorContext);
-        break;
+        await this.updateClientContext(client, context as ConfigDirectorContext);
+        return;
       case "none":
         return;
     }
+  }
+
+  private async updateClientContext(client: ConfigDirectorClient, context: ConfigDirectorContext): Promise<void> {
+    this.setState({ status: "loading" });
+    await client.updateContext(context);
+    this.settleStatus(client);
+  }
+
+  private settleStatus(client: ConfigDirectorClient): void {
     if (this.client === client) {
       this.setState({ status: settledStatusOf(client) });
     }
   }
+
+  private readonly receiveContext = async (context: ConfigDirectorContext | undefined): Promise<void> => {
+    const decision = decideGivenContextAction(this.startupPhase, this.lastGivenContext, context);
+    switch (decision.action) {
+      case "skipUnchanged":
+        return;
+      case "keepForStartup":
+        this.lastGivenContext = context;
+        return;
+      case "startClient":
+        this.lastGivenContext = context;
+        await this.startClient(decision.client, context);
+        return;
+      case "updateContext":
+        this.lastGivenContext = context;
+        await this.updateClientContext(decision.client, context ?? {});
+        return;
+    }
+  };
 
   override async componentDidUpdate(
     prevProps: PropsWithChildren<ConfigDirectorClientProviderProps>,
@@ -124,19 +186,15 @@ export class ConfigDirectorProvider extends Component<
       );
     }
     if (!deepEqual(prevProps.context, this.props.context)) {
-      const client = this.client;
-      if (!client) return;
-      this.setState({ status: "loading" });
-      await client.updateContext(this.props.context ?? {});
-      if (this.client === client) {
-        this.setState({ status: settledStatusOf(client) });
-      }
+      await this.receiveContext(this.props.context);
     }
   }
 
   override componentWillUnmount(): void {
     this.handlers?.removeAll();
     this.handlers = undefined;
+    this.startupPhase = { kind: "beforeFirstRenderEffects" };
+    this.lastGivenContext = this.props.context;
     if (this.ownsClient) {
       this.client?.dispose();
       this.client = undefined;
@@ -145,8 +203,10 @@ export class ConfigDirectorProvider extends Component<
 
   override render() {
     return (
-      <reactContext.Provider value={{ ...this.state, initialConfigs: this.props.initialConfigs }}>
+      <reactContext.Provider
+        value={{ ...this.state, initialConfigs: this.props.initialConfigs, updateContext: this.receiveContext }}>
         {this.props.children}
+        <RunAfterFirstRenderEffects run={this.startAfterFirstRenderEffects} />
       </reactContext.Provider>
     );
   }

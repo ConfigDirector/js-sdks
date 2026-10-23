@@ -84,4 +84,16 @@ describe("server ConfigDirectorProvider hand-over to the browser half", () => {
     uninstall();
     testClient.client.dispose();
   });
+
+  test("passes deferInitialization through to the browser half", async () => {
+    const testClient = createTestClient({ values: { "new-checkout": true } });
+    const uninstall = installServerTestClient(testClient);
+    await testClient.client.initialize();
+
+    const element = await ConfigDirectorProvider({ sdkKey: "client-key", deferInitialization: true, children: null });
+
+    expect(element.props.deferInitialization).toBe(true);
+    uninstall();
+    testClient.client.dispose();
+  });
 });

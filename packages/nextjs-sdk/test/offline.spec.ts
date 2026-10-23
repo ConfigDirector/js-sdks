@@ -124,5 +124,24 @@ describe("ConfigDirector Next.js SDK — offline cell started from a values file
         await page.close();
       },
     );
+
+    test("is ready at once with deferInitialization on, with no context and no request", { timeout: 30_000 }, async () => {
+      const browserContext = await browser.newContext();
+      await browserContext.addCookies([{ name: "deferInitialization", value: "true", url: url("/") }]);
+      const page = await browserContext.newPage();
+      const requestsLeavingTheApp: string[] = [];
+      page.on("request", (request) => {
+        if (!request.url().startsWith(url("/"))) requestsLeavingTheApp.push(request.url());
+      });
+
+      await page.goto(url("/"));
+
+      await textOf(page, '[data-testid="status"]').toBe("ready");
+      await textOf(page, '[data-testid="welcome"]').toBe(offlineCell.welcomeMessage);
+      await page.waitForTimeout(500);
+      expect(requestsLeavingTheApp).toEqual([]);
+
+      await browserContext.close();
+    });
   });
 });
