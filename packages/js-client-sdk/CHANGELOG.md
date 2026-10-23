@@ -1,5 +1,12 @@
 # @configdirector/client-sdk
 
+## 1.9.0
+
+### Minor Changes
+
+- e80c752: The client keeps the last values it received from ConfigDirector in the browser's `localStorage` and serves them on the next launch of the same context until live values arrive, so an application opened without a network shows the values ConfigDirector last sent instead of the in-code default values. Every evaluation served this way carries the new evaluation reason `cached`, with `isDefaultValue` false. The client is not ready while it serves them: `isReady` stays false, `initialize` still waits for live values or its timeout, and `clientReady` fires when live values arrive; a new `cachedValuesLoaded` event, with a matching hook, fires when the kept values are loaded, together with `configsUpdated`. The new `caching` option turns this off with `enabled: false` or replaces the store with a `CachingProvider` of your own (`read`, `write`, `remove` and `sizeLimit` in bytes), both exported as types; the default store keeps the entry under a key derived from the client SDK key with a size limit of 256 KB, above which nothing is kept. Nothing is kept in `offline` mode.
+- a8456cf: The instance ID the SDK stores in the browser's `localStorage` now lasts until the site's data is cleared, instead of being replaced six hours after it was created, so an anonymous visitor counts as one monthly active user a month. An instance ID stored by an earlier version of the SDK is kept.
+
 ## 1.8.0
 
 ### Minor Changes

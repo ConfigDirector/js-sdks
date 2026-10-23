@@ -1,5 +1,12 @@
 # @configdirector/openfeature-web-provider
 
+## 1.9.0
+
+### Minor Changes
+
+- a8456cf: The instance ID the SDK stores in the browser's `localStorage` now lasts until the site's data is cleared, instead of being replaced six hours after it was created, so an anonymous visitor counts as one monthly active user a month. An instance ID stored by an earlier version of the SDK is kept.
+- e80c752: The provider keeps the last values it received from ConfigDirector in the browser's `localStorage` and serves them on the next launch of the same context until live values arrive, so an application opened without a network resolves flags to the values ConfigDirector last sent instead of the default values passed to the OpenFeature client. `setProviderAndWait` still rejects with `ProviderNotReadyError` on a timeout; the provider then reports the `STALE` status, with a `Stale` event, while it serves the kept values, and `READY` once live values arrive. A context change that cannot connect reports an error and then `STALE` again. Resolution details still carry no reason. The new `caching` option of the provider's constructor turns this off with `enabled: false` or replaces the store with a `CachingProvider` of your own (`read`, `write`, `remove` and `sizeLimit` in bytes), both exported as types; the default store keeps the entry under a key derived from the client SDK key with a size limit of 256 KB, above which nothing is kept. Nothing is kept in `offline` mode.
+
 ## 1.8.0
 
 ### Minor Changes

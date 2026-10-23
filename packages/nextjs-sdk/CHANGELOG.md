@@ -1,5 +1,16 @@
 # @configdirector/nextjs-sdk
 
+## 1.12.0
+
+### Minor Changes
+
+- a8456cf: The instance ID the SDK stores in the browser's `localStorage` now lasts until the site's data is cleared, instead of being replaced six hours after it was created, so an anonymous visitor counts as one monthly active user a month. An instance ID stored by an earlier version of the SDK is kept.
+- 82d1787: The client `ConfigDirectorProvider` opens its first browser connection after the effects of its first render, including its children's, have run. It connects with the latest context given by then: one given through `updateContext` from `useContext` during those effects, such as from a mount effect, otherwise the `context` prop. A mount-effect `updateContext` therefore opens one connection carrying that context instead of being dropped. `updateContext` keeps one identity across renders, so it is safe in an effect's dependency list. An `updateContext` call, or a `context` prop, equal to the context the provider already has opens no new connection.
+
+  The new `deferInitialization` prop, on the server and the client provider, holds the connection until a context is given. With it on, nothing connects and nothing is sent, `useConfigDirectorStatus` reports `loading`, and the hooks serve the server's initial configs or the in-code default values until the first context, from the prop or from `updateContext`, opens one connection carrying it; the values kept on the device for that context are served until live values arrive. A page that never gives a context never connects and stays `loading`. The prop defaults to `false` and has no effect in `offline` mode.
+
+- e80c752: The browser half keeps the last values it received from ConfigDirector in `localStorage` and serves them on the next page load of the same context until live values arrive, with the new evaluation reason `cached`; the hooks keep showing the server-rendered values until the client is ready, as before, so a page sees this only where it reads the client directly. The entry lives under a key derived from the client SDK key with a size limit of 256 KB, and nothing is kept in `offline` mode. The client provider takes no option to turn this off yet.
+
 ## 1.11.0
 
 ### Minor Changes

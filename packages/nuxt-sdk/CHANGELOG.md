@@ -1,5 +1,13 @@
 # @configdirector/nuxt-sdk
 
+## 1.12.0
+
+### Minor Changes
+
+- a8456cf: The instance ID the SDK stores in the browser's `localStorage` now lasts until the site's data is cleared, instead of being replaced six hours after it was created, so an anonymous visitor counts as one monthly active user a month. An instance ID stored by an earlier version of the SDK is kept.
+- 713d598: The new `deferInitialization` option of the public runtime config (`runtimeConfig.public.configdirector.deferInitialization`, or `NUXT_PUBLIC_CONFIGDIRECTOR_DEFER_INITIALIZATION=true`) makes the browser client wait for its first context instead of connecting when the app is created. With it on, nothing connects and nothing is sent, `useConfigDirectorStatus` reports `loading` and configs return their in-code default values until the app calls `updateContext` from `useConfigDirectorContext`; that first call starts the client with the context it was given, so an app that knows its context only after startup, such as one with `ssr: false`, opens one connection carrying the context instead of a first connection with no context, whose visitor counts as a monthly active user on its own. The values kept on the device for that context are served until live values arrive, and the status becomes `ready`, or `default` when the connection timeout passes without values. A context set during server-side rendering still starts the client when the app is created, the option has no effect in `offline` mode, and an installed test client follows the same rules. It defaults to `false`, with no change to apps that leave it off.
+- e80c752: The browser client keeps the last values it received from ConfigDirector in `localStorage` and serves them on the next page load of the same context until live values arrive, with the new evaluation reason `cached`, so a hydration that times out renders the last live values instead of the in-code default values. The entry lives under a key derived from the client SDK key with a size limit of 256 KB, and nothing is kept in `offline` mode. The module takes no option to turn this off yet.
+
 ## 1.11.1
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @configdirector/react-native-sdk
 
+## 1.9.0
+
+### Minor Changes
+
+- a8456cf: The instance ID the SDK stores in AsyncStorage now lasts for the life of the install, instead of being replaced six hours after it was created, so a person using the app without a context `id` counts as one monthly active user a month. An instance ID stored by an earlier version of the SDK is kept. Without `@react-native-async-storage/async-storage`, every app start still gets a new instance ID, and the warning the SDK logs now says that every app start looks like a new install and that a context without an `id` gets a new identifier each time.
+- e80c752: The client keeps the last values it received from ConfigDirector in AsyncStorage and serves them on the next app start of the same context until live values arrive, so an app opened without a network shows the values ConfigDirector last sent instead of the in-code default values. Every evaluation served this way carries the new evaluation reason `cached`, with `isDefaultValue` false. The client is not ready while it serves them: `isReady` stays false, `initialize` still waits for live values or its timeout, and `clientReady` fires when live values arrive; a new `cachedValuesLoaded` event, with a matching hook, fires when the kept values are loaded, together with `configsUpdated`. The new `caching` option, also a prop of `ConfigDirectorProvider`, turns this off with `enabled: false` or replaces the store with a `CachingProvider` of your own (`read`, `write`, `remove` and `sizeLimit` in bytes), both exported as types; the default store keeps the entry under a key derived from the client SDK key with a size limit of 256 KB, above which nothing is kept. Nothing is kept in `offline` mode. Without `@react-native-async-storage/async-storage`, nothing is kept on the device, and the one warning the SDK logs about the missing package now says so as well.
+
 ## 1.8.0
 
 ### Minor Changes
