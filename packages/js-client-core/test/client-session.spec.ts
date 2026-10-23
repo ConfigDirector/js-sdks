@@ -56,39 +56,36 @@ describe("resolveClientSession", () => {
       expect(readRecord().checksum).toEqual(expect.any(String));
     });
 
-    test("reuses the stored instance id when it was generated less than 6 hours ago", async () => {
+    test("reuses the stored instance id without rewriting it a year after it was generated", async () => {
       vi.setSystemTime(1_700_000_000_000);
       const { instanceId } = await resolveClientSession(logger);
       const storedRecord = readRecord();
 
-      vi.setSystemTime(1_700_000_000_000 + (6 * 60 - 1) * 60 * 1_000);
+      vi.setSystemTime(1_700_000_000_000 + 366 * 24 * 60 * 60 * 1_000);
 
       expect(await resolveClientSession(logger)).toEqual({ instanceId });
       expect(readRecord()).toEqual(storedRecord);
     });
 
-    test("generates and stores a new instance id when the stored one is 6 hours old", async () => {
+    test("reuses the stored instance id without rewriting it when its creation timestamp is in the future", async () => {
       vi.setSystemTime(1_700_000_000_000);
       const { instanceId } = await resolveClientSession(logger);
-
-      vi.setSystemTime(1_700_000_000_000 + 6 * 60 * 60 * 1_000);
-      const newSession = await resolveClientSession(logger);
-
-      expect(newSession.instanceId).not.toBe(instanceId);
-      expect(newSession).toEqual({ instanceId: expect.stringMatching(UUID_V4_PATTERN) });
-      expect(readRecord()).toMatchObject({
-        id: newSession.instanceId,
-        createdAt: 1_700_000_000_000 + 6 * 60 * 60 * 1_000,
-      });
-    });
-
-    test("generates a new instance id when the stored creation timestamp is in the future", async () => {
-      vi.setSystemTime(1_700_000_000_000);
-      const { instanceId } = await resolveClientSession(logger);
+      const storedRecord = readRecord();
 
       vi.setSystemTime(1_700_000_000_000 - 1_000);
 
-      expect((await resolveClientSession(logger)).instanceId).not.toBe(instanceId);
+      expect(await resolveClientSession(logger)).toEqual({ instanceId });
+      expect(readRecord()).toEqual(storedRecord);
+    });
+
+    test("reuses an instance id stored by an earlier version of the SDK", async () => {
+      const storedByEarlierVersion =
+        '{"v":1,"id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","createdAt":1760000000000,"checksum":"50773f6a1e3e9b5e"}';
+      localStorage.setItem(STORAGE_KEY, storedByEarlierVersion);
+      vi.setSystemTime(1_800_000_000_000);
+
+      expect(await resolveClientSession(logger)).toEqual({ instanceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" });
+      expect(localStorage.getItem(STORAGE_KEY)).toBe(storedByEarlierVersion);
     });
 
     test("ignores a stored instance id whose checksum does not match the stored values", async () => {
@@ -104,13 +101,11 @@ describe("resolveClientSession", () => {
       expect(readRecord().id).toBe(resolved.instanceId);
     });
 
-    test("ignores a stored record whose creation timestamp was extended without updating the checksum", async () => {
+    test("ignores a stored record whose creation timestamp was changed without updating the checksum", async () => {
       vi.setSystemTime(1_700_000_000_000);
       await resolveClientSession(logger);
       const record = readRecord();
-      writeRecord({ ...record, createdAt: record.createdAt + 6 * 60 * 60 * 1_000 });
-
-      vi.setSystemTime(1_700_000_000_000 + 9 * 60 * 60 * 1_000);
+      writeRecord({ ...record, createdAt: record.createdAt + 1_000 });
 
       expect((await resolveClientSession(logger)).instanceId).not.toBe(record.id);
     });

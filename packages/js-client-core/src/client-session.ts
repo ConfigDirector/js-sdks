@@ -3,7 +3,6 @@ import type { ClientSession, ConfigDirectorLogger, InstanceIdStorage } from "./t
 
 const STORAGE_KEY = "configdirector-sdk:instance-id";
 const RECORD_VERSION = 1;
-const MAX_AGE_MS = 6 * 60 * 60 * 1_000;
 const STORAGE_DEADLINE_MS = 1_000;
 const CHECKSUM_SALT = "configdirector.instanceId.v1";
 const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -96,12 +95,6 @@ const readStoredInstanceId = async (
 
   if (!isUsableRecord(record)) {
     logger.debug("[ConfigDirectorClient] The stored instance id failed validation, generating a new one");
-    return { outcome: "nothing usable" };
-  }
-
-  const age = Date.now() - record.createdAt;
-  if (age < 0 || age >= MAX_AGE_MS) {
-    logger.debug("[ConfigDirectorClient] The stored instance id has expired, generating a new one");
     return { outcome: "nothing usable" };
   }
 

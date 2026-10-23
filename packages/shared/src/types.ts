@@ -71,9 +71,11 @@ export type ConfigDirectorContext = {
    * The context's identifier. This should be a value that uniquely identifies the user or other
    * entity among contexts of the same {@link kind}.
    * In the case of anonymous users, you could generate a UUID or alternatively not provide
-   * the {@link id} and the SDK will generate a random UUID. However, keep in mind that this
-   * value is used for segmenting contexts in percentage rollouts, and changes to the {@link id}
-   * could result in the context being assigned to a different percentile.
+   * the {@link id}. In a client SDK, ConfigDirector then derives an identifier from an ID the SDK
+   * stores for the app install or the website, so it stays the same until the app is uninstalled
+   * or the site's data is cleared. However, keep in mind that this value is used for segmenting
+   * contexts in percentage rollouts, and changes to the {@link id} could result in the context
+   * being assigned to a different percentile.
    */
   id?: string;
 

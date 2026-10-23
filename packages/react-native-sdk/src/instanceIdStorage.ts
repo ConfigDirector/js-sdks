@@ -18,8 +18,9 @@ export const asyncStorageInstanceIdStorage = (logger: ConfigDirectorLogger): Ins
   const asyncStorageLookup = lookUpAsyncStorage().then((lookup) => {
     if (lookup.outcome === "not installed") {
       logger.warn(
-        "The ConfigDirector SDK could not find @react-native-async-storage/async-storage, so every app start counts as a new client session. " +
-          "Install it for the SDK to keep the client session for six hours across app starts.",
+        "The ConfigDirector SDK could not find @react-native-async-storage/async-storage, so every app start looks like a new install to ConfigDirector " +
+          "and a context without an id gets a new identifier each time. " +
+          "Install it for the SDK to recognize the install across app starts.",
       );
     }
     return lookup;
