@@ -1,5 +1,11 @@
 # @configdirector/server-sdk
 
+## 1.11.1
+
+### Patch Changes
+
+- The `reason` of the evaluation carried by the `configEvaluated` event and hook is typed with the same values as in the client SDKs, which now include `cached`, so the server client of `@configdirector/nuxt-sdk` 1.12.0 type-checks where this package's `ConfigDirectorClient` is expected. The server SDK never reports `cached`: client SDKs report it for the values they keep on the device. Code with an exhaustive `switch` over the reason needs a case for it.
+
 ## 1.11.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @configdirector/openfeature-server-provider
 
+## 1.11.1
+
+### Patch Changes
+
+- The `reason` of the evaluation carried by the `configEvaluated` hook of the client options is typed with the same values as in the client SDKs, which now include `cached`. The provider never reports `cached`: client SDKs report it for the values they keep on the device. Code with an exhaustive `switch` over the reason needs a case for it.
+
 ## 1.11.0
 
 ### Minor Changes
