@@ -11,10 +11,13 @@ npm install --save @configdirector/react-native-sdk
 ```
 
 Install `@react-native-async-storage/async-storage` as well, so the SDK recognizes the app install
-across app starts. For a context without an `id`, ConfigDirector derives an identifier from an ID
-the SDK stores for the install, so the context keeps that identifier, and counts as one monthly
-active user, however often the app is opened. It is an optional peer dependency and works in Expo
-Go. Without it, every app start looks like a new install and the SDK logs a warning.
+across app starts and keeps the last values it received on the device. For a context without an
+`id`, ConfigDirector derives an identifier from an ID the SDK stores for the install, so the context
+keeps that identifier, and counts as one monthly active user, however often the app is opened. The
+last values are served on the next app start of the same context until live values arrive, so an
+app opened without a network shows them instead of the in-code default values. It is an optional
+peer dependency and works in Expo Go. Without it, every app start looks like a new install, nothing
+is kept on the device, and the SDK logs a warning.
 
 ```bash
 npm install --save @react-native-async-storage/async-storage

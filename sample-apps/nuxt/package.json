@@ -14,7 +14,7 @@
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
   "dependencies": {
-    "@configdirector/nuxt-sdk": "^1.11.1",
+    "@configdirector/nuxt-sdk": "^1.12.0",
     "nuxt": "^4.6.2",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0"
@@ -31,7 +31,7 @@
   "packageManager": "yarn@4.13.0",
   "configdirector": {
     "npmDependencies": {
-      "@configdirector/nuxt-sdk": "^1.11.1",
+      "@configdirector/nuxt-sdk": "^1.12.0",
       "@configdirector/server-sdk": "^1.11.0"
     }
   }
