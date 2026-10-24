@@ -56,12 +56,14 @@ describe("ConfigDirectorClient", () => {
 
   afterAll(async () => {
     await commands.mswTeardown();
-    client?.dispose();
   });
 
   beforeEach(forgetCachedValues);
 
-  afterEach(forgetCachedValues);
+  afterEach(() => {
+    client?.dispose();
+    forgetCachedValues();
+  });
 
   test("establishes a valid connection on initialize", async () => {
     await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
