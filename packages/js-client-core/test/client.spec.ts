@@ -69,9 +69,12 @@ describe("ConfigDirectorClient", () => {
     await commands.mswSetup();
   });
 
+  afterEach(() => {
+    client?.dispose();
+  });
+
   afterAll(async () => {
     await commands.mswTeardown();
-    client?.dispose();
   });
 
   test("establishes a valid connection on initialize", async () => {
@@ -1647,10 +1650,6 @@ describe("ConfigDirectorClient", () => {
 
     afterAll(() => {
       vi.useRealTimers();
-    });
-
-    beforeEach(() => {
-      client?.dispose();
     });
 
     test("fetches config state on initialize", async () => {
