@@ -1,5 +1,11 @@
 # @configdirector/client-sdk
 
+## 1.9.1
+
+### Patch Changes
+
+- 7dab866: The SDK now sends its instance ID with telemetry, the same ID it connects with, so ConfigDirector can tell which browser the telemetry came from.
+
 ## 1.9.0
 
 ### Minor Changes

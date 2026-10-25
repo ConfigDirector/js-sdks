@@ -1,5 +1,11 @@
 # @configdirector/nextjs-sdk
 
+## 1.12.1
+
+### Patch Changes
+
+- 7dab866: The SDK now sends its instance ID with telemetry, the same ID it connects with, so ConfigDirector can tell which browser the telemetry came from.
+
 ## 1.12.0
 
 ### Minor Changes
