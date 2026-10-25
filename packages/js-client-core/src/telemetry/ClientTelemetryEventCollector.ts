@@ -1,5 +1,5 @@
 import { type TelemetryValue } from "@shared/telemetry/utils";
-import { type ConfigDirectorContext } from "../types";
+import { type ClientSession, type ConfigDirectorContext } from "../types";
 import { ClientEventReporter } from "./ClientEventReporter";
 import type { EvaluatedConfigEvent, InvalidContextEvent } from "@shared/telemetry/telemetry-events";
 import type { AggregatedEvent, EventSnapshotPreprocessor, ReporterResponse } from "./types";
@@ -11,6 +11,10 @@ import {
 import { EvaluatedConfigEventPreprocessor } from "@shared/telemetry/EvaluatedConfigEventPreprocessor";
 import { InvalidContextSubmissions } from "@shared/telemetry/InvalidContextSubmissions";
 
+export type ClientTelemetryEventCollectorOptions = TelemetryEventCollectorOptions & {
+  clientSession: Promise<ClientSession>;
+};
+
 export class ClientTelemetryEventCollector extends TelemetryEventCollector<
   EvaluatedConfigEvent<TelemetryValue>
 > {
@@ -21,7 +25,7 @@ export class ClientTelemetryEventCollector extends TelemetryEventCollector<
   protected _context?: ConfigDirectorContext;
   private readonly invalidContextSubmissions = new InvalidContextSubmissions();
 
-  constructor(options: TelemetryEventCollectorOptions) {
+  constructor(options: ClientTelemetryEventCollectorOptions) {
     super(options);
     this.reporter = new ClientEventReporter(options);
     this.evaluationEventSnapshotPreprocessor = new EvaluatedConfigEventPreprocessor(options.valueIdGenerator);

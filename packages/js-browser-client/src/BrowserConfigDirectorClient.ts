@@ -22,7 +22,7 @@ export const createBrowserClient = (
   clientOptions?: ConfigDirectorClientOptions,
 ): ConfigDirectorClient => {
   return DefaultConfigDirectorClient.from(
-    ({ clientSdkKey, baseUrl, logger, metadata }) =>
+    ({ clientSdkKey, baseUrl, logger, metadata, clientSession }) =>
       new WebWorkerTelemetryClient({
         sdkKey: clientSdkKey,
         sdkIdentity: {
@@ -37,6 +37,7 @@ export const createBrowserClient = (
         baseUrl,
         urlFactory: defaultUrlFactory,
         valueIdGenerator: generateValueId,
+        clientSession,
       }),
     clientSdkKeyOrOptions,
     sdkOptions,

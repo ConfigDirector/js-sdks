@@ -1,4 +1,10 @@
-import type { ConfigDirectorContext, ConfigDirectorLogger, ConfigDirectorMetaContext, ConfigValueType } from "../types";
+import type {
+  ClientSession,
+  ConfigDirectorContext,
+  ConfigDirectorLogger,
+  ConfigDirectorMetaContext,
+  ConfigValueType,
+} from "../types";
 import type { UrlLike } from "@shared/url";
 import type { DiscreteEventList, AggregatedEventList, DroppedEvents } from "@shared/telemetry/types";
 import type { EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
@@ -6,6 +12,7 @@ export * from "@shared/telemetry/types";
 
 export type EventReport = {
   clientSdkKey: string;
+  instanceId: string;
   context?: ConfigDirectorContext | undefined;
   metaContext: {
     sdkName: string;
@@ -26,6 +33,7 @@ export type LiveTelemetryClientOptions = {
   baseUrl: UrlLike;
   logger: ConfigDirectorLogger;
   metadata: ConfigDirectorMetaContext | undefined;
+  clientSession: Promise<ClientSession>;
 };
 
 /**

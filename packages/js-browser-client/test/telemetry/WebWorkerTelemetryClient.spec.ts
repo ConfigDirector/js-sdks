@@ -13,6 +13,7 @@ import {
   throwOnWorkerConstruction,
 } from "../helpers";
 import type { ConfigType, ConfigValueType } from "@shared/types";
+import type { ClientSession } from "@js-client-core/types";
 import { defaultUrlFactory } from "@shared/url";
 import { generateValueId } from "../../src/telemetry/value-id-generator";
 
@@ -40,6 +41,7 @@ const createIdleClient = (options: Record<string, unknown> = {}) =>
     flushIntervalDelay: FLUSH_DELAY,
     urlFactory: defaultUrlFactory,
     valueIdGenerator: generateValueId,
+    clientSession: Promise.resolve({ instanceId: "11111111-1111-4111-8111-111111111111" }),
     ...options,
   });
 
@@ -259,6 +261,27 @@ describe("TelemetryClient", () => {
           appVersion: "3.2.1",
         });
       }
+    });
+  });
+
+  describe("instanceId", () => {
+    test("holds a report that is due until the page's client session resolves, then sends its instance id", async () => {
+      let deliverClientSession!: (clientSession: ClientSession) => void;
+      const clientSession = new Promise<ClientSession>((resolve) => {
+        deliverClientSession = resolve;
+      });
+      client = createClient({ clientSession });
+      client.evaluatedConfig(baseEvent);
+
+      await hidePageFor(IMMEDIATE_FLUSH_THRESHOLD);
+
+      expect(await commands.mswGetPayloads()).toHaveLength(0);
+
+      deliverClientSession({ instanceId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd" });
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as EventReport).instanceId).toBe("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
     });
   });
 

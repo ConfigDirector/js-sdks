@@ -44,6 +44,19 @@ const stringConfig = (key: string, value: string) => ({
   [key]: { id: `id-${key}`, key, type: "string", value, valueId: `value-id-${key}` },
 });
 
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+const waitForTelemetryReport = () =>
+  vi.waitFor(
+    async () => {
+      const payloads = (await commands.mswGetPayloads()) as Record<string, unknown>[];
+      const telemetry = payloads.find((payload) => "aggregatedEvents" in payload);
+      if (!telemetry) throw new Error("No telemetry report captured yet");
+      return telemetry;
+    },
+    { timeout: 8_000, interval: 50 },
+  );
+
 const CACHED_VALUES_STORAGE_KEY =
   "configdirector-sdk:cached-values:cc677751b8441e282621773a9be4622b11cd5bcffce54caabdd19f60e07d556c";
 
@@ -97,20 +110,30 @@ describe("ConfigDirectorClient", () => {
     try {
       document.dispatchEvent(new Event("visibilitychange"));
 
-      const report = await vi.waitFor(
-        async () => {
-          const payloads = (await commands.mswGetPayloads()) as Record<string, unknown>[];
-          const telemetry = payloads.find((payload) => "aggregatedEvents" in payload);
-          if (!telemetry) throw new Error("No telemetry report captured yet");
-          return telemetry;
-        },
-        { timeout: 8_000, interval: 50 },
-      );
+      const report = await waitForTelemetryReport();
 
       expect(report["metaContext"]).toEqual({ sdkName: "test-sdk", sdkVersion: "1.2.0" });
     } finally {
       visibilityState.mockRestore();
     }
+  });
+
+  test("reports telemetry with the instance id it connected with", async () => {
+    await commands.mswUseHandlers(
+      { url: POLLING_URL, responseBody: full() },
+      { url: TELEMETRY_URL, status: 202 },
+    );
+
+    client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+    await client.initialize();
+    client.getValue("example-config", "Hello");
+    await hidePageFor(0);
+    const report = await waitForTelemetryReport();
+
+    const payloads = (await commands.mswGetPayloads()) as Record<string, unknown>[];
+    const pollPayload = payloads.find((payload) => "givenContext" in payload);
+    expect(pollPayload?.["instanceId"]).toMatch(UUID_V4_PATTERN);
+    expect(report["instanceId"]).toBe(pollPayload?.["instanceId"]);
   });
 
   describe.each([

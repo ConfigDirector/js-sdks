@@ -1,4 +1,10 @@
-import type { ConfigDirectorContext, ConfigDirectorLoggingLevel, ConfigDirectorMetaContext, IdentifyingSdkOptions } from "@js-client-core/types";
+import type {
+  ClientSession,
+  ConfigDirectorContext,
+  ConfigDirectorLoggingLevel,
+  ConfigDirectorMetaContext,
+  IdentifyingSdkOptions,
+} from "@js-client-core/types";
 import type { EvaluatedConfigEvent } from "@js-client-core/telemetry";
 import type { InvalidContextEvent } from "@shared/telemetry/telemetry-events";
 import type { AggregatedEvent } from "@shared/telemetry/types";
@@ -33,6 +39,11 @@ export type TelemetryInitializeEvent = {
   };
 };
 
+export type TelemetryClientSessionEvent = {
+  type: "ClientSession";
+  payload: ClientSession;
+};
+
 export type TelemetryEvaluatedConfigEvent = {
   type: "EvaluatedConfigEvent";
   payload: EvaluatedConfigEvent<TelemetryValue>;
@@ -49,6 +60,7 @@ export type TelemetryWorkerEvent =
   | TelemetryFlushEvent
   | TelemetryCloseEvent
   | TelemetryInitializeEvent
+  | TelemetryClientSessionEvent
   | TelemetryEvaluatedConfigEvent
   | TelemetryInvalidContextSubmissionsEvent
   | TelemetryUpdateContextEvent;

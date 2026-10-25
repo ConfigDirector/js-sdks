@@ -279,6 +279,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           baseUrl: plan.baseUrl,
           logger: this.logger,
           metadata: clientOptions?.metadata,
+          clientSession: this.clientSession,
         });
     }
   }

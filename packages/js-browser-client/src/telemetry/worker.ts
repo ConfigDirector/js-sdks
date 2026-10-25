@@ -3,8 +3,13 @@ import { ClientTelemetryEventCollector } from "@js-client-core/telemetry";
 import { defaultUrlFactory } from "@shared/url";
 import { generateValueId } from "./value-id-generator";
 import type { ConfigDirectorLogger, ConfigDirectorLoggingLevel } from "@shared/types";
+import type { ClientSession } from "@js-client-core/types";
 
 let collector: ClientTelemetryEventCollector | undefined = undefined;
+let deliverClientSession!: (clientSession: ClientSession) => void;
+const clientSession = new Promise<ClientSession>((resolve) => {
+  deliverClientSession = resolve;
+});
 const buildLogEvent = (
   level: ConfigDirectorLoggingLevel,
   message: string,
@@ -57,8 +62,12 @@ addEventListener("message", (message: MessageEvent<TelemetryWorkerEvent>) => {
         urlFactory: defaultUrlFactory,
         valueIdGenerator: generateValueId,
         logger: loggerProxy,
+        clientSession,
       });
       collector.start();
+      break;
+    case "ClientSession":
+      deliverClientSession(event.payload);
       break;
     case "EvaluatedConfigEvent":
       collector?.evaluatedConfig(event.payload);

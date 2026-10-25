@@ -11,6 +11,7 @@ import type {
   ConfigValueType,
   IdentifyingSdkOptions,
 } from "@shared/types";
+import type { ClientSession } from "@js-client-core/types";
 import type { UrlFactory, UrlLike } from "@shared/url";
 import { generateValueId } from "./value-id-generator";
 
@@ -21,6 +22,7 @@ type ReactNativeTelemetryClientOptions = {
   baseUrl: UrlLike;
   logger: ConfigDirectorLogger;
   urlFactory: UrlFactory;
+  clientSession: Promise<ClientSession>;
 };
 
 export class ReactNativeTelemetryClient implements TelemetryClient {

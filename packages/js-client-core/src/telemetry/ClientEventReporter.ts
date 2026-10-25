@@ -1,5 +1,6 @@
 import { isDroppedEventsEmpty, isEventListEmpty } from "@shared/telemetry/utils";
 import type {
+  ClientSession,
   ConfigDirectorContext,
   ConfigDirectorLogger,
   ConfigDirectorMetaContext,
@@ -24,6 +25,7 @@ export type EventReporterOptions = {
   logger: ConfigDirectorLogger;
   baseUrl: UrlLike;
   urlFactory: UrlFactory;
+  clientSession: Promise<ClientSession>;
 };
 
 export class ClientEventReporter implements EventReporter {
@@ -32,6 +34,7 @@ export class ClientEventReporter implements EventReporter {
   private readonly metaContext: ConfigDirectorMetaContext;
   private readonly logger: ConfigDirectorLogger;
   private readonly url: UrlLike;
+  private readonly clientSession: Promise<ClientSession>;
   private executeRequests = true;
 
   constructor(options: EventReporterOptions) {
@@ -40,6 +43,7 @@ export class ClientEventReporter implements EventReporter {
     this.sdkIdentity = options.sdkIdentity;
     this.metaContext = options.metaContext;
     this.url = options.urlFactory("client/telemetry/v1", options.baseUrl);
+    this.clientSession = options.clientSession;
   }
 
   public async report({
@@ -57,8 +61,10 @@ export class ClientEventReporter implements EventReporter {
       return { success: false, fatalError: true };
     }
 
+    const { instanceId } = await this.clientSession;
     const eventReport: EventReport = {
       clientSdkKey: this.sdkKey,
+      instanceId,
       metaContext: {
         sdkName: this.sdkIdentity.sdkName,
         sdkVersion: this.sdkIdentity.sdkVersion,

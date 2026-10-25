@@ -1,7 +1,16 @@
-import { type TelemetryEventCollectorOptions } from "@shared/telemetry/TelemetryEventCollector";
-import type { ConfigDirectorContext, ConfigDirectorLogger, ConfigValueType } from "@js-client-core/types";
-import type { TelemetryClient, EvaluatedConfigEvent } from "@js-client-core/telemetry";
 import type {
+  ClientSession,
+  ConfigDirectorContext,
+  ConfigDirectorLogger,
+  ConfigValueType,
+} from "@js-client-core/types";
+import type {
+  ClientTelemetryEventCollectorOptions,
+  TelemetryClient,
+  EvaluatedConfigEvent,
+} from "@js-client-core/telemetry";
+import type {
+  TelemetryClientSessionEvent,
   TelemetryCloseEvent,
   TelemetryEvaluatedConfigEvent,
   TelemetryFlushEvent,
@@ -16,13 +25,14 @@ import { InvalidContextSubmissions } from "@shared/telemetry/InvalidContextSubmi
 
 const DEFAULT_WORKER_CLOSE_TIMEOUT = 6_000;
 
-export type WebWorkerTelemetryClientOptions = TelemetryEventCollectorOptions & {
+export type WebWorkerTelemetryClientOptions = ClientTelemetryEventCollectorOptions & {
   workerCloseTimeout?: number;
 };
 
 export class WebWorkerTelemetryClient implements TelemetryClient {
   private readonly logger: ConfigDirectorLogger;
   private readonly initializeMessage: TelemetryInitializeEvent;
+  private readonly clientSession: Promise<ClientSession>;
   private worker: Worker | undefined;
   private turnedOff = false;
   private readonly pendingEvaluations: TelemetryEvaluatedConfigEvent[] = [];
@@ -38,6 +48,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
     this.logger = options.logger;
     this.workerCloseTimeout = options.workerCloseTimeout ?? DEFAULT_WORKER_CLOSE_TIMEOUT;
     this.pendingEvaluationLimit = options.evaluationQueueLimit ?? 1_000;
+    this.clientSession = options.clientSession;
 
     this.initializeMessage = {
       type: "Initialize",
@@ -95,6 +106,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
       this.handleWorkerEvent(message.data);
     };
     worker.postMessage(this.initializeMessage);
+    this.forwardClientSession(worker);
     this.worker = worker;
 
     try {
@@ -109,6 +121,16 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
     this.pendingEvaluations.length = 0;
     this.forwardInvalidContextSubmissions(worker);
     return worker;
+  }
+
+  private forwardClientSession(worker: Worker) {
+    void this.clientSession.then((clientSession) => {
+      const clientSessionMessage: TelemetryClientSessionEvent = {
+        type: "ClientSession",
+        payload: clientSession,
+      };
+      worker.postMessage(clientSessionMessage);
+    });
   }
 
   private forwardInvalidContextSubmissions(worker: Worker | undefined) {

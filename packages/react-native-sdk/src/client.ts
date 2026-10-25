@@ -34,6 +34,7 @@ export const createReactNativeClient = (
         baseUrl: liveTelemetry.baseUrl,
         logger,
         urlFactory,
+        clientSession: liveTelemetry.clientSession,
       }),
     clientSdkKey,
     sdkIdentity,

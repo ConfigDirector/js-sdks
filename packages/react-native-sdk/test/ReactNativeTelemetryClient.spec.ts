@@ -45,6 +45,7 @@ const makeClient = () =>
     baseUrl: BASE_URL,
     logger,
     urlFactory: stubUrlFactory as any,
+    clientSession: Promise.resolve({ instanceId: "11111111-1111-4111-8111-111111111111" }),
   });
 
 describe("ReactNativeTelemetryClient", () => {

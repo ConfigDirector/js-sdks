@@ -117,6 +117,23 @@ describe("createClient", () => {
     expect(telemetryRequest?.body?.metaContext).toMatchObject({ appName: "Robo Checkout", appVersion: "7.1.0" });
   });
 
+  test("reports telemetry with the ephemeral instance id it connected with, without the ephemeral flag", async () => {
+    const client = createClient("sdk-key", { logger });
+    await client.initialize();
+    client.getValue("dark-mode", false);
+    client.dispose();
+
+    await waitForTelemetryReport();
+    const connectRequest = requests.find((request) => request.url.startsWith(SSE_URL));
+    const telemetryRequest = requests.find((request) => request.url.includes("telemetry"));
+    expect(connectRequest?.body).toMatchObject({
+      instanceId: expect.stringMatching(UUID_V4_PATTERN),
+      ephemeral: true,
+    });
+    expect(telemetryRequest?.body?.instanceId).toBe(connectRequest?.body?.instanceId);
+    expect(telemetryRequest?.body).not.toHaveProperty("ephemeral");
+  });
+
   test("reports an invalid context kind found at initialization, and connects with no context", async () => {
     const client = createClient("sdk-key", { logger });
 

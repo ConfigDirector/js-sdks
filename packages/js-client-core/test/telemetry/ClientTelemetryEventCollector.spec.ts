@@ -2,7 +2,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 import { commands } from "vitest/browser";
 import { ClientTelemetryEventCollector } from "../../src/telemetry/ClientTelemetryEventCollector";
 import type { EventReport } from "../../src/telemetry/types";
-import { BASE_URL, TELEMETRY_URL, createStubbedLogger } from "../helpers";
+import type { ClientSession } from "../../src/types";
+import { BASE_URL, TELEMETRY_URL, createStubbedLogger, deferred } from "../helpers";
 import { defaultUrlFactory } from "@shared/url";
 import type { EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
 import type { TelemetryValue } from "@shared/telemetry/utils";
@@ -24,6 +25,7 @@ const createIdleCollector = (options: Record<string, unknown> = {}) =>
     baseUrl: new URL(BASE_URL),
     valueIdGenerator: async () => "value-id",
     urlFactory: defaultUrlFactory,
+    clientSession: Promise.resolve({ instanceId: "11111111-1111-4111-8111-111111111111" }),
     ...options,
   });
 
@@ -109,6 +111,54 @@ describe("ClientTelemetryEventCollector", () => {
         appName: "client-app",
         appVersion: "2.0.2",
       });
+    });
+  });
+
+  describe("instanceId", () => {
+    test("sends the client session's instance id in the report", async () => {
+      collector = createCollector({
+        clientSession: Promise.resolve({ instanceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }),
+      });
+      collector.evaluatedConfig(baseEvent);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as EventReport).instanceId).toBe("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    });
+
+    test("leaves the ephemeral flag out of the report when the instance id is ephemeral", async () => {
+      collector = createCollector({
+        clientSession: Promise.resolve({
+          instanceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          ephemeral: true,
+        }),
+      });
+      collector.evaluatedConfig(baseEvent);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads[0]).toMatchObject({ instanceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" });
+      expect(payloads[0]).not.toHaveProperty("ephemeral");
+    });
+
+    test("waits for the client session before sending a report that is due earlier", async () => {
+      const clientSession = deferred<ClientSession>();
+      collector = createCollector({ clientSession: clientSession.promise });
+      collector.evaluatedConfig(baseEvent);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await drainNetwork();
+      expect(await commands.mswGetPayloads()).toHaveLength(0);
+
+      clientSession.resolve({ instanceId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" });
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as EventReport).instanceId).toBe("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
     });
   });
 
