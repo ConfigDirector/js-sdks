@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "local": "vite --mode local",
+    "local": "vite --mode localhost",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
