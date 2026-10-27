@@ -1,6 +1,7 @@
 import type {
   ConfigDirectorClient,
   ConfigDirectorContext,
+  ConfigEvaluation,
   ConfigValueType,
 } from "@js-client-core/index";
 import { createDefaultLogger } from "./logger";
@@ -72,6 +73,10 @@ class SsrClient implements ConfigDirectorClient {
 
   getValue<T extends ConfigValueType>(configKey: string, defaultValue: T): T {
     return this.serverClient.getValue(configKey, defaultValue, this.suppliedContext);
+  }
+
+  evaluate<T extends ConfigValueType>(configKey: string, defaultValue: T): ConfigEvaluation<T> {
+    return this.serverClient.evaluate(configKey, defaultValue, this.suppliedContext);
   }
 
   watch(): () => void {

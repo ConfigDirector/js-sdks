@@ -15,5 +15,7 @@ export type {
   CachingProvider,
   ConfigDirectorClient,
   ConfigDirectorContext,
+  ConfigEvaluation,
   ConnectionMode,
+  EvaluationReason,
 } from "@js-browser-client/index";

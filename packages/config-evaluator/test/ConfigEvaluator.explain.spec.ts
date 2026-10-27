@@ -439,4 +439,22 @@ describe("ConfigEvaluator.explain", () => {
 
     expect(explanation).toEqual({ value: "Disabled", servedBy: { kind: "default" }, rules: [] });
   });
+
+  test("reports the value ID of the value it serves", () => {
+    const config = configWith({
+      id: RULE_A,
+      order: 0,
+      type: "conditional",
+      target: "value",
+      value: "Enabled",
+      valueId: "value-id-enabled",
+      percentages: [],
+      conditions: [],
+    });
+
+    const explanation = evaluator.explain(config, { context: { id: "abc" } });
+
+    expect(explanation.value).toEqual("Enabled");
+    expect(explanation.valueId).toEqual("value-id-enabled");
+  });
 });

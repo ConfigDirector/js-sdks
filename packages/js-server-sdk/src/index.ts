@@ -5,6 +5,8 @@ export type {
   ConfigDirectorContext,
   ConfigValueType,
   ConfigDirectorLogger,
+  ConfigEvaluation,
+  EvaluationReason,
   OfflineClientOptions,
   OfflineValue,
   OfflineValues,

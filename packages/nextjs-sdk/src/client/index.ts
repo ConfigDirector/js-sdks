@@ -16,6 +16,8 @@ export type {
   ConfigDirectorClient,
   ConfigDirectorContext,
   ConfigDirectorLogger,
+  ConfigEvaluation,
   ConfigValueType,
   ConnectionMode,
+  EvaluationReason,
 } from "@js-browser-client/index";

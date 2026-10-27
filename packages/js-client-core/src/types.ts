@@ -318,6 +318,17 @@ export interface ConfigDirectorClient extends EventProvider<ClientEvents> {
   getValue<T extends ConfigValueType>(configKey: string, defaultValue: T): T;
 
   /**
+   * Evaluates a config as {@link getValue} does and returns the evaluation: the value, the reason it
+   * was served and its value ID. Like every read, it fires `configEvaluated` and is counted in
+   * telemetry.
+   *
+   * @returns The evaluation, whose `value` is what {@link getValue} returns
+   * @param configKey The config key to evaluate
+   * @param defaultValue The in-code default value, returned when no value from ConfigDirector can be served
+   */
+  evaluate<T extends ConfigValueType>(configKey: string, defaultValue: T): ConfigEvaluation<T>;
+
+  /**
    * Watches for changes to a a config evaluation value. Whenever the config value changes, the
    * provided callback function will be called with the new value. Changes can happen due to updates
    * to the config in the ConfigDirector dashboard, or if the context is updated via {@link updateContext}.

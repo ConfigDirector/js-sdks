@@ -198,6 +198,25 @@ describe("cached values", () => {
     expect(client.getValue("my-config", "default")).toBe("from-server");
   });
 
+  test("evaluate returns a value kept on the device with reason cached and its value ID", async () => {
+    const provider = new RecordingCachingProvider();
+    await receivePayloadOn(provider, stringConfig("my-config", "from-server"));
+    const { client, events } = launchWithoutNetwork(provider, { id: "user-1" });
+    track(client);
+    await vi.waitFor(() => expect(events).toContainEqual({ cachedValuesLoaded: {} }));
+
+    const evaluation = client.evaluate("my-config", "default");
+
+    expect(evaluation).toEqual({
+      key: "my-config",
+      value: "from-server",
+      valueId: "value-id-my-config",
+      isDefaultValue: false,
+      reason: "cached",
+      context: { id: "user-1" },
+    });
+  });
+
   test("replaces cached values with the live payload and keeps the merged map on the device after a delta", async () => {
     const provider = new RecordingCachingProvider();
     await receivePayloadOn(provider, stringConfig("my-config", "yesterday"));

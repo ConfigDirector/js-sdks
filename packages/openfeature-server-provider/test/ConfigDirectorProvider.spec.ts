@@ -63,6 +63,7 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
     await OpenFeature.clearProviders();
     OpenFeature.setContext({});
     OpenFeature.clearHandlers();
+    OpenFeature.clearHooks();
     await OpenFeature.close();
   });
 
@@ -279,6 +280,253 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
       });
 
       expect(value).toBe("hello everyone");
+    });
+  });
+
+  describe("evaluation details", () => {
+    test("resolves a served value with TARGETING_MATCH and its value ID as the variant", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(
+            message(
+              fullBundle({
+                "dark-mode": {
+                  ...configWithValue("dark-mode", "boolean", "true"),
+                  target: {
+                    environmentId: "10000000-0000-0000-0000-000000000000",
+                    rules: [],
+                    defaultValue: "true",
+                    defaultValueId: "value-id-dark-mode-on",
+                  },
+                },
+              }),
+            ),
+          ),
+        ),
+      );
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = await OpenFeature.getClient().getBooleanDetails("dark-mode", false);
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: true,
+        reason: "TARGETING_MATCH",
+        variant: "value-id-dark-mode-on",
+      });
+    });
+
+    test("resolves a served value with no variant when the payload carries no value ID", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(
+            message(fullBundle({ "dark-mode": configWithValue("dark-mode", "boolean", "true") })),
+          ),
+        ),
+      );
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = await OpenFeature.getClient().getBooleanDetails("dark-mode", false);
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: true,
+        reason: "TARGETING_MATCH",
+        variant: undefined,
+      });
+    });
+
+    test("resolves a config without a value to the in-code default value with DEFAULT", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(message(fullBundle({ greeting: configWithValue("greeting", "string", "") }))),
+        ),
+      );
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = await OpenFeature.getClient().getStringDetails("greeting", "Hello");
+
+      expect(details).toEqual({
+        flagKey: "greeting",
+        flagMetadata: {},
+        value: "Hello",
+        reason: "DEFAULT",
+      });
+    });
+
+    test("resolves a config that does not exist to the in-code default value with FLAG_NOT_FOUND", async () => {
+      server.use(sseHandler((controller) => controller.enqueue(message(fullBundle()))));
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = await OpenFeature.getClient().getBooleanDetails("missing-flag", false);
+
+      expect(details).toEqual({
+        flagKey: "missing-flag",
+        flagMetadata: {},
+        value: false,
+        reason: "ERROR",
+        errorCode: "FLAG_NOT_FOUND",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a flag before values arrive to the in-code default value with PROVIDER_NOT_READY", async () => {
+      server.use(http.post(SSE_URL, () => new HttpResponse(null, { status: 503 })));
+      await OpenFeature.setProviderAndWait(
+        new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+      );
+
+      const details = await OpenFeature.getClient().getBooleanDetails("dark-mode", false);
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: false,
+        reason: "ERROR",
+        errorCode: "PROVIDER_NOT_READY",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a boolean config read as a string to the in-code default value with TYPE_MISMATCH", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(
+            message(fullBundle({ "dark-mode": configWithValue("dark-mode", "boolean", "true") })),
+          ),
+        ),
+      );
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = await OpenFeature.getClient().getStringDetails("dark-mode", "off");
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: "off",
+        reason: "ERROR",
+        errorCode: "TYPE_MISMATCH",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a string config that is not a number read as a number to the in-code default value with TYPE_MISMATCH", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(
+            message(fullBundle({ "max-items": configWithValue("max-items", "string", "many") })),
+          ),
+        ),
+      );
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = await OpenFeature.getClient().getNumberDetails("max-items", 7);
+
+      expect(details).toEqual({
+        flagKey: "max-items",
+        flagMetadata: {},
+        value: 7,
+        reason: "ERROR",
+        errorCode: "TYPE_MISMATCH",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a json config with malformed JSON to the in-code default value with TYPE_MISMATCH", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(
+            message(fullBundle({ settings: configWithValue("settings", "json", "not-valid-json{") })),
+          ),
+        ),
+      );
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = await OpenFeature.getClient().getObjectDetails("settings", { theme: "light" });
+
+      expect(details).toEqual({
+        flagKey: "settings",
+        flagMetadata: {},
+        value: { theme: "light" },
+        reason: "ERROR",
+        errorCode: "TYPE_MISMATCH",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a string config that is not a boolean read as a boolean to the in-code default value with TYPE_MISMATCH", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(
+            message(fullBundle({ "dark-mode": configWithValue("dark-mode", "string", "sometimes") })),
+          ),
+        ),
+      );
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = await OpenFeature.getClient().getBooleanDetails("dark-mode", false);
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: false,
+        reason: "ERROR",
+        errorCode: "TYPE_MISMATCH",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+  });
+
+  describe("hooks", () => {
+    test("runs an after hook that sees TARGETING_MATCH and the value ID for a served value", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(
+            message(
+              fullBundle({
+                "new-checkout": {
+                  ...configWithValue("new-checkout", "boolean", "true"),
+                  target: {
+                    environmentId: "10000000-0000-0000-0000-000000000000",
+                    rules: [],
+                    defaultValue: "true",
+                    defaultValueId: "value-id-new-checkout-on",
+                  },
+                },
+              }),
+            ),
+          ),
+        ),
+      );
+      const afterHookDetails: unknown[] = [];
+      OpenFeature.addHooks({ after: (_hookContext, details) => void afterHookDetails.push(details) });
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      await OpenFeature.getClient().getBooleanValue("new-checkout", false);
+
+      expect(afterHookDetails).toEqual([
+        expect.objectContaining({ reason: "TARGETING_MATCH", variant: "value-id-new-checkout-on" }),
+      ]);
+    });
+
+    test("runs an error hook that sees FLAG_NOT_FOUND for a config that does not exist", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(
+            message(fullBundle({ "new-checkout": configWithValue("new-checkout", "boolean", "true") })),
+          ),
+        ),
+      );
+      const errorHookErrors: unknown[] = [];
+      OpenFeature.addHooks({ error: (_hookContext, error) => void errorHookErrors.push(error) });
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const value = await OpenFeature.getClient().getBooleanValue("new-chekout", false);
+
+      expect(value).toBe(false);
+      expect(errorHookErrors).toEqual([expect.objectContaining({ code: "FLAG_NOT_FOUND" })]);
     });
   });
 

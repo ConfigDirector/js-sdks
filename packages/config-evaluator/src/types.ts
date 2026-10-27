@@ -61,12 +61,14 @@ export type ConditionalRule = {
   conditions: Condition[];
   target: Target;
   value: string | number | boolean | undefined;
+  valueId?: string | undefined;
   percentages: Percentage[];
 };
 export type Percentage = {
   id: string;
   percentage: number;
   value: string | number | boolean | undefined;
+  valueId?: string | undefined;
 };
 export type PercentageRule = {
   id: string;
@@ -80,6 +82,7 @@ export type Rule = ConditionalRule | PercentageRule;
 
 export type TargetingRules = {
   defaultValue: string;
+  defaultValueId?: string | undefined;
   rules: Rule[];
 };
 
@@ -182,6 +185,7 @@ export type ServedBy = { kind: "rule"; ruleId: string } | { kind: "default" };
 
 export type EvaluationExplanation = {
   value: string | undefined;
+  valueId: string | undefined;
   servedBy: ServedBy;
   rules: RuleExplanation[];
 };

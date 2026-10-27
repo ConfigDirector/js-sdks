@@ -463,7 +463,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private updateWatchersForConfig(configKey: string) {
     const configState = this.configSet?.configs[configKey];
     this.handlersMap.get(configKey)?.forEach((h) => {
-      const value = this.getValueFromConfigState(configKey, configState, h.defaultValue);
+      const value = this.evaluationOf(configKey, configState, h.defaultValue).value;
       h.handler(value);
     });
   }
@@ -499,17 +499,21 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   }
 
   public getValue<T extends ConfigValueType>(configKey: string, defaultValue: T): T {
+    return this.evaluate(configKey, defaultValue).value;
+  }
+
+  public evaluate<T extends ConfigValueType>(configKey: string, defaultValue: T): ConfigEvaluation<T> {
     this.validateDefaultValue(defaultValue);
 
     const configState = this.configSet?.configs[configKey];
-    return this.getValueFromConfigState(configKey, configState, defaultValue);
+    return this.evaluationOf(configKey, configState, defaultValue);
   }
 
-  private getValueFromConfigState<T extends ConfigValueType>(
+  private evaluationOf<T extends ConfigValueType>(
     configKey: string,
     configState: ConfigState | undefined,
     defaultValue: T,
-  ): T {
+  ): ConfigEvaluation<T> {
     if (!configState) {
       this.logger.debug(
         `[ConfigDirectorClient] No config state found for '${configKey}', returning default value '${defaultValue}'`,
@@ -524,14 +528,15 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         usedDefault: true,
         evaluationReason: reason,
       });
-      this.dispatchEvaluationEvent({
+      const evaluation: ConfigEvaluation<T> = {
         key: configKey,
         value: defaultValue,
         isDefaultValue: true,
         reason,
         context: this.context,
-      });
-      return defaultValue;
+      };
+      this.dispatchEvaluationEvent(evaluation);
+      return evaluation;
     }
 
     const parseResult = parseConfigValue<T>(configState, defaultValue);
@@ -547,16 +552,17 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       usedDefault: parseResult.usedDefault,
       evaluationReason: reason,
     });
-    this.dispatchEvaluationEvent({
+    const evaluation: ConfigEvaluation<T> = {
       key: configKey,
       value: parseResult.parsedValue,
       valueId: parseResult.parsedValueId ?? undefined,
       isDefaultValue: parseResult.usedDefault,
       reason,
       context: this.context,
-    });
+    };
+    this.dispatchEvaluationEvent(evaluation);
     this.logger.debug(`[ConfigDirectorClient] Evaluated '${configKey}' to '${parseResult.parsedValue}'`);
-    return parseResult.parsedValue;
+    return evaluation;
   }
 
   private dispatchEvaluationEvent(event: ConfigEvaluation) {

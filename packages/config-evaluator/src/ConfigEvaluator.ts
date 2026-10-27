@@ -18,9 +18,14 @@ import type {
   Share,
 } from "./types";
 
+type ServedValue = {
+  value: string;
+  valueId: string | undefined;
+};
+
 type RuleResult = {
   explanation: RuleExplanation;
-  value: string | undefined;
+  served: ServedValue | undefined;
 };
 
 export class ConfigEvaluator {
@@ -36,11 +41,13 @@ export class ConfigEvaluator {
   }
 
   public evaluate(config: Config, context?: EvaluationContext, segments?: Segments): ConfigState {
+    const explanation = this.explain(config, context, segments);
     return {
       id: config.id,
       key: config.key,
       type: config.type,
-      value: this.explain(config, context, segments).value,
+      value: explanation.value,
+      valueId: explanation.valueId,
     };
   }
 
@@ -48,15 +55,16 @@ export class ConfigEvaluator {
    * Evaluate a config for a context and record how the value was reached: every rule in the
    * order it was walked with its outcome, the conditions that were checked with what they
    * resolved to, and the share a rollout assigned the context to. `evaluate` is this walk with
-   * only the value kept, so the two cannot disagree. `segments` is the payload's segments map,
-   * which a segment condition looks its segment up in; a segment it does not hold never matches.
+   * only the value and its value ID kept, so the two cannot disagree. `segments` is the payload's
+   * segments map, which a segment condition looks its segment up in; a segment it does not hold
+   * never matches.
    */
   public explain(config: Config, context?: EvaluationContext, segments?: Segments): EvaluationExplanation {
     const rules = [...(config.target?.rules ?? [])].sort(
       (a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER),
     );
     const explanations: RuleExplanation[] = [];
-    let served: { ruleId: string; value: string } | undefined;
+    let served: (ServedValue & { ruleId: string }) | undefined;
     for (const rule of rules) {
       if (served) {
         explanations.push({ ruleId: rule.id, outcome: "not-evaluated", conditions: [], bucket: undefined });
@@ -64,13 +72,22 @@ export class ConfigEvaluator {
       }
       const result = this.explainRule(rule, config, context, segments);
       explanations.push(result.explanation);
-      if (result.value !== undefined) {
-        served = { ruleId: rule.id, value: result.value };
+      if (result.served !== undefined) {
+        served = { ruleId: rule.id, ...result.served };
       }
     }
+    if (served) {
+      return {
+        value: served.value,
+        valueId: served.valueId,
+        servedBy: { kind: "rule", ruleId: served.ruleId },
+        rules: explanations,
+      };
+    }
     return {
-      value: served?.value ?? config.target?.defaultValue,
-      servedBy: served ? { kind: "rule", ruleId: served.ruleId } : { kind: "default" },
+      value: config.target?.defaultValue,
+      valueId: config.target?.defaultValueId,
+      servedBy: { kind: "default" },
       rules: explanations,
     };
   }
@@ -88,16 +105,16 @@ export class ConfigEvaluator {
       bucket: undefined,
     };
     try {
-      let value: string | undefined;
+      let served: ServedValue | undefined;
       if (rule.type == "percentage") {
-        value = this.explainPercentage(rule.percentages ?? [], config, context, explanation);
+        served = this.explainPercentage(rule.percentages ?? [], config, context, explanation);
       } else if (rule.type == "conditional") {
-        value = this.explainConditionalRule(rule, config, context, segments, explanation);
+        served = this.explainConditionalRule(rule, config, context, segments, explanation);
       }
-      if (value !== undefined) {
+      if (served !== undefined) {
         explanation.outcome = "matched";
       }
-      return { explanation, value };
+      return { explanation, served };
     } catch (error) {
       this.logger.warn(
         `There was an error while evaluating a targeting rule '${rule?.id}' for '${config?.key}'. The rule will be disregarded.`,
@@ -109,7 +126,7 @@ export class ConfigEvaluator {
       );
       return {
         explanation: { ruleId: rule.id, outcome: "errored", conditions: [], bucket: undefined },
-        value: undefined,
+        served: undefined,
       };
     }
   }
@@ -119,7 +136,7 @@ export class ConfigEvaluator {
     config: Config,
     context: EvaluationContext | undefined,
     explanation: RuleExplanation,
-  ): string | undefined {
+  ): ServedValue | undefined {
     const identifier = context?.context?.id ?? undefined;
     const assignedPercentage =
       identifier === undefined
@@ -151,7 +168,9 @@ export class ConfigEvaluator {
       shares,
       selectedPercentageId: selected?.id,
     };
-    return selected?.value != null ? selected.value.toString() : undefined;
+    return selected?.value != null
+      ? { value: selected.value.toString(), valueId: selected.valueId }
+      : undefined;
   }
 
   private explainConditionalRule(
@@ -160,7 +179,7 @@ export class ConfigEvaluator {
     context: EvaluationContext | undefined,
     segments: Segments | undefined,
     explanation: RuleExplanation,
-  ): string | undefined {
+  ): ServedValue | undefined {
     let failed = false;
     for (const condition of rule.conditions ?? []) {
       if (failed) {
@@ -176,7 +195,7 @@ export class ConfigEvaluator {
       return undefined;
     }
     if (rule.target == "value") {
-      return rule.value != null ? rule.value.toString() : undefined;
+      return rule.value != null ? { value: rule.value.toString(), valueId: rule.valueId } : undefined;
     }
     if (rule.target == "percentage") {
       return this.explainPercentage(rule.percentages ?? [], config, context, explanation);

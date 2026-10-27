@@ -8,6 +8,8 @@ export type {
   ConfigDirectorLogger,
   ConfigDirectorLoggingLevel,
   ConfigDirectorLogMessageDecorator,
+  ConfigEvaluation,
+  EvaluationReason,
   OfflineClientOptions,
   OfflineValue,
   OfflineValues,

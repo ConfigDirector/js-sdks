@@ -53,6 +53,7 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
     await OpenFeature.clearProviders();
     await OpenFeature.clearContexts();
     OpenFeature.clearHandlers();
+    OpenFeature.clearHooks();
     await OpenFeature.close();
     forgetCachedValues();
   });
@@ -250,6 +251,259 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
       expect(client.providerStatus).toBe(ProviderStatus.READY);
       expect(client.getStringValue("greeting", "in-code default")).toBe("hello everyone");
       expect(await givenContexts()).toEqual([{ id: "42" }, {}]);
+    });
+  });
+
+  describe("evaluation details", () => {
+    test("resolves a served value with TARGETING_MATCH and its value ID as the variant", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "dark-mode": {
+                id: "00000000-0000-0000-0000-000000000002",
+                key: "dark-mode",
+                type: "boolean",
+                value: "true",
+                valueId: "value-id-dark-mode-on",
+              },
+            }),
+          },
+        ],
+      ]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = OpenFeature.getClient().getBooleanDetails("dark-mode", false);
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: true,
+        reason: "TARGETING_MATCH",
+        variant: "value-id-dark-mode-on",
+      });
+    });
+
+    test("resolves a value kept on the device with CACHED and its value ID as the variant", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "dark-mode": {
+                id: "00000000-0000-0000-0000-000000000002",
+                key: "dark-mode",
+                type: "boolean",
+                value: "true",
+                valueId: "value-id-dark-mode-on",
+              },
+            }),
+          },
+        ],
+      ]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      await vi.waitFor(() => expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).not.toBeNull());
+      await OpenFeature.clearProviders();
+      await commands.mswUseHandlers({ url: SSE_URL, status: 503 });
+      const client = OpenFeature.getClient();
+      await expect(
+        OpenFeature.setProviderAndWait(
+          new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+        ),
+      ).rejects.toThrow(ProviderNotReadyError);
+      await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.STALE));
+
+      const details = client.getBooleanDetails("dark-mode", false);
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: true,
+        reason: "CACHED",
+        variant: "value-id-dark-mode-on",
+      });
+    });
+
+    test("resolves a config without a value to the in-code default value with DEFAULT", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              greeting: {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "greeting",
+                type: "string",
+                value: null,
+              },
+            }),
+          },
+        ],
+      ]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = OpenFeature.getClient().getStringDetails("greeting", "Hello");
+
+      expect(details).toEqual({
+        flagKey: "greeting",
+        flagMetadata: {},
+        value: "Hello",
+        reason: "DEFAULT",
+      });
+    });
+
+    test("resolves a config that does not exist to the in-code default value with FLAG_NOT_FOUND", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = OpenFeature.getClient().getBooleanDetails("missing-flag", false);
+
+      expect(details).toEqual({
+        flagKey: "missing-flag",
+        flagMetadata: {},
+        value: false,
+        reason: "ERROR",
+        errorCode: "FLAG_NOT_FOUND",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a flag before values arrive to the in-code default value with PROVIDER_NOT_READY", async () => {
+      await commands.mswUseHandlers({ url: SSE_URL, status: 503 });
+      const client = OpenFeature.getClient();
+      await expect(
+        OpenFeature.setProviderAndWait(
+          new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+        ),
+      ).rejects.toThrow(ProviderNotReadyError);
+      expect(client.providerStatus).toBe(ProviderStatus.ERROR);
+
+      const details = client.getBooleanDetails("dark-mode", false);
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: false,
+        reason: "ERROR",
+        errorCode: "PROVIDER_NOT_READY",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a boolean config read as a string to the in-code default value with TYPE_MISMATCH", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(boolConfig("dark-mode", true)) }]]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = OpenFeature.getClient().getStringDetails("dark-mode", "off");
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: "off",
+        reason: "ERROR",
+        errorCode: "TYPE_MISMATCH",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a string config that is not a number read as a number to the in-code default value with TYPE_MISMATCH", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(stringConfig("max-items", "many")) }]]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = OpenFeature.getClient().getNumberDetails("max-items", 7);
+
+      expect(details).toEqual({
+        flagKey: "max-items",
+        flagMetadata: {},
+        value: 7,
+        reason: "ERROR",
+        errorCode: "TYPE_MISMATCH",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a json config with malformed JSON to the in-code default value with TYPE_MISMATCH", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              settings: {
+                id: "00000000-0000-0000-0000-000000000004",
+                key: "settings",
+                type: "json",
+                value: "not-valid-json{",
+              },
+            }),
+          },
+        ],
+      ]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = OpenFeature.getClient().getObjectDetails("settings", { theme: "light" });
+
+      expect(details).toEqual({
+        flagKey: "settings",
+        flagMetadata: {},
+        value: { theme: "light" },
+        reason: "ERROR",
+        errorCode: "TYPE_MISMATCH",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("resolves a string config that is not a boolean read as a boolean to the in-code default value with TYPE_MISMATCH", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(stringConfig("dark-mode", "sometimes")) }]]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = OpenFeature.getClient().getBooleanDetails("dark-mode", false);
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: false,
+        reason: "ERROR",
+        errorCode: "TYPE_MISMATCH",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+  });
+
+  describe("hooks", () => {
+    test("runs an after hook that sees TARGETING_MATCH and the value ID for a served value", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "new-checkout": {
+                id: "00000000-0000-0000-0000-000000000002",
+                key: "new-checkout",
+                type: "boolean",
+                value: "true",
+                valueId: "value-id-new-checkout-on",
+              },
+            }),
+          },
+        ],
+      ]);
+      const afterHookDetails: unknown[] = [];
+      OpenFeature.addHooks({ after: (_hookContext, details) => void afterHookDetails.push(details) });
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      OpenFeature.getClient().getBooleanValue("new-checkout", false);
+
+      expect(afterHookDetails).toEqual([
+        expect.objectContaining({ reason: "TARGETING_MATCH", variant: "value-id-new-checkout-on" }),
+      ]);
+    });
+
+    test("runs an error hook that sees FLAG_NOT_FOUND for a config that does not exist", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(boolConfig("new-checkout", true)) }]]);
+      const errorHookErrors: unknown[] = [];
+      OpenFeature.addHooks({ error: (_hookContext, error) => void errorHookErrors.push(error) });
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const value = OpenFeature.getClient().getBooleanValue("new-chekout", false);
+
+      expect(value).toBe(false);
+      expect(errorHookErrors).toEqual([expect.objectContaining({ code: "FLAG_NOT_FOUND" })]);
     });
   });
 

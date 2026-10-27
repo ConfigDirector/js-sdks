@@ -10,6 +10,7 @@ import { OpenFeatureEventEmitter, ProviderEvents } from "@openfeature/server-sdk
 import type { ConfigDirectorContext, ConfigValueType } from "@shared/types";
 import type { ConfigDirectorClient, ConfigDirectorClientOptions, OfflineClientOptions } from "@js-server-sdk/index";
 import { DefaultConfigDirectorClient } from "@js-server-sdk/DefaultConfigDirectorClient";
+import { resolutionOf } from "./resolution";
 
 const SDK_IDENTITY = { sdkName: "js-openfeature-server-provider", sdkVersion: "__VERSION__" };
 
@@ -56,7 +57,9 @@ export class ConfigDirectorProvider implements Provider {
     defaultValue: boolean,
     context: EvaluationContext,
   ): Promise<ResolutionDetails<boolean>> {
-    return Promise.resolve(this.evaluate(flagKey, defaultValue, context));
+    return Promise.resolve(
+      resolutionOf(this.client.evaluate(flagKey, defaultValue, this.mapContext(context))),
+    );
   }
 
   resolveStringEvaluation(
@@ -64,7 +67,9 @@ export class ConfigDirectorProvider implements Provider {
     defaultValue: string,
     context: EvaluationContext,
   ): Promise<ResolutionDetails<string>> {
-    return Promise.resolve(this.evaluate(flagKey, defaultValue, context));
+    return Promise.resolve(
+      resolutionOf(this.client.evaluate(flagKey, defaultValue, this.mapContext(context))),
+    );
   }
 
   resolveNumberEvaluation(
@@ -72,7 +77,9 @@ export class ConfigDirectorProvider implements Provider {
     defaultValue: number,
     context: EvaluationContext,
   ): Promise<ResolutionDetails<number>> {
-    return Promise.resolve(this.evaluate(flagKey, defaultValue, context));
+    return Promise.resolve(
+      resolutionOf(this.client.evaluate(flagKey, defaultValue, this.mapContext(context))),
+    );
   }
 
   resolveObjectEvaluation<T extends JsonValue>(
@@ -81,24 +88,15 @@ export class ConfigDirectorProvider implements Provider {
     context: EvaluationContext,
   ): Promise<ResolutionDetails<T>> {
     return Promise.resolve(
-      this.evaluate(flagKey, defaultValue as ConfigValueType, context) as ResolutionDetails<T>,
+      resolutionOf(
+        this.client.evaluate(flagKey, defaultValue as ConfigValueType, this.mapContext(context)),
+      ) as ResolutionDetails<T>,
     );
   }
 
   onClose?(): Promise<void> {
     this.client.dispose();
     return Promise.resolve();
-  }
-
-  private evaluate<T extends ConfigValueType>(
-    configKey: string,
-    defaultValue: T,
-    context: EvaluationContext,
-  ): ResolutionDetails<T> {
-    const value = this.client.getValue(configKey, defaultValue, this.mapContext(context));
-    return {
-      value,
-    };
   }
 
   private mapContext(openFeatureContext: EvaluationContext): ConfigDirectorContext | undefined {

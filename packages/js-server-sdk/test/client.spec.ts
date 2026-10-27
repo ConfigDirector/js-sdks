@@ -23,6 +23,35 @@ const message = (data: any) => {
   return new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`);
 };
 
+const makeFullSseHandler = (configs: Record<string, unknown>) =>
+  http.post(SSE_URL, async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          message({
+            environmentId: "10000000-0000-0000-0000-000000000000",
+            projectId: "20000000-0000-0000-0000-000000000000",
+            kind: "full",
+            configs,
+          }),
+        );
+      },
+    });
+    return buildResponse(stream);
+  });
+
+const serverConfig = (key: string, type: string, value?: string) => ({
+  id: "00000000-0000-0000-0000-000000000001",
+  key,
+  type,
+  variations: [],
+  target: {
+    environmentId: "10000000-0000-0000-0000-000000000000",
+    rules: [],
+    defaultValue: value,
+  },
+});
+
 const server = setupServer();
 const logger = createStubbedLogger();
 
@@ -1574,36 +1603,244 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
-  describe("configEvaluated", () => {
-    const makeFullSseHandler = (configs: Record<string, unknown>) =>
-      http.post(SSE_URL, async () => {
-        const stream = new ReadableStream({
-          start(controller) {
-            controller.enqueue(
-              message({
-                environmentId: "10000000-0000-0000-0000-000000000000",
-                projectId: "20000000-0000-0000-0000-000000000000",
-                kind: "full",
-                configs,
-              }),
-            );
-          },
-        });
-        return buildResponse(stream);
-      });
+  describe("evaluate", () => {
+    test("returns the in-code default value with reason 'client-not-ready' before initialization", () => {
+      const client = createClient("sdk-key", { logger });
 
-    const serverConfig = (key: string, type: string, value?: string) => ({
-      id: "00000000-0000-0000-0000-000000000001",
-      key,
-      type,
-      variations: [],
-      target: {
-        environmentId: "10000000-0000-0000-0000-000000000000",
-        rules: [],
-        defaultValue: value,
-      },
+      const evaluation = client.evaluate("missing-config", "default");
+
+      expect(evaluation).toEqual({
+        key: "missing-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "client-not-ready",
+      });
     });
 
+    test("returns the in-code default value with reason 'config-state-missing' when the key is absent", async () => {
+      server.use(makeFullSseHandler({}));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("missing-config", "default");
+
+      expect(evaluation).toEqual({
+        key: "missing-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "config-state-missing",
+      });
+      client.dispose();
+    });
+
+    test("returns the default targeting rule value with reason 'found-match' and its value ID", async () => {
+      server.use(
+        makeFullSseHandler({
+          greeting: {
+            id: "00000000-0000-0000-0000-000000000001",
+            key: "greeting",
+            type: "string",
+            variations: [],
+            target: {
+              environmentId: "10000000-0000-0000-0000-000000000000",
+              defaultValue: "hello",
+              defaultValueId: "value-id-hello",
+              rules: [],
+            },
+          },
+        }),
+      );
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("greeting", "in-code-default", { id: "user-1" });
+
+      expect(evaluation).toEqual({
+        key: "greeting",
+        value: "hello",
+        valueId: "value-id-hello",
+        isDefaultValue: false,
+        reason: "found-match",
+        context: { id: "user-1" },
+      });
+      client.dispose();
+    });
+
+    test("returns a rule value with the rule's value ID", async () => {
+      server.use(
+        makeFullSseHandler({
+          greeting: {
+            id: "00000000-0000-0000-0000-000000000001",
+            key: "greeting",
+            type: "string",
+            variations: [],
+            target: {
+              environmentId: "10000000-0000-0000-0000-000000000000",
+              defaultValue: "hello",
+              defaultValueId: "value-id-hello",
+              rules: [
+                {
+                  id: "33333333-3333-4333-8333-333333333333",
+                  order: 0,
+                  type: "conditional",
+                  target: "value",
+                  value: "bonjour",
+                  valueId: "value-id-bonjour",
+                  conditions: [
+                    {
+                      id: "44444444-4444-4444-8444-444444444444",
+                      kind: "attribute",
+                      attribute: "identifier",
+                      trait: null,
+                      operator: "=",
+                      targetType: "text",
+                      targetValues: ["user-1"],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        }),
+      );
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("greeting", "in-code-default", { id: "user-1" });
+
+      expect(evaluation).toEqual({
+        key: "greeting",
+        value: "bonjour",
+        valueId: "value-id-bonjour",
+        isDefaultValue: false,
+        reason: "found-match",
+        context: { id: "user-1" },
+      });
+      client.dispose();
+    });
+
+    test("returns no value ID when the payload carries none", async () => {
+      server.use(makeFullSseHandler({ greeting: serverConfig("greeting", "string", "hello") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("greeting", "in-code-default");
+
+      expect(evaluation).toEqual({
+        key: "greeting",
+        value: "hello",
+        valueId: undefined,
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+      client.dispose();
+    });
+
+    test("returns the in-code default value with reason 'value-missing' when the config has no value", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", "default");
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "value-missing",
+      });
+      client.dispose();
+    });
+
+    test("returns the in-code default value with reason 'type-mismatch' when a boolean config is read as a string", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "boolean", "true") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", "default");
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "type-mismatch",
+      });
+      client.dispose();
+    });
+
+    test("returns the in-code default value with reason 'invalid-json' when a json config has malformed JSON", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "json", "not-valid-json{") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", { greeting: "default" });
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: { greeting: "default" },
+        isDefaultValue: true,
+        reason: "invalid-json",
+      });
+      client.dispose();
+    });
+
+    test("returns the in-code default value with reason 'invalid-number' when a string config is read as a number", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string", "not-a-number") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", 42);
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: 42,
+        isDefaultValue: true,
+        reason: "invalid-number",
+      });
+      client.dispose();
+    });
+
+    test("returns the in-code default value with reason 'invalid-boolean' when a string config is read as a boolean", async () => {
+      server.use(makeFullSseHandler({ "my-config": serverConfig("my-config", "string", "not-a-boolean") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", false);
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: false,
+        isDefaultValue: true,
+        reason: "invalid-boolean",
+      });
+      client.dispose();
+    });
+
+    test("fires configEvaluated once with the evaluation it returns and counts it once in telemetry", async () => {
+      server.use(makeFullSseHandler({ greeting: serverConfig("greeting", "string", "hello") }));
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: unknown[] = [];
+      client.on("configEvaluated", (event) => events.push(event));
+      const telemetryEvaluations = vi.spyOn(ServerTelemetryEventCollector.prototype, "evaluatedConfig");
+
+      const evaluation = client.evaluate("greeting", "in-code-default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      await sleep(10);
+      expect(events).toEqual([{ evaluation }]);
+      expect(telemetryEvaluations).toHaveBeenCalledTimes(1);
+      expect(telemetryEvaluations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evaluation: expect.objectContaining({ key: "greeting", evaluatedValue: "hello" }),
+        }),
+      );
+      telemetryEvaluations.mockRestore();
+      client.dispose();
+    });
+  });
+
+  describe("configEvaluated", () => {
     test("emits with reason 'client-not-ready' before initialization", async () => {
       const client = createClient("sdk-key", { logger });
       const events: any[] = [];

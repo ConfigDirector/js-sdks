@@ -7,6 +7,8 @@ export type {
   CachingProvider,
   ConfigDirectorClient,
   ConfigDirectorContext,
+  ConfigEvaluation,
   ConnectionMode,
+  EvaluationReason,
 } from "@js-browser-client/index";
 export type { ConfigDirectorPluginOptions, ClientStatus, OfflineValue, OfflineValues } from "./types";

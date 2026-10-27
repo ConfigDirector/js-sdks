@@ -968,6 +968,239 @@ describe("ConfigDirectorClient", () => {
     });
   });
 
+  describe("evaluate", () => {
+    test("returns the in-code default value with reason 'client-not-ready' before initialization", () => {
+      client = createClient("sdk-key", { logger });
+
+      const evaluation = client.evaluate("missing-config", "default");
+
+      expect(evaluation).toEqual({
+        key: "missing-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "client-not-ready",
+      });
+    });
+
+    test("returns the in-code default value with reason 'config-state-missing' when the key is absent", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("missing-config", "default");
+
+      expect(evaluation).toEqual({
+        key: "missing-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "config-state-missing",
+      });
+    });
+
+    test("returns the served value with reason 'found-match', its value ID and the context", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "server-value",
+                valueId: "val-abc-123",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize({ id: "user-1" });
+
+      const evaluation = client.evaluate("my-config", "default");
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: "server-value",
+        valueId: "val-abc-123",
+        isDefaultValue: false,
+        reason: "found-match",
+        context: { id: "user-1" },
+      });
+    });
+
+    test("returns the in-code default value with reason 'value-missing' when the config state has no value", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: null,
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", "default");
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "value-missing",
+      });
+    });
+
+    test("returns the in-code default value with reason 'type-mismatch' when a boolean config is read as a string", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "boolean",
+                value: "true",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", "default");
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: "default",
+        isDefaultValue: true,
+        reason: "type-mismatch",
+      });
+    });
+
+    test("returns the in-code default value with reason 'invalid-json' when a json config has malformed JSON", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "json",
+                value: "not-valid-json{",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", { greeting: "default" });
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: { greeting: "default" },
+        isDefaultValue: true,
+        reason: "invalid-json",
+      });
+    });
+
+    test("returns the in-code default value with reason 'invalid-number' when a string config is read as a number", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "not-a-number",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", 42);
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: 42,
+        isDefaultValue: true,
+        reason: "invalid-number",
+      });
+    });
+
+    test("returns the in-code default value with reason 'invalid-boolean' when a string config is read as a boolean", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "not-a-boolean",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("my-config", false);
+
+      expect(evaluation).toEqual({
+        key: "my-config",
+        value: false,
+        isDefaultValue: true,
+        reason: "invalid-boolean",
+      });
+    });
+
+    test("fires configEvaluated once with the evaluation it returns and counts it once in telemetry", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "my-config": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "my-config",
+                type: "string",
+                value: "server-value",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events: unknown[] = [];
+      client.on("configEvaluated", (event) => events.push(event));
+      vi.mocked(telemetryClient.evaluatedConfig).mockClear();
+
+      const evaluation = client.evaluate("my-config", "default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      await sleep(10);
+      expect(events).toEqual([{ evaluation }]);
+      expect(telemetryClient.evaluatedConfig).toHaveBeenCalledTimes(1);
+      expect(telemetryClient.evaluatedConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "my-config", evaluatedValue: "server-value" }),
+      );
+    });
+  });
+
   describe("configEvaluated", () => {
     const collectEvents = () => {
       const events: any[] = [];

@@ -86,4 +86,20 @@ describe("ConfigDirector SSR plugin", () => {
 
     expect(serverLoggedErrors).toEqual([[expect.stringContaining("'Device'")]]);
   });
+
+  test("returns the server client's evaluation for the app context", async () => {
+    appContext.value = { id: "42", kind: "device" };
+    const client = await runPluginThroughAppCreated();
+
+    const evaluation = client.evaluate("welcome-message", "fallback");
+
+    expect(evaluation).toEqual({
+      key: "welcome-message",
+      value: "Hello from the server",
+      valueId: undefined,
+      isDefaultValue: false,
+      reason: "found-match",
+      context: { id: "42", kind: "device" },
+    });
+  });
 });

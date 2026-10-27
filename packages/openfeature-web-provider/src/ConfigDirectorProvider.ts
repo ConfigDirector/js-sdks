@@ -15,6 +15,7 @@ import type {
   OfflineClientOptions,
 } from "@js-client-core/index";
 import { createBrowserClient } from "@js-browser-client/index";
+import { resolutionOf } from "./resolution";
 
 const SDK_IDENTITY = { sdkName: "js-openfeature-web-provider", sdkVersion: "__VERSION__" };
 
@@ -81,19 +82,21 @@ export class ConfigDirectorProvider implements Provider {
   }
 
   resolveBooleanEvaluation(flagKey: string, defaultValue: boolean): ResolutionDetails<boolean> {
-    return this.evaluate(flagKey, defaultValue);
+    return resolutionOf(this.client.evaluate(flagKey, defaultValue));
   }
 
   resolveStringEvaluation(flagKey: string, defaultValue: string): ResolutionDetails<string> {
-    return this.evaluate(flagKey, defaultValue);
+    return resolutionOf(this.client.evaluate(flagKey, defaultValue));
   }
 
   resolveNumberEvaluation(flagKey: string, defaultValue: number): ResolutionDetails<number> {
-    return this.evaluate(flagKey, defaultValue);
+    return resolutionOf(this.client.evaluate(flagKey, defaultValue));
   }
 
   resolveObjectEvaluation<T extends JsonValue>(flagKey: string, defaultValue: T): ResolutionDetails<T> {
-    return this.evaluate(flagKey, defaultValue as ConfigValueType) as ResolutionDetails<T>;
+    return resolutionOf(
+      this.client.evaluate(flagKey, defaultValue as ConfigValueType),
+    ) as ResolutionDetails<T>;
   }
 
   onClose?(): Promise<void> {
@@ -120,13 +123,6 @@ export class ConfigDirectorProvider implements Provider {
           return;
       }
     }, 0);
-  }
-
-  private evaluate<T extends ConfigValueType>(configKey: string, defaultValue: T): ResolutionDetails<T> {
-    const value = this.client.getValue(configKey, defaultValue);
-    return {
-      value,
-    };
   }
 
   private mapContext(openFeatureContext: EvaluationContext): ConfigDirectorContext {

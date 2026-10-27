@@ -43,6 +43,14 @@ export interface ConfigDirectorLogMessageDecorator {
   decorateMessage(message: string): string;
 }
 
+/**
+ * Why an evaluation returned the value it did. `found-match` returns a value from ConfigDirector,
+ * and `cached` a value kept on the device while a client SDK waits for live values. `value-missing`
+ * returns the in-code default value because the config has no value. Every other reason returns the
+ * in-code default value because of an error: the config does not exist (`config-state-missing`), no
+ * values have arrived yet (`client-not-ready`), or the value cannot be read as the type of the in-code
+ * default value.
+ */
 export type EvaluationReason =
   | "found-match"
   | "config-state-missing"
@@ -54,12 +62,21 @@ export type EvaluationReason =
   | "invalid-boolean"
   | "cached";
 
-export type ConfigEvaluation = {
+/**
+ * One evaluation of a config: the value it returned, why, and the context it was evaluated for.
+ */
+export type ConfigEvaluation<T extends ConfigValueType = ConfigValueType> = {
+  /** The config key that was evaluated. */
   key: string;
-  value: ConfigValueType;
+  /** The value returned, which is the in-code default value when {@link isDefaultValue} is `true`. */
+  value: T;
+  /** The ID ConfigDirector assigned to the value returned, when ConfigDirector sent one with it. */
   valueId?: string;
+  /** Whether the evaluation returned the in-code default value. */
   isDefaultValue: boolean;
+  /** Why the evaluation returned this value. */
   reason: EvaluationReason;
+  /** The context the config was evaluated for, if any. */
   context?: ConfigDirectorContext;
 };
 /**

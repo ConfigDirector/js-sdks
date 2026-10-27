@@ -989,6 +989,146 @@ describe("ConfigEvaluator", () => {
     });
   });
 
+  describe("value IDs", () => {
+    test("serves a rule value with the rule's value ID", () => {
+      const config: Config = {
+        id: CONFIG_ID,
+        key: "greeting",
+        type: "string",
+        variations: [],
+        target: {
+          defaultValue: "hello",
+          defaultValueId: "value-id-hello",
+          rules: [
+            {
+              id: crypto.randomUUID(),
+              order: 0,
+              type: "conditional",
+              target: "value",
+              value: "bonjour",
+              valueId: "value-id-bonjour",
+              percentages: [],
+              conditions: [],
+            },
+          ],
+        },
+      };
+
+      expect(evaluator.evaluate(config, { context: { id: "10" } })).toEqual({
+        id: CONFIG_ID,
+        key: "greeting",
+        type: "string",
+        value: "bonjour",
+        valueId: "value-id-bonjour",
+      });
+    });
+
+    test("serves the default targeting rule value with the config's default value ID", () => {
+      const config: Config = {
+        id: CONFIG_ID,
+        key: "greeting",
+        type: "string",
+        variations: [],
+        target: {
+          defaultValue: "hello",
+          defaultValueId: "value-id-hello",
+          rules: [
+            {
+              id: crypto.randomUUID(),
+              order: 0,
+              type: "conditional",
+              target: "value",
+              value: "bonjour",
+              valueId: "value-id-bonjour",
+              percentages: [],
+              conditions: [
+                {
+                  id: crypto.randomUUID(),
+                  attribute: "identifier",
+                  operator: "=",
+                  trait: undefined,
+                  targetType: "text",
+                  targetValues: ["10"],
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      expect(evaluator.evaluate(config, { context: { id: "20" } })).toEqual({
+        id: CONFIG_ID,
+        key: "greeting",
+        type: "string",
+        value: "hello",
+        valueId: "value-id-hello",
+      });
+    });
+
+    test("serves a rollout share with the share's value ID", () => {
+      const config: Config = {
+        id: CONFIG_ID,
+        key: "greeting",
+        type: "string",
+        variations: [],
+        target: {
+          defaultValue: "hello",
+          defaultValueId: "value-id-hello",
+          rules: [
+            {
+              id: crypto.randomUUID(),
+              order: 0,
+              type: "percentage",
+              target: "percentage",
+              percentages: [
+                { id: crypto.randomUUID(), percentage: 100, value: "hola", valueId: "value-id-hola" },
+              ],
+            },
+          ],
+        },
+      };
+
+      expect(evaluator.evaluate(config, { context: { id: "10" } })).toEqual({
+        id: CONFIG_ID,
+        key: "greeting",
+        type: "string",
+        value: "hola",
+        valueId: "value-id-hola",
+      });
+    });
+
+    test("serves a value with no value ID when the config carries none", () => {
+      const config: Config = {
+        id: CONFIG_ID,
+        key: "greeting",
+        type: "string",
+        variations: [],
+        target: {
+          defaultValue: "hello",
+          rules: [
+            {
+              id: crypto.randomUUID(),
+              order: 0,
+              type: "conditional",
+              target: "value",
+              value: "bonjour",
+              percentages: [],
+              conditions: [],
+            },
+          ],
+        },
+      };
+
+      expect(evaluator.evaluate(config, { context: { id: "10" } })).toEqual({
+        id: CONFIG_ID,
+        key: "greeting",
+        type: "string",
+        value: "bonjour",
+        valueId: undefined,
+      });
+    });
+  });
+
   describe("server payload fields the evaluator does not read", () => {
     const serverPayload = JSON.parse(`{
       "payloadVersion": 1,
