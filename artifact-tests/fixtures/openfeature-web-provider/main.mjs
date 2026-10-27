@@ -9,6 +9,7 @@ try {
   );
   const client = OpenFeature.getClient();
   const values = {
+    providerName: OpenFeature.providerMetadata.name,
     welcomeMessage: client.getStringValue("welcome-message", "fallback"),
     featureEnabled: client.getBooleanValue("feature-enabled", false),
     itemCount: client.getNumberValue("item-count", 0),

@@ -27,12 +27,18 @@ describe("@configdirector/openfeature-server-provider artifact", () => {
   test("resolves flags through OpenFeature from the ESM entry", async () => {
     const result = await project.runNode("smoke.mjs", { CONFIGDIRECTOR_BASE_URL: server.baseUrl });
     expect(result.code, result.stderr).toBe(0);
-    expect(parseReport(result.stdout)).toEqual(EXPECTED_SERVER_VALUES);
+    expect(parseReport(result.stdout)).toEqual({
+      providerName: "ConfigDirectorProvider",
+      ...EXPECTED_SERVER_VALUES,
+    });
   });
 
   test("resolves flags through OpenFeature from the CJS entry", async () => {
     const result = await project.runNode("smoke.cjs", { CONFIGDIRECTOR_BASE_URL: server.baseUrl });
     expect(result.code, result.stderr).toBe(0);
-    expect(parseReport(result.stdout)).toEqual(EXPECTED_SERVER_VALUES);
+    expect(parseReport(result.stdout)).toEqual({
+      providerName: "ConfigDirectorProvider",
+      ...EXPECTED_SERVER_VALUES,
+    });
   });
 });

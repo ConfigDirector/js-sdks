@@ -18,7 +18,7 @@ export class ConfigDirectorProvider implements Provider {
   private readonly readyHandler: () => void;
 
   readonly metadata: ProviderMetadata = {
-    name: ConfigDirectorProvider.name,
+    name: "ConfigDirectorProvider",
   };
   readonly runsOn: Paradigm = "server";
   readonly events = new OpenFeatureEventEmitter();

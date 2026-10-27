@@ -29,7 +29,7 @@ export class ConfigDirectorProvider implements Provider {
   private servingCachedValues = false;
 
   readonly metadata: ProviderMetadata = {
-    name: ConfigDirectorProvider.name,
+    name: "ConfigDirectorProvider",
   };
   readonly runsOn: Paradigm = "client";
   readonly events = new OpenFeatureEventEmitter();

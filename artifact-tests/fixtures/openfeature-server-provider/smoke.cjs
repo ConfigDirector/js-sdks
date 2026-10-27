@@ -9,6 +9,7 @@ const main = async () => {
   );
   const client = OpenFeature.getClient();
   const values = {
+    providerName: OpenFeature.providerMetadata.name,
     welcomeMessage: await client.getStringValue("welcome-message", "fallback"),
     featureEnabled: await client.getBooleanValue("feature-enabled", false),
     itemCount: await client.getNumberValue("item-count", 0),

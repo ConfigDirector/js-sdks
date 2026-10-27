@@ -27,6 +27,9 @@ describe("@configdirector/openfeature-web-provider artifact", () => {
 
   test("resolves flags through OpenFeature in a browser", async () => {
     const result = await runBrowserSmoke({ project, server, entry: "main.mjs" });
-    expect(result, result.error).toEqual({ ok: true, values: EXPECTED_CLIENT_VALUES });
+    expect(result, result.error).toEqual({
+      ok: true,
+      values: { providerName: "ConfigDirectorProvider", ...EXPECTED_CLIENT_VALUES },
+    });
   });
 });
