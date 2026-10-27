@@ -23,6 +23,22 @@ const client = OpenFeature.getClient();
 const newCheckout = await client.getBooleanValue("new-checkout", false);
 ```
 
+`setProviderAndWait` rejects when no config arrives from ConfigDirector within the connection timeout, which is 3 seconds unless you set `connection.timeout` in milliseconds. Flags then resolve to their in-code default values until config arrives. To start without waiting for ConfigDirector, set the provider with `setProvider` instead:
+
+```ts
+OpenFeature.setProvider(new ConfigDirectorProvider("YOUR-SERVER-SDK-KEY"));
+```
+
+Or catch the rejection:
+
+```ts
+try {
+  await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("YOUR-SERVER-SDK-KEY"));
+} catch (error) {
+  console.warn("Starting on in-code default values until ConfigDirector sends config:", error);
+}
+```
+
 Full details are in the [official documentation](https://docs.configdirector.com/sdks/server/openfeature-node).
 
 ## Test your code

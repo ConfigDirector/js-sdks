@@ -6,7 +6,7 @@ import type {
   ProviderMetadata,
   ResolutionDetails,
 } from "@openfeature/server-sdk";
-import { OpenFeatureEventEmitter, ProviderEvents } from "@openfeature/server-sdk";
+import { OpenFeatureEventEmitter, ProviderEvents, ProviderNotReadyError } from "@openfeature/server-sdk";
 import type { ConfigDirectorContext, ConfigValueType } from "@shared/types";
 import type { ConfigDirectorClient, ConfigDirectorClientOptions, OfflineClientOptions } from "@js-server-sdk/index";
 import { DefaultConfigDirectorClient } from "@js-server-sdk/DefaultConfigDirectorClient";
@@ -16,7 +16,6 @@ const SDK_IDENTITY = { sdkName: "js-openfeature-server-provider", sdkVersion: "_
 
 export class ConfigDirectorProvider implements Provider {
   private readonly client: ConfigDirectorClient;
-  private readonly readyHandler: () => void;
 
   readonly metadata: ProviderMetadata = {
     name: "ConfigDirectorProvider",
@@ -38,9 +37,6 @@ export class ConfigDirectorProvider implements Provider {
     clientOptions?: ConfigDirectorClientOptions,
   ) {
     this.client = DefaultConfigDirectorClient.from(serverSdkKeyOrOptions, SDK_IDENTITY, clientOptions);
-    this.readyHandler = () => {
-      this.events.emit(ProviderEvents.Ready);
-    };
     this.client.on("configsUpdated", ({ keys, removedKeys }) => {
       this.events.emit(ProviderEvents.ConfigurationChanged, { flagsChanged: [...keys, ...removedKeys] });
     });
@@ -48,8 +44,14 @@ export class ConfigDirectorProvider implements Provider {
 
   async initialize() {
     await this.client.initialize();
-    this.client.off("clientReady", this.readyHandler);
-    this.client.on("clientReady", this.readyHandler);
+    if (this.client.isReady) {
+      return;
+    }
+    this.client.on("clientReady", () => this.events.emit(ProviderEvents.Ready));
+    throw new ProviderNotReadyError(
+      "No config arrived from ConfigDirector within the connection timeout. Flags resolve to their " +
+        "in-code default values until config arrives.",
+    );
   }
 
   resolveBooleanEvaluation(

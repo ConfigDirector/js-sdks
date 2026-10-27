@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
-import { OpenFeature, ProviderEvents } from "@openfeature/server-sdk";
+import { OpenFeature, ProviderEvents, ProviderNotReadyError, ProviderStatus } from "@openfeature/server-sdk";
 import { ConfigDirectorProvider } from "../src";
 import { SSE_URL, POLLING_URL, createStubbedLogger } from "./helpers";
 
@@ -376,7 +376,7 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
       server.use(http.post(SSE_URL, () => new HttpResponse(null, { status: 503 })));
       await OpenFeature.setProviderAndWait(
         new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
-      );
+      ).catch(() => undefined);
 
       const details = await OpenFeature.getClient().getBooleanDetails("dark-mode", false);
 
@@ -531,7 +531,7 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
   });
 
   describe("events", () => {
-    test("notifies an OpenFeature client of PROVIDER_READY and PROVIDER_CONFIGURATION_CHANGED once the initial snapshot arrives", async () => {
+    test("notifies an OpenFeature client of one PROVIDER_READY and of PROVIDER_CONFIGURATION_CHANGED once the initial snapshot arrives within the connection timeout", async () => {
       server.use(
         sseHandler((controller) =>
           controller.enqueue(
@@ -551,7 +551,7 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
 
       await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
 
-      expect(readyEvents.length).toBeGreaterThanOrEqual(1);
+      expect(readyEvents).toHaveLength(1);
       expect(flagsChanged).toEqual([["greeting"]]);
     });
 
@@ -611,6 +611,69 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
       await vi.waitFor(() => expect(flagsChanged).toHaveLength(2));
       expect(flagsChanged[1]).toEqual(["greeting", "farewell"]);
       expect(await client.getStringValue("farewell", "default")).toBe("default");
+    });
+  });
+
+  describe("when no config arrives during initialization", () => {
+    test("rejects initialization with PROVIDER_NOT_READY after the connection timeout, reports the ERROR status once, and serves the in-code default value", async () => {
+      server.use(http.post(SSE_URL, () => new HttpResponse(null, { status: 503 })));
+
+      const client = OpenFeature.getClient();
+      const errorEvents: unknown[] = [];
+      client.addHandler(ProviderEvents.Error, (details: unknown) => errorEvents.push(details));
+
+      await expect(
+        OpenFeature.setProviderAndWait(
+          new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+        ),
+      ).rejects.toThrow(ProviderNotReadyError);
+
+      expect(client.providerStatus).toBe(ProviderStatus.ERROR);
+      expect(errorEvents).toHaveLength(1);
+      expect(await client.getBooleanDetails("dark-mode", false)).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: false,
+        reason: "ERROR",
+        errorCode: "PROVIDER_NOT_READY",
+        errorMessage: expect.stringMatching(/\S/),
+      });
+    });
+
+    test("reports ready once when config arrives after initialization failed", async () => {
+      server.use(
+        sseHandler((controller) => {
+          setTimeout(() => {
+            controller.enqueue(
+              message(fullBundle({ "dark-mode": configWithValue("dark-mode", "boolean", "true") })),
+            );
+          }, 400);
+        }),
+      );
+
+      const client = OpenFeature.getClient();
+      const readyEvents: unknown[] = [];
+      client.addHandler(ProviderEvents.Ready, (details: unknown) => readyEvents.push(details));
+      await OpenFeature.setProviderAndWait(
+        new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+      ).catch(() => undefined);
+
+      await vi.waitFor(async () => expect(await client.getBooleanValue("dark-mode", false)).toBe(true), {
+        timeout: 2_000,
+      });
+
+      expect(readyEvents).toHaveLength(1);
+      expect(client.providerStatus).toBe(ProviderStatus.READY);
+    });
+
+    test("rejects initialization when ConfigDirector rejects the SDK key", async () => {
+      server.use(http.post(SSE_URL, () => new HttpResponse(null, { status: 401 })));
+
+      await expect(
+        OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger })),
+      ).rejects.toThrow(ProviderNotReadyError);
+
+      expect(OpenFeature.getClient().providerStatus).toBe(ProviderStatus.ERROR);
     });
   });
 });
