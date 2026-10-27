@@ -9,6 +9,7 @@ import { DefaultConfigDirectorClient } from "@js-client-core/DefaultConfigDirect
 import { defaultUrlFactory } from "@shared/url";
 import { generateValueId } from "./telemetry/value-id-generator";
 import { localStorageCachingProvider } from "./local-storage-caching-provider";
+import { sha256HexDigestIfAvailable } from "./sha256-hex-digest";
 
 /**
  * Creates a browser client. With a client SDK key it connects to ConfigDirector; with
@@ -42,6 +43,6 @@ export const createBrowserClient = (
     clientSdkKeyOrOptions,
     sdkOptions,
     clientOptions,
-    { platformCachingProvider: localStorageCachingProvider },
+    { sha256HexDigest: sha256HexDigestIfAvailable(), platformCachingProvider: localStorageCachingProvider },
   );
 };

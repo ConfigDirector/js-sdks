@@ -613,14 +613,16 @@ describe("ConfigDirectorClient", () => {
   });
 
   describe("cached values", () => {
-    test("keeps the last values in localStorage under a key derived from the SDK key and serves them with reason cached on a launch that cannot connect", async () => {
+    test("keeps the last values in localStorage with only the SDK key's SHA-256 digest, under a key derived from that digest, and serves them with reason cached on a launch that cannot connect", async () => {
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full(stringConfig("my-config", "from-server")) }]]);
       const firstRun = createClient("sdk-key", { logger });
       await firstRun.initialize({ id: "user-1" });
       await vi.waitFor(() => expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).not.toBeNull());
       firstRun.dispose();
-      expect(JSON.parse(localStorage.getItem(CACHED_VALUES_STORAGE_KEY) as string)).toMatchObject({
-        clientSdkKey: "sdk-key",
+      const storedEntry = localStorage.getItem(CACHED_VALUES_STORAGE_KEY) as string;
+      expect(storedEntry).not.toContain("sdk-key");
+      expect(JSON.parse(storedEntry)).toMatchObject({
+        clientSdkKeyDigest: "cc677751b8441e282621773a9be4622b11cd5bcffce54caabdd19f60e07d556c",
         contextTag: { contextKind: "user", contextId: "user-1" },
         configs: stringConfig("my-config", "from-server"),
       });
@@ -666,6 +668,24 @@ describe("ConfigDirectorClient", () => {
       await sleep(100);
 
       expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).toBeNull();
+    });
+
+    test("keeps nothing and never calls a caching provider of the app's own when crypto.subtle is unavailable", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(stringConfig("my-config", "from-server")) }]]);
+      const provider = { read: vi.fn(), write: vi.fn(), remove: vi.fn(), sizeLimit: vi.fn(() => 256 * 1024) };
+      vi.stubGlobal("crypto", {});
+      try {
+        client = createClient("sdk-key", { logger, caching: { provider } });
+        await client.initialize({ id: "user-1" });
+        await vi.waitFor(() => expect(client.getValue("my-config", "default")).toBe("from-server"));
+        await sleep(100);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+
+      expect(provider.read).not.toHaveBeenCalled();
+      expect(provider.write).not.toHaveBeenCalled();
+      expect(provider.remove).not.toHaveBeenCalled();
     });
   });
 });

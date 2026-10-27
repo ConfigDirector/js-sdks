@@ -10,6 +10,7 @@ import { asyncStorageInstanceIdStorage } from "./instanceIdStorage";
 import { createConsoleLogger } from "./logger";
 import { reactNativeStreamingFetch } from "./reactNativeStreamingFetch";
 import { ReactNativeTelemetryClient } from "./ReactNativeTelemetryClient";
+import { sha256HexDigest } from "./sha256HexDigest";
 import { urlFactory } from "./url";
 
 export const createClient = (
@@ -43,6 +44,7 @@ export const createReactNativeClient = (
       fetch: reactNativeStreamingFetch,
       urlFactory,
       instanceIdStorage: asyncStorageInstanceIdStorage(asyncStorage),
+      sha256HexDigest,
       platformCachingProvider: asyncStorageCachingProvider(asyncStorage),
     },
   );

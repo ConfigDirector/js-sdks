@@ -82,7 +82,9 @@ export type CachingOptions = {
   provider?: CachingProvider;
 };
 
-export type PlatformCachingProvider = (clientSdkKey: string) => CachingProvider | undefined;
+export type Sha256HexDigest = (text: string) => Promise<string>;
+
+export type PlatformCachingProvider = (clientSdkKeyDigest: Promise<string>) => CachingProvider | undefined;
 
 export type InternalClientOptions = {
   fetch?: (url: string, init: RequestInit) => Promise<Response>;
@@ -90,6 +92,7 @@ export type InternalClientOptions = {
   urlFactory?: UrlFactory;
   transport?: Transport;
   instanceIdStorage?: InstanceIdStorage;
+  sha256HexDigest?: Sha256HexDigest;
   platformCachingProvider?: PlatformCachingProvider;
 };
 

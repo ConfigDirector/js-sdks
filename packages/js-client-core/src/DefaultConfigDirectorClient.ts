@@ -113,7 +113,12 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     const urlFactory: UrlFactory = internalClientOptions?.urlFactory ?? defaultUrlFactory;
     this.connectionPlan = planConnection(clientSdkKey, clientOptions?.connection, urlFactory);
     this.cachedValuesStore = this.buildCachedValuesStore(
-      planCaching(this.connectionPlan, clientOptions?.caching, internalClientOptions?.platformCachingProvider),
+      planCaching(
+        this.connectionPlan,
+        clientOptions?.caching,
+        internalClientOptions?.sha256HexDigest,
+        internalClientOptions?.platformCachingProvider,
+      ),
     );
     this.telemetryClient = this.buildTelemetryClient(liveTelemetryClient, clientOptions);
     this.transport =
@@ -162,7 +167,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         this.logger.debug(`[ConfigDirectorClient] No values are kept on the device: ${cachingPlan.reason}`);
         return undefined;
       case "cache": {
-        const store = new CachedValuesStore(cachingPlan.provider, cachingPlan.clientSdkKey, this.logger);
+        const store = new CachedValuesStore(cachingPlan.provider, cachingPlan.clientSdkKeyDigest, this.logger);
         void store.read();
         return store;
       }
@@ -182,6 +187,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     const read = await store.read();
     switch (read.outcome) {
       case "nothing stored":
+      case "first format":
       case "unreadable":
       case "failed":
         return;

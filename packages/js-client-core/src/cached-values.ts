@@ -1,8 +1,17 @@
-import type { CachingOptions, CachingProvider, ConfigDirectorContext, ConfigDirectorLogger, ConfigStateMap } from "./types";
+import type {
+  CachingOptions,
+  CachingProvider,
+  ConfigDirectorContext,
+  ConfigDirectorLogger,
+  ConfigStateMap,
+  PlatformCachingProvider,
+  Sha256HexDigest,
+} from "./types";
 import type { ConnectionPlan } from "./connection-plan";
 import { utf8ByteLength } from "@shared/utf8-byte-length";
 
-const ENTRY_FORMAT_VERSION = 1;
+const ENTRY_FORMAT_VERSION = 2;
+const FIRST_ENTRY_FORMAT_VERSION = 1;
 const DEFAULT_CONTEXT_KIND = "user";
 
 export const CACHED_VALUES_STORAGE_KEY_PREFIX = "configdirector-sdk:cached-values:";
@@ -22,25 +31,29 @@ export type CachedValues = {
 
 type CachedValuesEntry = CachedValues & {
   formatVersion: typeof ENTRY_FORMAT_VERSION;
-  clientSdkKey: string;
+  clientSdkKeyDigest: string;
 };
 
 export type CachedValuesRead =
   | { outcome: "stored"; cachedValues: CachedValues }
   | { outcome: "nothing stored" }
+  | { outcome: "first format" }
   | { outcome: "unreadable" }
   | { outcome: "failed" };
 
+type EntryParseOutcome = Extract<CachedValuesRead, { outcome: "stored" | "first format" | "unreadable" }>;
+
 export type CachingPlan =
-  | { kind: "cache"; provider: CachingProvider; clientSdkKey: string }
-  | { kind: "no cache"; reason: "offline mode" | "turned off" | "no provider available" };
+  | { kind: "cache"; provider: CachingProvider; clientSdkKeyDigest: Promise<string> }
+  | { kind: "no cache"; reason: "offline mode" | "turned off" | "no SHA-256 available" | "no provider available" };
 
 export type CachedValuesAdoption = "adopt" | "live values already arrived" | "context mismatch";
 
 export const planCaching = (
   connectionPlan: ConnectionPlan,
   caching: CachingOptions | undefined,
-  platformProvider: ((clientSdkKey: string) => CachingProvider | undefined) | undefined,
+  sha256HexDigest: Sha256HexDigest | undefined,
+  platformCachingProvider: PlatformCachingProvider | undefined,
 ): CachingPlan => {
   if (connectionPlan.kind === "stay-offline") {
     return { kind: "no cache", reason: "offline mode" };
@@ -48,11 +61,15 @@ export const planCaching = (
   if (caching?.enabled === false) {
     return { kind: "no cache", reason: "turned off" };
   }
-  const provider = caching?.provider ?? platformProvider?.(connectionPlan.clientSdkKey);
+  if (!sha256HexDigest) {
+    return { kind: "no cache", reason: "no SHA-256 available" };
+  }
+  const clientSdkKeyDigest = sha256HexDigest(connectionPlan.clientSdkKey);
+  const provider = caching?.provider ?? platformCachingProvider?.(clientSdkKeyDigest);
   if (!provider) {
     return { kind: "no cache", reason: "no provider available" };
   }
-  return { kind: "cache", provider, clientSdkKey: connectionPlan.clientSdkKey };
+  return { kind: "cache", provider, clientSdkKeyDigest };
 };
 
 export const contextTagFor = (context: ConfigDirectorContext | undefined, instanceId: string): ContextTag => {
@@ -111,20 +128,41 @@ const isConfigStateMap = (candidate: unknown): candidate is ConfigStateMap => {
   );
 };
 
-const isEntryFor = (clientSdkKey: string, candidate: unknown): candidate is CachedValuesEntry => {
+const isEntryFor = (clientSdkKeyDigest: string, candidate: unknown): candidate is CachedValuesEntry => {
   if (!candidate || typeof candidate !== "object") {
     return false;
   }
   const entry = candidate as Partial<CachedValuesEntry>;
   return (
     entry.formatVersion === ENTRY_FORMAT_VERSION &&
-    entry.clientSdkKey === clientSdkKey &&
+    entry.clientSdkKeyDigest === clientSdkKeyDigest &&
     isContextTag(entry.contextTag) &&
     typeof entry.environmentId === "string" &&
     typeof entry.projectId === "string" &&
     isConfigStateMap(entry.configs) &&
     typeof entry.receivedAt === "number"
   );
+};
+
+const hasFirstFormatVersion = (candidate: unknown): boolean =>
+  !!candidate &&
+  typeof candidate === "object" &&
+  (candidate as { formatVersion?: unknown }).formatVersion === FIRST_ENTRY_FORMAT_VERSION;
+
+const parseEntry = (raw: string, clientSdkKeyDigest: string): EntryParseOutcome => {
+  let candidate: unknown;
+  try {
+    candidate = JSON.parse(raw);
+  } catch {
+    return { outcome: "unreadable" };
+  }
+  if (isEntryFor(clientSdkKeyDigest, candidate)) {
+    return { outcome: "stored", cachedValues: candidate };
+  }
+  if (hasFirstFormatVersion(candidate)) {
+    return { outcome: "first format" };
+  }
+  return { outcome: "unreadable" };
 };
 
 type Warning = "read failed" | "unreadable" | "over the size limit" | "write failed" | "remove failed";
@@ -137,7 +175,7 @@ export class CachedValuesStore {
 
   constructor(
     private readonly provider: CachingProvider,
-    private readonly clientSdkKey: string,
+    private readonly clientSdkKeyDigest: Promise<string>,
     private readonly logger: ConfigDirectorLogger,
   ) {}
 
@@ -163,21 +201,17 @@ export class CachedValuesStore {
       return { outcome: "nothing stored" };
     }
 
-    const entry = this.parseEntry(raw);
-    if (!entry) {
-      this.warnOnce("unreadable", "The values kept on the device could not be read and were removed, starting without them");
-      await this.removeEntry();
-      return { outcome: "unreadable" };
-    }
-    return { outcome: "stored", cachedValues: entry };
-  }
-
-  private parseEntry(raw: string): CachedValuesEntry | undefined {
-    try {
-      const candidate: unknown = JSON.parse(raw);
-      return isEntryFor(this.clientSdkKey, candidate) ? candidate : undefined;
-    } catch {
-      return undefined;
+    const entryParseOutcome = parseEntry(raw, await this.clientSdkKeyDigest);
+    switch (entryParseOutcome.outcome) {
+      case "stored":
+        return entryParseOutcome;
+      case "first format":
+        await this.removeEntry();
+        return entryParseOutcome;
+      case "unreadable":
+        this.warnOnce("unreadable", "The values kept on the device could not be read and were removed, starting without them");
+        await this.removeEntry();
+        return entryParseOutcome;
     }
   }
 
@@ -200,7 +234,7 @@ export class CachedValuesStore {
   private async writeEntry(cachedValues: CachedValues) {
     const entry: CachedValuesEntry = {
       formatVersion: ENTRY_FORMAT_VERSION,
-      clientSdkKey: this.clientSdkKey,
+      clientSdkKeyDigest: await this.clientSdkKeyDigest,
       ...cachedValues,
     };
     const serialized = JSON.stringify(entry);

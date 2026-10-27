@@ -53,15 +53,15 @@ describe("createClient's cached values with AsyncStorage installed", () => {
     fetchSpy.mockRestore();
   });
 
-  const storedEntry = async () => JSON.parse((await AsyncStorage.getItem(CACHED_VALUES_STORAGE_KEY)) as string);
-
-  test("keeps the last values in AsyncStorage under a key derived from the SDK key and serves them with reason cached when the app starts without a network", async () => {
+  test("keeps the last values in AsyncStorage with only the SDK key's SHA-256 digest, under a key derived from that digest, and serves them with reason cached when the app starts without a network", async () => {
     const firstRun = createClient("sdk-key", { logger });
     await firstRun.initialize({ id: "user-1" });
     await new Promise((resolve) => setTimeout(resolve, 50));
     firstRun.dispose();
-    expect(await storedEntry()).toMatchObject({
-      clientSdkKey: "sdk-key",
+    const storedEntry = (await AsyncStorage.getItem(CACHED_VALUES_STORAGE_KEY)) as string;
+    expect(storedEntry).not.toContain("sdk-key");
+    expect(JSON.parse(storedEntry)).toMatchObject({
+      clientSdkKeyDigest: "cc677751b8441e282621773a9be4622b11cd5bcffce54caabdd19f60e07d556c",
       contextTag: { contextKind: "user", contextId: "user-1" },
       configs: stringConfig("my-config", "from-server"),
     });

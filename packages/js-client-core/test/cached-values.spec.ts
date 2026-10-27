@@ -7,6 +7,7 @@ import type {
   ConfigEvaluation,
   ConfigSet,
   InternalClientOptions,
+  PlatformCachingProvider,
   TelemetryClient,
 } from "../src";
 import { DefaultConfigDirectorClient } from "../src";
@@ -27,6 +28,11 @@ const telemetryClient: TelemetryClient = {
   close: vi.fn(async () => {}),
 };
 
+const sha256HexDigest = async (text: string): Promise<string> => {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
+
 const createClient = (
   clientSdkKey: string,
   clientOptions: ConfigDirectorClientOptions,
@@ -37,7 +43,7 @@ const createClient = (
     clientSdkKey,
     { sdkName: "test-sdk", sdkVersion: "1.2.0" },
     { logger, ...clientOptions },
-    internalClientOptions,
+    { sha256HexDigest, ...internalClientOptions },
   );
 
 class RecordingCachingProvider implements CachingProvider {
@@ -223,15 +229,16 @@ describe("cached values", () => {
     });
   });
 
-  test("writes one entry carrying the format version, the SDK key, the context tag, the environment and project ids and the time of the payload", async () => {
+  test("writes one entry carrying the format version, the SDK key's SHA-256 digest, the context tag, the environment and project ids and the time of the payload", async () => {
     vi.setSystemTime(1_700_000_000_000);
     const provider = new RecordingCachingProvider();
 
     await receivePayloadOn(provider, stringConfig("my-config", "from-server"));
 
+    expect(provider.stored).not.toContain("sdk-key");
     expect(storedEntryOf(provider)).toEqual({
-      formatVersion: 1,
-      clientSdkKey: "sdk-key",
+      formatVersion: 2,
+      clientSdkKeyDigest: "cc677751b8441e282621773a9be4622b11cd5bcffce54caabdd19f60e07d556c",
       contextTag: { contextKind: "user", contextId: "user-1" },
       environmentId: "10000000-0000-0000-0000-000000000000",
       projectId: "20000000-0000-0000-0000-000000000000",
@@ -374,11 +381,9 @@ describe("cached values", () => {
     expect(provider.writes).toHaveLength(1);
   });
 
-  test("keeps values in the platform's store when no provider is given", async () => {
+  test("keeps values in the platform's store, built from the SDK key's SHA-256 digest, when no provider is given", async () => {
     const platformProvider = new RecordingCachingProvider();
-    const platformCachingProvider = vi.fn((clientSdkKey: string) =>
-      clientSdkKey === "sdk-key" ? platformProvider : undefined,
-    );
+    const platformCachingProvider = vi.fn<PlatformCachingProvider>(() => platformProvider);
     const transport = new RecordingTransport();
     const client = track(createClient("sdk-key", {}, { transport, platformCachingProvider }));
     await client.initialize({ id: "user-1" });
@@ -387,6 +392,10 @@ describe("cached values", () => {
 
     await vi.waitFor(() => expect(platformProvider.writes).toHaveLength(1));
     expect(platformProvider.reads).toBe(1);
+    expect(platformCachingProvider).toHaveBeenCalledTimes(1);
+    expect(await platformCachingProvider.mock.calls[0][0]).toBe(
+      "cc677751b8441e282621773a9be4622b11cd5bcffce54caabdd19f60e07d556c",
+    );
   });
 
   test("uses the provider given in the options instead of the platform's store", async () => {
@@ -407,6 +416,40 @@ describe("cached values", () => {
     await vi.waitFor(() => expect(customProvider.writes).toHaveLength(1));
     expect(platformProvider.reads).toBe(0);
     expect(platformProvider.writes).toEqual([]);
+  });
+
+  test("reads, writes and removes nothing when the platform has no SHA-256, even with a provider given", async () => {
+    const provider = new RecordingCachingProvider();
+    provider.stored = JSON.stringify({
+      formatVersion: 2,
+      clientSdkKeyDigest: "cc677751b8441e282621773a9be4622b11cd5bcffce54caabdd19f60e07d556c",
+      contextTag: { contextKind: "user", contextId: "user-1" },
+      environmentId: "10000000-0000-0000-0000-000000000000",
+      projectId: "20000000-0000-0000-0000-000000000000",
+      configs: stringConfig("my-config", "from-server"),
+      receivedAt: 1_700_000_000_000,
+    });
+    const transport = new RecordingTransport();
+    const client = track(
+      createClient(
+        "sdk-key",
+        { caching: { provider }, connection: { timeout: 50 } },
+        { transport, sha256HexDigest: undefined },
+      ),
+    );
+    const events = eventsOf(client);
+    await client.initialize({ id: "user-1" });
+
+    expect(client.getValue("my-config", "default")).toBe("default");
+    expect(events).toEqual([]);
+
+    transport.deliver(full(stringConfig("my-config", "live")));
+    await vi.waitFor(() => expect(client.isReady).toBe(true));
+    await sleep(100);
+
+    expect(provider.reads).toBe(0);
+    expect(provider.writes).toEqual([]);
+    expect(provider.removes).toBe(0);
   });
 
   test("runs without a cache when the platform has no store", async () => {
@@ -511,11 +554,14 @@ describe("cached values", () => {
     expect(client.getValue("my-config", "default")).toBe("live");
   });
 
-  test("removes an entry whose format version it does not know and serves in-code defaults", async () => {
+  test("removes an entry whose format version it does not know, warns and serves in-code defaults", async () => {
     const provider = new RecordingCachingProvider();
     await receivePayloadOn(provider, stringConfig("my-config", "from-server"));
-    provider.stored = JSON.stringify({ ...storedEntryOf(provider), formatVersion: 2 });
-    const { client, events, initialization } = launchWithoutNetwork(provider, { id: "user-1" });
+    provider.stored = JSON.stringify({ ...storedEntryOf(provider), formatVersion: 3 });
+    const capturingLogger = createCapturingLogger();
+    const { client, events, initialization } = launchWithoutNetwork(provider, { id: "user-1" }, {
+      logger: capturingLogger,
+    });
     track(client);
     await initialization;
 
@@ -523,18 +569,53 @@ describe("cached values", () => {
     expect(events).toEqual([]);
     expect(provider.removes).toBe(1);
     expect(provider.stored).toBeUndefined();
+    expect(deviceWarningsOf(capturingLogger)).toEqual([
+      expect.stringMatching(/The values kept on the device could not be read and were removed/),
+    ]);
+  });
+
+  test("removes an entry of format version 1, which carried the SDK key itself, without a warning and serves in-code defaults", async () => {
+    const provider = new RecordingCachingProvider();
+    provider.stored = JSON.stringify({
+      formatVersion: 1,
+      clientSdkKey: "sdk-key",
+      contextTag: { contextKind: "user", contextId: "user-1" },
+      environmentId: "10000000-0000-0000-0000-000000000000",
+      projectId: "20000000-0000-0000-0000-000000000000",
+      configs: stringConfig("my-config", "from-server"),
+      receivedAt: 1_700_000_000_000,
+    });
+    const capturingLogger = createCapturingLogger();
+    const { client, events, initialization } = launchWithoutNetwork(provider, { id: "user-1" }, {
+      logger: capturingLogger,
+    });
+    track(client);
+    await initialization;
+
+    expect(client.getValue("my-config", "default")).toBe("default");
+    expect(events).toEqual([]);
+    expect(provider.removes).toBe(1);
+    expect(provider.stored).toBeUndefined();
+    expect(deviceWarningsOf(capturingLogger)).toEqual([]);
   });
 
   test("removes an entry written for another SDK key", async () => {
     const provider = new RecordingCachingProvider();
     await receivePayloadOn(provider, stringConfig("my-config", "from-server"));
-    provider.stored = JSON.stringify({ ...storedEntryOf(provider), clientSdkKey: "other-key" });
-    const { client, initialization } = launchWithoutNetwork(provider, { id: "user-1" });
+    provider.stored = JSON.stringify({
+      ...storedEntryOf(provider),
+      clientSdkKeyDigest: "e76527a485e36995a81abf1da59dcaad50674c9966060df76d733422bbb65194",
+    });
+    const capturingLogger = createCapturingLogger();
+    const { client, initialization } = launchWithoutNetwork(provider, { id: "user-1" }, { logger: capturingLogger });
     track(client);
     await initialization;
 
     expect(client.getValue("my-config", "default")).toBe("default");
     expect(provider.removes).toBe(1);
+    expect(deviceWarningsOf(capturingLogger)).toEqual([
+      expect.stringMatching(/The values kept on the device could not be read and were removed/),
+    ]);
   });
 
   test("keeps serving cached values with reason cached through a context update that cannot connect", async () => {
