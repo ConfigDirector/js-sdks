@@ -215,9 +215,13 @@ const isJsonTypeCompatible = (parsed: unknown, defaultValue: ConfigValueType): b
   if (parsed === null) {
     return false;
   }
-  const defaultType = typeof defaultValue;
-  if (defaultType === "bigint") {
-    return typeof parsed === "number";
+  return jsonShapeOf(parsed) === jsonShapeOf(defaultValue);
+};
+
+const jsonShapeOf = (value: unknown): NativeType | "array" => {
+  if (Array.isArray(value)) {
+    return "array";
   }
-  return typeof parsed === defaultType;
+  const nativeType = typeof value;
+  return nativeType === "bigint" ? "number" : nativeType;
 };

@@ -386,17 +386,28 @@ describe("value parser", () => {
         requestedType: "Object",
         usedDefault: false,
       });
+    });
 
+    test("returns the default value when the JSON value is a list and the generic type is object", () => {
       expect(
         parseConfigValue(configState("json", JSON.stringify(["Hello", "Hi"])), { otherData: "bye" }),
       ).toMatchObject({
-        parsedValue: ["Hello", "Hi"],
-        parsedValueId: testValueId,
-        reason: "found-match",
+        parsedValue: { otherData: "bye" },
+        parsedValueId: undefined,
+        reason: "type-mismatch",
         requestedType: "Object",
-        usedDefault: false,
+        usedDefault: true,
       });
+    });
 
+    test("returns the default value when the JSON value is an object and the generic type is array", () => {
+      expect(parseConfigValue(configState("json", JSON.stringify({ data: "Hello" })), ["bye"])).toMatchObject({
+        parsedValue: ["bye"],
+        parsedValueId: undefined,
+        reason: "type-mismatch",
+        requestedType: "Array",
+        usedDefault: true,
+      });
     });
 
     test("returns the default value when the JSON value is null and the generic type is object", () => {
@@ -424,6 +435,16 @@ describe("value parser", () => {
         parsedValueId: testValueId,
         reason: "found-match",
         requestedType: "number",
+        usedDefault: false,
+      });
+    });
+
+    test("returns a JSON number when the default value is a bigint", () => {
+      expect(parseConfigValue(configState("json", "42"), BigInt(10) as unknown as number)).toMatchObject({
+        parsedValue: 42,
+        parsedValueId: testValueId,
+        reason: "found-match",
+        requestedType: "bigint",
         usedDefault: false,
       });
     });
