@@ -1,5 +1,17 @@
 # @configdirector/openfeature-server-provider
 
+## 1.12.0
+
+### Minor Changes
+
+- 7a328c3: Evaluation details now carry the reason, the variant, and an error code when an error made the provider serve the in-code default value: `FLAG_NOT_FOUND` for a config that does not exist, `TYPE_MISMATCH` for a value of another type, and `PROVIDER_NOT_READY` before values arrive. OpenFeature error hooks now run in these cases.
+- 1ff7a02: When no config arrives within the connection timeout, initialization now fails: `setProviderAndWait` rejects, and the provider reports the `ERROR` status until config arrives, then `READY`. Before, it reported `READY` while serving in-code default values, then `READY` again once config arrived. To start without waiting for ConfigDirector, call `setProvider` instead, or catch the rejection.
+
+### Patch Changes
+
+- f305d86: A JSON config read with an object as its in-code default value now gives the config's value only when that value is a JSON object, and one read with an array as its in-code default value only when the value is a JSON array. Before, a JSON array reached a read with an object, and a JSON object a read with an array. Such a read now gives the in-code default value with the reason `type-mismatch`, or the error code `TYPE_MISMATCH` through the OpenFeature providers. It is reported to ConfigDirector, so the dashboard shows the Config type mismatch alert for the config, as it does for other mismatches.
+- 437fc57: OpenFeature events, hooks and logs now show the provider's name, `ConfigDirectorProvider`, where they showed a minified name such as `e`: the `providerName` of provider events, `providerMetadata.name` in a hook's context, and OpenFeature's own log messages.
+
 ## 1.11.1
 
 ### Patch Changes

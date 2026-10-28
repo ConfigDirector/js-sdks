@@ -1,5 +1,17 @@
 # @configdirector/openfeature-web-provider
 
+## 1.10.0
+
+### Minor Changes
+
+- 7a328c3: Evaluation details now carry the reason, the variant, and an error code when an error made the provider serve the in-code default value: `FLAG_NOT_FOUND` for a config that does not exist, `TYPE_MISMATCH` for a value of another type, and `PROVIDER_NOT_READY` before values arrive. Values kept on the device report the `CACHED` reason. OpenFeature error hooks now run in these cases.
+
+### Patch Changes
+
+- f305d86: A JSON config read with an object as its in-code default value now gives the config's value only when that value is a JSON object, and one read with an array as its in-code default value only when the value is a JSON array. Before, a JSON array reached a read with an object, and a JSON object a read with an array. Such a read now gives the in-code default value with the reason `type-mismatch`, or the error code `TYPE_MISMATCH` through the OpenFeature providers. It is reported to ConfigDirector, so the dashboard shows the Config type mismatch alert for the config, as it does for other mismatches.
+- 399ee39: The values kept on the device, in `localStorage` or in a `CachingProvider` of your own, no longer include the client SDK key, only its SHA-256 digest. Values kept by an earlier version are removed on the first launch after the upgrade, so that launch resolves flags to the default values passed to the OpenFeature client until live values arrive. On a page without `crypto.subtle`, such as a plain `http` page on a host other than `localhost`, a `CachingProvider` of your own is no longer called and nothing is kept, as the default store already kept nothing there.
+- 437fc57: OpenFeature events, hooks and logs now show the provider's name, `ConfigDirectorProvider`, where they showed a minified name such as `r`: the `providerName` of provider events, `providerMetadata.name` in a hook's context, and OpenFeature's own log messages.
+
 ## 1.9.1
 
 ### Patch Changes

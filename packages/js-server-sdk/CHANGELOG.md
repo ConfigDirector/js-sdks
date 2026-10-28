@@ -1,5 +1,15 @@
 # @configdirector/server-sdk
 
+## 1.12.0
+
+### Minor Changes
+
+- 7a328c3: Added `evaluate(key, defaultValue, context)`, which returns the value together with the reason it was served and its value ID, the same evaluation that `configEvaluated` reports. The `ConfigEvaluation` and `EvaluationReason` types are exported. Evaluations now carry the value ID ConfigDirector assigned to the value served.
+
+### Patch Changes
+
+- f305d86: A JSON config read with an object as its in-code default value now gives the config's value only when that value is a JSON object, and one read with an array as its in-code default value only when the value is a JSON array. Before, a JSON array reached a read with an object, and a JSON object a read with an array. Such a read now gives the in-code default value with the reason `type-mismatch`, or the error code `TYPE_MISMATCH` through the OpenFeature providers. It is reported to ConfigDirector, so the dashboard shows the Config type mismatch alert for the config, as it does for other mismatches.
+
 ## 1.11.1
 
 ### Patch Changes
