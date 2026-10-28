@@ -41,10 +41,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@configdirector/client-sdk@npm:^1.9.1":
-  version: 1.9.1
-  resolution: "@configdirector/client-sdk@npm:1.9.1"
-  checksum: 10c0/38b9416e67e97df2d2586d58915c3dafd0b31d58877a83d208bf04134da030273dd5c64180655a0fafcec50e1266eafa2f1b6de8f2ba7f1a5c3f1ea6efd1c75c
+"@configdirector/client-sdk@npm:^1.10.0":
+  version: 1.10.0
+  resolution: "@configdirector/client-sdk@npm:1.10.0"
+  checksum: 10c0/b343390fc0cfb82924b9abec61a715bfa408f2a5c200b2a342327c74aba0cfbde7aadbc50ebfb4787ebf960243053dccc81cc08a25fd906374bfecabe12f1204
   languageName: node
   linkType: hard
 
@@ -52,7 +52,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/js-client-sample-app@workspace:."
   dependencies:
-    "@configdirector/client-sdk": "npm:^1.9.1"
+    "@configdirector/client-sdk": "npm:^1.10.0"
     "@types/jsdom": "npm:^30"
     jsdom: "npm:^30.1.1"
     typescript: "npm:~5.9.2"

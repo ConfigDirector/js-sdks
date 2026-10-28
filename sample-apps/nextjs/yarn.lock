@@ -77,7 +77,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/nextjs-sample-app@workspace:."
   dependencies:
-    "@configdirector/nextjs-sdk": "npm:^1.12.1"
+    "@configdirector/nextjs-sdk": "npm:^1.13.0"
     "@testing-library/dom": "npm:^10.4.2"
     "@testing-library/jest-dom": "npm:^7.0.1"
     "@testing-library/react": "npm:^16.3.3"
@@ -95,9 +95,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@configdirector/nextjs-sdk@npm:^1.12.1":
-  version: 1.12.1
-  resolution: "@configdirector/nextjs-sdk@npm:1.12.1"
+"@configdirector/nextjs-sdk@npm:^1.13.0":
+  version: 1.13.0
+  resolution: "@configdirector/nextjs-sdk@npm:1.13.0"
   dependencies:
     rapidhash-js: "npm:^3.0.0"
     semver: "npm:^7.7.4"
@@ -105,7 +105,7 @@ __metadata:
     next: ">=14.0.0"
     react: ">=18.0.0"
     react-dom: ">=18.0.0"
-  checksum: 10c0/3058ac267242cd4b4fd97c5760138199489a4c5a1650f0c195aee69320e204eea40811128c466c85c239f352c87c781e11176ea48376d566f21b8f463b1d6826
+  checksum: 10c0/b8d06d47825607ab55de3040aeb52ff62bcd0e1d512ada0763b97c5c262e311ae4d47517aaa1c4392ebdfc7b14fefefecc1dbf836e8d31886128e5864819798f
   languageName: node
   linkType: hard
 
