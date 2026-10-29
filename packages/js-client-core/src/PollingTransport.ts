@@ -29,8 +29,8 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
   }
 
   public async connect(context: ConfigDirectorContext, timeout: number): Promise<this> {
-    const generation = ++this.connectionGeneration;
-    this.clearPollingInterval();
+    this.endCurrentConnection();
+    const generation = this.connectionGeneration;
     const clientSession = await this.options.clientSession;
     if (generation !== this.connectionGeneration) {
       return this;
@@ -55,8 +55,14 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
   }
 
   public override close() {
-    this.connectionGeneration++;
+    this.endCurrentConnection();
     super.close();
+  }
+
+  private endCurrentConnection() {
+    this.connectionGeneration++;
+    this.clearPollingInterval();
+    this.lastUpdateTimestamp = undefined;
   }
 
   private async fetchConfigs(context: ConfigDirectorContext, timeout: number, clientSession: ClientSession) {

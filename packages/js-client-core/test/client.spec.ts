@@ -2097,6 +2097,76 @@ describe("ConfigDirectorClient", () => {
       expect((payloads[1] as any).lastUpdateTimestamp).toBe(timestamp); // poll includes timestamp from previous response
     });
 
+    test("sends no lastUpdateTimestamp on the first request after a context update", async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-06-15T12:00:00.000Z") });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+      await client.initialize({ id: "user-1", name: "Alice", traits: {} });
+      await client.updateContext({ id: "user-2", name: "Bob", traits: {} });
+
+      const payloads = await commands.mswGetPayloads();
+      expect(payloads).toHaveLength(2);
+      expect(payloads[1]).not.toHaveProperty("lastUpdateTimestamp");
+    });
+
+    test("serves the updated context's values and is ready when no config changed since the previous values", async () => {
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "for-alice",
+            },
+          },
+          "2024-01-01T00:00:00.000Z",
+        ),
+        noConfigChangedSinceTimestamp: true,
+      });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+      await client.initialize({ id: "user-1", name: "Alice", traits: {} });
+
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "for-bob",
+            },
+          },
+          "2024-01-01T00:00:00.000Z",
+        ),
+        noConfigChangedSinceTimestamp: true,
+      });
+
+      await client.updateContext({ id: "user-2", name: "Bob", traits: {} });
+
+      expect(client.getValue("my-config", "default")).toBe("for-bob");
+      expect(client.isReady).toBe(true);
+    });
+
+    test("is ready again after a network resume when no config changed since the previous values", async () => {
+      await commands.mswUseHandlers({
+        url: POLL_URL,
+        responseBody: full({}, "2024-01-01T00:00:00.000Z"),
+        noConfigChangedSinceTimestamp: true,
+      });
+
+      client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+      await client.initialize();
+
+      client.pauseNetwork();
+      await client.resumeNetwork();
+
+      expect(client.isReady).toBe(true);
+    });
+
     test("continues polling but does not emit configsUpdated on a 204 response", async () => {
       let updateCount = 0;
       await commands.mswUseHandlers({

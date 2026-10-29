@@ -17,6 +17,7 @@ export type HandlerDescriptor = {
   method?: string; // defaults to 'post'
   status?: number; // defaults to 200
   responseBody?: object; // defaults to {}
+  noConfigChangedSinceTimestamp?: boolean;
 };
 
 /** A single SSE message to stream, with an optional delay before it is sent. */
@@ -55,17 +56,19 @@ export const mswUseHandlers = defineBrowserCommand(
     state.payloads.length = 0;
     state.requestReceived = false;
 
-    const handlers = descriptors.map(({ url, method = "post", status = 200, responseBody }) =>
-      (http as Record<string, typeof http.post>)[method.toLowerCase()](
-        url,
-        async ({ request }) => {
+    const handlers = descriptors.map(
+      ({ url, method = "post", status = 200, responseBody, noConfigChangedSinceTimestamp = false }) =>
+        (http as Record<string, typeof http.post>)[method.toLowerCase()](url, async ({ request }) => {
           state.requestReceived = true;
           if (status >= 200 && status < 300) {
-            state.payloads.push(await request.json());
+            const payload = (await request.json()) as { lastUpdateTimestamp?: string };
+            state.payloads.push(payload);
+            if (noConfigChangedSinceTimestamp && payload.lastUpdateTimestamp !== undefined) {
+              return new HttpResponse(null, { status: 204 });
+            }
           }
           return HttpResponse.json(responseBody ?? {}, { status });
-        },
-      ),
+        }),
     );
 
     state.network.resetHandlers(...handlers);
