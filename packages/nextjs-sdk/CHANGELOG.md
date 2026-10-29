@@ -1,5 +1,11 @@
 # @configdirector/nextjs-sdk
 
+## 1.13.1
+
+### Patch Changes
+
+- c11f5d0: In polling mode, `updateContext` now gets the values for the new context, and `resumeNetwork` makes the client ready again. Before, when no config had changed since the client's last values, `updateContext` kept serving the previous context's values, and the client stayed not ready and logged a timeout warning until a config changed. In React Native, the same happened after the app came back to the foreground or got its connection back. Each `initialize`, `updateContext` and `resumeNetwork` in polling mode now downloads the full set of values.
+
 ## 1.13.0
 
 ### Minor Changes
