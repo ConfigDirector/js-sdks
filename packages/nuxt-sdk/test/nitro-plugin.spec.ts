@@ -53,7 +53,11 @@ const runRequestHook = (nitroApp: NitroApp): void => {
   onRequest({ context: {} });
 };
 
-const clientOptions = () => clientConstructor.mock.calls[0]![2] as { connection: Record<string, unknown> };
+const clientOptions = () =>
+  clientConstructor.mock.calls[0]![2] as {
+    connection: Record<string, unknown>;
+    metadata: Record<string, unknown>;
+  };
 
 describe("ConfigDirector Nitro plugin", () => {
   beforeEach(() => {
@@ -88,6 +92,24 @@ describe("ConfigDirector Nitro plugin", () => {
     });
 
     expect(clientOptions().connection).toEqual({ mode: "streaming" });
+  });
+
+  test("passes the public app name and version to the server client as its metadata", () => {
+    runtimeConfig.public.configdirector = { appName: "storefront", appVersion: "2.4.0" };
+
+    runPlugin({ serverSdkKey: "server-key", baseUrl: "" });
+
+    expect(clientConstructor).toHaveBeenCalledWith(
+      "server-key",
+      { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
+      expect.objectContaining({ metadata: { appName: "storefront", appVersion: "2.4.0" } }),
+    );
+  });
+
+  test("leaves the app name and version undefined when the public config sets neither", () => {
+    runPlugin({ serverSdkKey: "server-key", baseUrl: "" });
+
+    expect(clientOptions().metadata).toEqual({ appName: undefined, appVersion: undefined });
   });
 
   test("builds an offline server client from the configured file without a server SDK key", () => {

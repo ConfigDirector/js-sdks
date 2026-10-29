@@ -105,11 +105,12 @@ interface ConfigDirectorPublicRuntimeConfig {
    */
   clientSdkKey?: string;
   /**
-   * Your app's name. This value can be used in ConfigDirector targeting rules.
+   * Your app's name. Both the browser and the server send it, so ConfigDirector targeting rules can use it.
    */
   appName?: string;
   /**
-   * Your app's version. This value can be used in ConfigDirector targeting rules.
+   * Your app's version. Both the browser and the server send it, so ConfigDirector targeting rules can
+   * use it.
    *
    * This can be a semver value or an arbitrary string (like a commit hash).
    */

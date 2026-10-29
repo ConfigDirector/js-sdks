@@ -8,6 +8,7 @@ export default defineNitroPlugin((nitroApp) => {
   const runtimeConfig = useRuntimeConfig();
   const logger = createDefaultLogger(runtimeConfig.configdirector?.logLevel);
   const { serverSdkKey, baseUrl, connection } = runtimeConfig.configdirector;
+  const { appName, appVersion } = runtimeConfig.public.configdirector;
   const connectionMode: ConnectionMode = connection?.mode || "streaming";
 
   if (connectionMode !== "offline" && !serverSdkKey) {
@@ -23,6 +24,7 @@ export default defineNitroPlugin((nitroApp) => {
     { sdkName: "nuxt-sdk", sdkVersion: "__VERSION__" },
     {
       logger,
+      metadata: { appName, appVersion },
       connection: {
         url: baseUrl || undefined,
         mode: connectionMode,
