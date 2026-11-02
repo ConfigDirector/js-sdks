@@ -48,7 +48,17 @@ export default defineNitroPlugin((nitroApp) => {
   });
 });
 
+// Nuxt augments NitroApp through both module names, and an augmentation through only one of them is not seen
+// through the other.
 declare module "nitropack" {
+  interface NitroApp {
+    configDirectorClient: ConfigDirectorClient;
+    configDirectorConnectionMode: ConnectionMode;
+    configDirectorInitialization: Promise<void>;
+  }
+}
+
+declare module "nitropack/types" {
   interface NitroApp {
     configDirectorClient: ConfigDirectorClient;
     configDirectorConnectionMode: ConnectionMode;
