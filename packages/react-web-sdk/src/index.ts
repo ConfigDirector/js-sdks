@@ -18,4 +18,5 @@ export type {
   ConfigEvaluation,
   ConnectionMode,
   EvaluationReason,
+  Variation,
 } from "@js-browser-client/index";

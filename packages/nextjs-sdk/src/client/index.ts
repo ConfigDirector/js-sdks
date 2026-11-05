@@ -20,4 +20,5 @@ export type {
   ConfigValueType,
   ConnectionMode,
   EvaluationReason,
+  Variation,
 } from "@js-browser-client/index";

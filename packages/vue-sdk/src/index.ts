@@ -10,5 +10,6 @@ export type {
   ConfigEvaluation,
   ConnectionMode,
   EvaluationReason,
+  Variation,
 } from "@js-browser-client/index";
 export type { ConfigDirectorPluginOptions, ClientStatus, OfflineValue, OfflineValues } from "./types";

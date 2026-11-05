@@ -24,20 +24,23 @@ const typeMismatch: ResolutionDetailsFor = (evaluation) =>
     `The value of '${evaluation.key}' cannot be read as the requested type (${evaluation.reason}).`,
   );
 
+const variantOf = (evaluation: ConfigEvaluation): string | undefined =>
+  evaluation.variation?.name ?? evaluation.valueId;
+
 const resolutionDetailsByReason: { [R in EvaluationReason]: ResolutionDetailsFor } = {
   "found-match": (evaluation) => ({
     value: evaluation.value,
-    variant: evaluation.valueId,
+    variant: variantOf(evaluation),
     reason: StandardResolutionReasons.TARGETING_MATCH,
   }),
   "rollout-skipped-no-identifier": (evaluation) => ({
     value: evaluation.value,
-    variant: evaluation.valueId,
+    variant: variantOf(evaluation),
     reason: StandardResolutionReasons.DEFAULT,
   }),
   cached: (evaluation) => ({
     value: evaluation.value,
-    variant: evaluation.valueId,
+    variant: variantOf(evaluation),
     reason: StandardResolutionReasons.CACHED,
   }),
   "value-missing": (evaluation) => ({ value: evaluation.value, reason: StandardResolutionReasons.DEFAULT }),

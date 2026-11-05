@@ -551,11 +551,15 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       evaluatedValueId: parseResult.parsedValueId,
       usedDefault: parseResult.usedDefault,
       evaluationReason: reason,
+      ruleId: parseResult.ruleId,
+      shareId: parseResult.shareId,
+      variationId: parseResult.variation?.id,
     });
     const evaluation: ConfigEvaluation<T> = {
       key: configKey,
       value: parseResult.parsedValue,
       valueId: parseResult.parsedValueId ?? undefined,
+      variation: parseResult.variation,
       isDefaultValue: parseResult.usedDefault,
       reason,
       context: this.context,

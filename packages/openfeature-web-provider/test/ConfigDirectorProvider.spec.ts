@@ -323,6 +323,106 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
       });
     });
 
+    test("resolves a named variation with its name as the variant", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Try it free",
+                valueId: "value-id-treatment",
+                variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+              },
+            }),
+          },
+        ],
+      ]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = OpenFeature.getClient().getStringDetails("checkout-cta-copy", "in-code default");
+
+      expect(details).toEqual({
+        flagKey: "checkout-cta-copy",
+        flagMetadata: {},
+        value: "Try it free",
+        reason: "TARGETING_MATCH",
+        variant: "treatment",
+      });
+    });
+
+    test("resolves an unnamed variation with its value ID as the variant", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Get started",
+                valueId: "value-id-get-started",
+                variation: { id: "99999999-9999-4999-8999-999999999999", name: null },
+              },
+            }),
+          },
+        ],
+      ]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = OpenFeature.getClient().getStringDetails("checkout-cta-copy", "in-code default");
+
+      expect(details).toEqual({
+        flagKey: "checkout-cta-copy",
+        flagMetadata: {},
+        value: "Get started",
+        reason: "TARGETING_MATCH",
+        variant: "value-id-get-started",
+      });
+    });
+
+    test("resolves a named variation kept on the device with CACHED and its name as the variant", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Try it free",
+                valueId: "value-id-treatment",
+                variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+              },
+            }),
+          },
+        ],
+      ]);
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      await vi.waitFor(() => expect(localStorage.getItem(CACHED_VALUES_STORAGE_KEY)).not.toBeNull());
+      await OpenFeature.clearProviders();
+      await commands.mswUseHandlers({ url: SSE_URL, status: 503 });
+      const client = OpenFeature.getClient();
+      await expect(
+        OpenFeature.setProviderAndWait(
+          new ConfigDirectorProvider("sdk-key", { logger, connection: { timeout: 100 } }),
+        ),
+      ).rejects.toThrow(ProviderNotReadyError);
+      await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.STALE));
+
+      const details = client.getStringDetails("checkout-cta-copy", "in-code default");
+
+      expect(details).toEqual({
+        flagKey: "checkout-cta-copy",
+        flagMetadata: {},
+        value: "Try it free",
+        reason: "CACHED",
+        variant: "treatment",
+      });
+    });
+
     test("resolves a config without a value to the in-code default value with DEFAULT", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [

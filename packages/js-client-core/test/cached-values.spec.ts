@@ -217,6 +217,67 @@ describe("cached values", () => {
     });
   });
 
+  test("evaluate returns a value kept on the device with its variation", async () => {
+    const provider = new RecordingCachingProvider();
+    await receivePayloadOn(provider, {
+      "checkout-cta-copy": {
+        id: "00000000-0000-0000-0000-000000000001",
+        key: "checkout-cta-copy",
+        type: "string",
+        value: "Try it free",
+        valueId: "value-id-treatment",
+        variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+        ruleId: "22222222-2222-4222-8222-222222222222",
+        shareId: "66666666-6666-4666-8666-666666666666",
+      },
+    });
+    const { client, events } = launchWithoutNetwork(provider, { id: "user-1" });
+    track(client);
+    await vi.waitFor(() => expect(events).toContainEqual({ cachedValuesLoaded: {} }));
+
+    const evaluation = client.evaluate("checkout-cta-copy", "in-code default");
+
+    expect(evaluation).toEqual({
+      key: "checkout-cta-copy",
+      value: "Try it free",
+      valueId: "value-id-treatment",
+      variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+      isDefaultValue: false,
+      reason: "cached",
+      context: { id: "user-1" },
+    });
+  });
+
+  test("reports the rule, share and variation kept on the device with a value", async () => {
+    const provider = new RecordingCachingProvider();
+    await receivePayloadOn(provider, {
+      "checkout-cta-copy": {
+        id: "00000000-0000-0000-0000-000000000001",
+        key: "checkout-cta-copy",
+        type: "string",
+        value: "Try it free",
+        valueId: "value-id-treatment",
+        variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+        ruleId: "22222222-2222-4222-8222-222222222222",
+        shareId: "66666666-6666-4666-8666-666666666666",
+      },
+    });
+    const { client, events } = launchWithoutNetwork(provider, { id: "user-1" });
+    track(client);
+    await vi.waitFor(() => expect(events).toContainEqual({ cachedValuesLoaded: {} }));
+
+    client.getValue("checkout-cta-copy", "in-code default");
+
+    expect(telemetryClient.evaluatedConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evaluationReason: "cached",
+        ruleId: "22222222-2222-4222-8222-222222222222",
+        shareId: "66666666-6666-4666-8666-666666666666",
+        variationId: "88888888-8888-4888-8888-888888888888",
+      }),
+    );
+  });
+
   test("replaces cached values with the live payload and keeps the merged map on the device after a delta", async () => {
     const provider = new RecordingCachingProvider();
     await receivePayloadOn(provider, stringConfig("my-config", "yesterday"));

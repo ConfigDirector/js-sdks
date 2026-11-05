@@ -23,4 +23,5 @@ export {
   type ConfigEvaluation,
   type ConnectionMode,
   type EvaluationReason,
+  type Variation,
 } from "@js-client-core/index";

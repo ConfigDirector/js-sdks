@@ -62,4 +62,71 @@ describe("EventAggregator", () => {
       ]),
     );
   });
+
+  describe("of evaluations that carry a rule, share and variation", () => {
+    const treatmentEvaluation = (servedBy: {
+      ruleId: string;
+      shareId: string;
+      variationId: string;
+    }): EvaluatedConfigEvent<string> => ({
+      key: "checkout-cta-copy",
+      type: "string",
+      defaultValue: "in-code default",
+      requestedType: "string",
+      evaluatedValue: "Try it free",
+      usedDefault: false,
+      evaluationReason: "found-match",
+      ...servedBy,
+    });
+
+    test("counts evaluations served by the same rule, share and variation together", () => {
+      const queue = new EventQueue<EvaluatedConfigEvent<string>>();
+      queue.push(treatmentEvaluation({ ruleId: "rule-1", shareId: "share-1", variationId: "variation-1" }));
+      queue.push(treatmentEvaluation({ ruleId: "rule-1", shareId: "share-1", variationId: "variation-1" }));
+
+      const aggregates = aggregator.aggregate(queue.takeSnapshot());
+
+      expect(aggregates).toHaveLength(1);
+      expect(aggregates[0]).toMatchObject({
+        count: 2,
+        event: { ruleId: "rule-1", shareId: "share-1", variationId: "variation-1" },
+      });
+    });
+
+    test("counts evaluations of one value served by two rules separately", () => {
+      const queue = new EventQueue<EvaluatedConfigEvent<string>>();
+      queue.push(treatmentEvaluation({ ruleId: "rule-1", shareId: "share-1", variationId: "variation-1" }));
+      queue.push(treatmentEvaluation({ ruleId: "rule-2", shareId: "share-1", variationId: "variation-1" }));
+
+      const aggregates = aggregator.aggregate(queue.takeSnapshot());
+
+      expect(aggregates).toHaveLength(2);
+      expect(aggregates[0]).toMatchObject({ count: 1, event: { ruleId: "rule-1" } });
+      expect(aggregates[1]).toMatchObject({ count: 1, event: { ruleId: "rule-2" } });
+    });
+
+    test("counts evaluations of one value served by two shares separately", () => {
+      const queue = new EventQueue<EvaluatedConfigEvent<string>>();
+      queue.push(treatmentEvaluation({ ruleId: "rule-1", shareId: "share-1", variationId: "variation-1" }));
+      queue.push(treatmentEvaluation({ ruleId: "rule-1", shareId: "share-2", variationId: "variation-1" }));
+
+      const aggregates = aggregator.aggregate(queue.takeSnapshot());
+
+      expect(aggregates).toHaveLength(2);
+      expect(aggregates[0]).toMatchObject({ count: 1, event: { shareId: "share-1" } });
+      expect(aggregates[1]).toMatchObject({ count: 1, event: { shareId: "share-2" } });
+    });
+
+    test("counts evaluations of one value served as two variations separately", () => {
+      const queue = new EventQueue<EvaluatedConfigEvent<string>>();
+      queue.push(treatmentEvaluation({ ruleId: "rule-1", shareId: "share-1", variationId: "variation-1" }));
+      queue.push(treatmentEvaluation({ ruleId: "rule-1", shareId: "share-1", variationId: "variation-2" }));
+
+      const aggregates = aggregator.aggregate(queue.takeSnapshot());
+
+      expect(aggregates).toHaveLength(2);
+      expect(aggregates[0]).toMatchObject({ count: 1, event: { variationId: "variation-1" } });
+      expect(aggregates[1]).toMatchObject({ count: 1, event: { variationId: "variation-2" } });
+    });
+  });
 });

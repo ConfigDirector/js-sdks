@@ -14,6 +14,7 @@ type ExpoGlobal = { expo?: { modules?: Record<string, unknown> } };
 describe("createClient", () => {
   let fetchSpy: ReturnType<typeof jest.spyOn<typeof globalThis, "fetch", any>>;
   const requests: { url: string; body: any }[] = [];
+  let payloadConfigs: object = {};
 
   beforeAll(() => {
     fetchSpy = jest.spyOn(globalThis, "fetch");
@@ -25,7 +26,7 @@ describe("createClient", () => {
       return buildResponse(
         new ReadableStream({
           start(controller) {
-            controller.enqueue(message(full()));
+            controller.enqueue(message(full(payloadConfigs)));
           },
         }),
       );
@@ -34,6 +35,7 @@ describe("createClient", () => {
 
   afterEach(() => {
     requests.length = 0;
+    payloadConfigs = {};
     delete NativeModules.RNDeviceInfo;
     delete (globalThis as ExpoGlobal).expo;
   });
@@ -132,6 +134,36 @@ describe("createClient", () => {
     });
     expect(telemetryRequest?.body?.instanceId).toBe(connectRequest?.body?.instanceId);
     expect(telemetryRequest?.body).not.toHaveProperty("ephemeral");
+  });
+
+  test("reports the rule, share and variation a payload entry carries in telemetry", async () => {
+    payloadConfigs = {
+      "checkout-cta-copy": {
+        id: "00000000-0000-0000-0000-000000000001",
+        key: "checkout-cta-copy",
+        type: "string",
+        value: "Try it free",
+        valueId: "value-id-treatment",
+        variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+        ruleId: "22222222-2222-4222-8222-222222222222",
+        shareId: "66666666-6666-4666-8666-666666666666",
+      },
+    };
+    const client = createClient("sdk-key", { logger });
+    await client.initialize();
+
+    client.getValue("checkout-cta-copy", "in-code default");
+    client.dispose();
+
+    await waitForTelemetryReport();
+    const telemetryRequest = requests.find((request) => request.url.includes("telemetry"));
+    expect(telemetryRequest?.body?.aggregatedEvents.evaluatedConfig).toHaveLength(1);
+    expect(telemetryRequest?.body?.aggregatedEvents.evaluatedConfig[0].event).toMatchObject({
+      key: "checkout-cta-copy",
+      ruleId: "22222222-2222-4222-8222-222222222222",
+      shareId: "66666666-6666-4666-8666-666666666666",
+      variationId: "88888888-8888-4888-8888-888888888888",
+    });
   });
 
   test("reports an invalid context kind found at initialization, and connects with no context", async () => {

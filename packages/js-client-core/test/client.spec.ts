@@ -620,6 +620,100 @@ describe("ConfigDirectorClient", () => {
       );
     });
 
+    test("reports the rule, share and variation a payload entry carries", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Try it free",
+                valueId: "value-id-treatment",
+                variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+                ruleId: "22222222-2222-4222-8222-222222222222",
+                shareId: "66666666-6666-4666-8666-666666666666",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize({ id: "user-1" });
+
+      client.getValue("checkout-cta-copy", "in-code default");
+
+      expect(telemetryClient.evaluatedConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          key: "checkout-cta-copy",
+          evaluationReason: "found-match",
+          ruleId: "22222222-2222-4222-8222-222222222222",
+          shareId: "66666666-6666-4666-8666-666666666666",
+          variationId: "88888888-8888-4888-8888-888888888888",
+        }),
+      );
+    });
+
+    test("reports the variation and no rule or share for a payload entry that carries only a variation", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Get started",
+                valueId: "value-id-get-started",
+                variation: { id: "99999999-9999-4999-8999-999999999999", name: null },
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize({ id: "user-1" });
+
+      client.getValue("checkout-cta-copy", "in-code default");
+
+      const [event] = vi.mocked(telemetryClient.evaluatedConfig).mock.lastCall ?? [];
+      expect(event?.variationId).toBe("99999999-9999-4999-8999-999999999999");
+      expect(event?.ruleId).toBeUndefined();
+      expect(event?.shareId).toBeUndefined();
+    });
+
+    test("reports no rule, share or variation when the in-code default value is returned", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Try it free",
+                valueId: "value-id-treatment",
+                variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+                ruleId: "22222222-2222-4222-8222-222222222222",
+                shareId: "66666666-6666-4666-8666-666666666666",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize({ id: "user-1" });
+
+      client.getValue("checkout-cta-copy", 7);
+
+      const [event] = vi.mocked(telemetryClient.evaluatedConfig).mock.lastCall ?? [];
+      expect(event?.evaluationReason).toBe("invalid-number");
+      expect(event?.ruleId).toBeUndefined();
+      expect(event?.shareId).toBeUndefined();
+      expect(event?.variationId).toBeUndefined();
+    });
+
     describe("when the telemetry client rejects", () => {
       const rejectingTelemetryClient: TelemetryClient = {
         updateContext: () => Promise.reject(new Error("telemetry is unavailable")),
@@ -1028,6 +1122,147 @@ describe("ConfigDirectorClient", () => {
       });
     });
 
+    test("returns the variation of a payload entry that has one", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Try it free",
+                valueId: "value-id-treatment",
+                variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+                ruleId: "22222222-2222-4222-8222-222222222222",
+                shareId: "66666666-6666-4666-8666-666666666666",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize({ id: "user-1" });
+
+      const evaluation = client.evaluate("checkout-cta-copy", "in-code default");
+
+      expect(evaluation).toEqual({
+        key: "checkout-cta-copy",
+        value: "Try it free",
+        valueId: "value-id-treatment",
+        variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+        isDefaultValue: false,
+        reason: "found-match",
+        context: { id: "user-1" },
+      });
+    });
+
+    test("returns an unnamed variation with its id and no name", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Get started",
+                valueId: "value-id-get-started",
+                variation: { id: "99999999-9999-4999-8999-999999999999", name: null },
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize({ id: "user-1" });
+
+      const evaluation = client.evaluate("checkout-cta-copy", "in-code default");
+
+      expect(evaluation.value).toBe("Get started");
+      expect(evaluation.variation).toStrictEqual({ id: "99999999-9999-4999-8999-999999999999" });
+    });
+
+    test("returns a variation whose name is empty with its id and no name", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Get started",
+                valueId: "value-id-get-started",
+                variation: { id: "99999999-9999-4999-8999-999999999999", name: "" },
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize({ id: "user-1" });
+
+      const evaluation = client.evaluate("checkout-cta-copy", "in-code default");
+
+      expect(evaluation.value).toBe("Get started");
+      expect(evaluation.variation).toStrictEqual({ id: "99999999-9999-4999-8999-999999999999" });
+    });
+
+    test("returns no variation for a flag, whose payload entry has none", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "new-checkout": {
+                id: "00000000-0000-0000-0000-000000000002",
+                key: "new-checkout",
+                type: "boolean",
+                value: "true",
+                valueId: "value-id-true",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize({ id: "user-1" });
+
+      const evaluation = client.evaluate("new-checkout", false);
+
+      expect(evaluation.value).toBe(true);
+      expect(evaluation.variation).toBeUndefined();
+    });
+
+    test("returns no variation with the in-code default value when the value cannot be read as the requested type", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Try it free",
+                valueId: "value-id-treatment",
+                variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+                ruleId: "22222222-2222-4222-8222-222222222222",
+                shareId: "66666666-6666-4666-8666-666666666666",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize({ id: "user-1" });
+
+      const evaluation = client.evaluate("checkout-cta-copy", 7);
+
+      expect(evaluation.reason).toBe("invalid-number");
+      expect(evaluation.value).toBe(7);
+      expect(evaluation.variation).toBeUndefined();
+    });
+
     test("returns the in-code default value with reason 'value-missing' when the config state has no value", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [
@@ -1297,6 +1532,42 @@ describe("ConfigDirectorClient", () => {
         key: "my-config",
         value: "server-value",
         valueId: "val-abc-123",
+        isDefaultValue: false,
+        reason: "found-match",
+      });
+    });
+
+    test("includes the variation in the event when the config state has one", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [
+        [
+          {
+            data: full({
+              "checkout-cta-copy": {
+                id: "00000000-0000-0000-0000-000000000001",
+                key: "checkout-cta-copy",
+                type: "string",
+                value: "Try it free",
+                valueId: "value-id-treatment",
+                variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+                ruleId: "22222222-2222-4222-8222-222222222222",
+                shareId: "66666666-6666-4666-8666-666666666666",
+              },
+            }),
+          },
+        ],
+      ]);
+      client = createClient("sdk-key", { logger });
+      await client.initialize();
+      const events = collectEvents();
+
+      client.getValue("checkout-cta-copy", "in-code default");
+
+      await vi.waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0].evaluation).toEqual({
+        key: "checkout-cta-copy",
+        value: "Try it free",
+        valueId: "value-id-treatment",
+        variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
         isDefaultValue: false,
         reason: "found-match",
       });

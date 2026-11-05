@@ -136,6 +136,73 @@ describe("ConfigDirectorClient", () => {
     expect(report["instanceId"]).toBe(pollPayload?.["instanceId"]);
   });
 
+  test("reports the rule, share and variation a payload entry carries in telemetry", async () => {
+    await commands.mswUseHandlers(
+      {
+        url: POLLING_URL,
+        responseBody: full({
+          "checkout-cta-copy": {
+            id: "00000000-0000-0000-0000-000000000001",
+            key: "checkout-cta-copy",
+            type: "string",
+            value: "Try it free",
+            valueId: "value-id-treatment",
+            variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+            ruleId: "22222222-2222-4222-8222-222222222222",
+            shareId: "66666666-6666-4666-8666-666666666666",
+          },
+        }),
+      },
+      { url: TELEMETRY_URL, status: 202 },
+    );
+
+    client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+    await client.initialize();
+    client.getValue("checkout-cta-copy", "in-code default");
+    await hidePageFor(0);
+    const report = await waitForTelemetryReport();
+
+    const { evaluatedConfig } = report["aggregatedEvents"] as { evaluatedConfig: { event: unknown }[] };
+    expect(evaluatedConfig).toHaveLength(1);
+    expect(evaluatedConfig[0]?.event).toMatchObject({
+      key: "checkout-cta-copy",
+      ruleId: "22222222-2222-4222-8222-222222222222",
+      shareId: "66666666-6666-4666-8666-666666666666",
+      variationId: "88888888-8888-4888-8888-888888888888",
+    });
+  });
+
+  test("reports no rule, share or variation in telemetry for a payload entry that carries none", async () => {
+    await commands.mswUseHandlers(
+      {
+        url: POLLING_URL,
+        responseBody: full({
+          "new-checkout": {
+            id: "00000000-0000-0000-0000-000000000002",
+            key: "new-checkout",
+            type: "boolean",
+            value: "true",
+            valueId: "value-id-true",
+          },
+        }),
+      },
+      { url: TELEMETRY_URL, status: 202 },
+    );
+
+    client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+    await client.initialize();
+    client.getValue("new-checkout", false);
+    await hidePageFor(0);
+    const report = await waitForTelemetryReport();
+
+    const { evaluatedConfig } = report["aggregatedEvents"] as { evaluatedConfig: { event: unknown }[] };
+    expect(evaluatedConfig).toHaveLength(1);
+    expect(evaluatedConfig[0]?.event).toMatchObject({ key: "new-checkout", usedDefault: false });
+    expect(evaluatedConfig[0]?.event).not.toHaveProperty("ruleId");
+    expect(evaluatedConfig[0]?.event).not.toHaveProperty("shareId");
+    expect(evaluatedConfig[0]?.event).not.toHaveProperty("variationId");
+  });
+
   describe.each([
     { scenario: "Worker is not defined", makeWorkerUnavailable: removeWorker },
     { scenario: "constructing a Worker throws", makeWorkerUnavailable: throwOnWorkerConstruction },

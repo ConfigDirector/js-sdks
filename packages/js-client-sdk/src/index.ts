@@ -13,6 +13,7 @@ export type {
   OfflineClientOptions,
   OfflineValue,
   OfflineValues,
+  Variation,
 } from "@js-client-core/index";
 
 export type { ConfigDirectorConnectionError, ConfigDirectorValidationError } from "@js-client-core/index";
