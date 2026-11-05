@@ -30,6 +30,11 @@ const resolutionDetailsByReason: { [R in EvaluationReason]: ResolutionDetailsFor
     variant: evaluation.valueId,
     reason: StandardResolutionReasons.TARGETING_MATCH,
   }),
+  "rollout-skipped-no-identifier": (evaluation) => ({
+    value: evaluation.value,
+    variant: evaluation.valueId,
+    reason: StandardResolutionReasons.DEFAULT,
+  }),
   cached: (evaluation) => ({
     value: evaluation.value,
     variant: evaluation.valueId,

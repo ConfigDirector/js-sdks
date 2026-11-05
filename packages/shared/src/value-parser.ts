@@ -1,14 +1,42 @@
-import type { ConfigState, ConfigType, ConfigValueType, EvaluationReason } from "./types";
+import type { ConfigState, ConfigType, ConfigValueType, EvaluationReason, Variation } from "./types";
 
 type NativeType = "string" | "number" | "bigint" | "boolean" | "symbol" | "undefined" | "object" | "function";
 
-type ParseResult<T extends ConfigValueType> = {
+type ValueAndReason<T extends ConfigValueType> = {
   parsedValue: T;
   parsedValueId: string | null | undefined;
   requestedType: NativeType | string;
   usedDefault: boolean;
   reason: EvaluationReason;
 };
+
+type VariationAndRolloutShare = {
+  variation: Variation | undefined;
+  ruleId: string | undefined;
+  shareId: string | undefined;
+};
+
+type ParseResult<T extends ConfigValueType> = ValueAndReason<T> & VariationAndRolloutShare;
+
+const NO_VARIATION_OR_ROLLOUT_SHARE: VariationAndRolloutShare = {
+  variation: undefined,
+  ruleId: undefined,
+  shareId: undefined,
+};
+
+const variationOf = (configState: ConfigState): Variation | undefined => {
+  const variation = configState.variation;
+  if (variation == null) {
+    return undefined;
+  }
+  return variation.name ? { id: variation.id, name: variation.name } : { id: variation.id };
+};
+
+const variationAndRolloutShareOf = (configState: ConfigState): VariationAndRolloutShare => ({
+  variation: variationOf(configState),
+  ruleId: configState.ruleId ?? undefined,
+  shareId: configState.shareId ?? undefined,
+});
 
 export const getRequestedType = <T extends ConfigValueType>(defaultValue: T): string => {
   const baseType = typeof defaultValue;
@@ -39,6 +67,20 @@ export const parseConfigValue = <T extends ConfigValueType>(
   configState: ConfigState,
   defaultValue: T,
 ): ParseResult<T> => {
+  const valueAndReason = parseValueAndReason(configState, defaultValue);
+
+  return {
+    ...valueAndReason,
+    ...(valueAndReason.usedDefault
+      ? NO_VARIATION_OR_ROLLOUT_SHARE
+      : variationAndRolloutShareOf(configState)),
+  };
+};
+
+const parseValueAndReason = <T extends ConfigValueType>(
+  configState: ConfigState,
+  defaultValue: T,
+): ValueAndReason<T> => {
   const value = configState.value;
   const requestedType = getRequestedType(defaultValue);
 
@@ -171,7 +213,7 @@ const parseJson = <T extends ConfigValueType>(
   defaultValue: T,
   requestedType: string,
   valueId: string | null | undefined,
-): ParseResult<T> => {
+): ValueAndReason<T> => {
   if (typeof defaultValue === "string") {
     return {
       parsedValue: jsonString as T,

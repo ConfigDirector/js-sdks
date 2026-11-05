@@ -54,7 +54,7 @@ const servedVariation = (config: Config, variationId: string | undefined): Confi
   return variation ? { id: variationId, name: variation.name } : undefined;
 };
 
-const servedConfigState = (config: Config, explanation: EvaluationExplanation): ConfigState => ({
+export const servedConfigState = (config: Config, explanation: EvaluationExplanation): ConfigState => ({
   id: config.id,
   key: config.key,
   type: config.type,

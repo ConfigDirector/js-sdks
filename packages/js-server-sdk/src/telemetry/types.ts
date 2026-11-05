@@ -42,5 +42,8 @@ export type EvaluatedConfig<T extends ConfigValueType> = {
     evaluatedValueId?: string | null | undefined;
     usedDefault: boolean;
     evaluationReason: EvaluationReason;
+    ruleId?: string | undefined;
+    shareId?: string | undefined;
+    variationId?: string | undefined;
   };
 };

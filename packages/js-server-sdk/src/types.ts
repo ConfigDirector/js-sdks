@@ -22,6 +22,7 @@ export type {
   EvaluationReason,
   ConfigEvaluation,
   IdentifyingSdkOptions,
+  Variation,
 } from "@shared/types";
 
 /**

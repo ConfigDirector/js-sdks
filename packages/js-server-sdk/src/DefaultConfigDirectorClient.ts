@@ -2,7 +2,7 @@ import { StreamingTransport } from "./StreamingTransport";
 import { PollingTransport } from "./PollingTransport";
 import { OfflineTransport } from "./OfflineTransport";
 import { planConnection, type ConnectionPlan, type LiveConnectionMode } from "./connection-plan";
-import { ConfigEvaluator } from "@config-evaluator/ConfigEvaluator";
+import { ConfigEvaluator, servedConfigState } from "@config-evaluator/ConfigEvaluator";
 import { getRequestedType, parseConfigValue } from "@shared/value-parser";
 import type {
   ConfigDirectorContext,
@@ -400,12 +400,14 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   ): ConfigEvaluation<T> {
     const context = this.contextToEvaluate(suppliedContext);
     if (configDefinition) {
-      const configState = this.configEvaluator.evaluate(
+      const explanation = this.configEvaluator.explain(
         configDefinition,
         { context, metadata: this.metaContext },
         this.configSet?.segments,
       );
+      const configState = servedConfigState(configDefinition, explanation);
       const parseResult = parseConfigValue<T>(configState, defaultValue);
+      const reason: EvaluationReason = parseResult.usedDefault ? parseResult.reason : explanation.reason;
       this.usageEventCollector.evaluatedConfig({
         context,
         evaluation: {
@@ -416,15 +418,19 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
           evaluatedValue: parseResult.parsedValue,
           evaluatedValueId: parseResult.parsedValueId,
           usedDefault: parseResult.usedDefault,
-          evaluationReason: parseResult.reason,
+          evaluationReason: reason,
+          ruleId: parseResult.ruleId,
+          shareId: parseResult.shareId,
+          variationId: parseResult.variation?.id,
         },
       });
       const evaluation: ConfigEvaluation<T> = {
         key: configKey,
         value: parseResult.parsedValue,
         valueId: parseResult.parsedValueId ?? undefined,
+        variation: parseResult.variation,
         isDefaultValue: parseResult.usedDefault,
-        reason: parseResult.reason,
+        reason,
         context: context,
       };
       this.dispatchEvaluationEvent(evaluation);

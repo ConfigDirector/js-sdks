@@ -338,6 +338,176 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
       });
     });
 
+    describe("of a config with variations", () => {
+      const checkoutCtaCopy = {
+        id: "00000000-0000-0000-0000-000000000001",
+        key: "checkout-cta-copy",
+        type: "string",
+        variations: [
+          { id: "77777777-7777-4777-8777-777777777777", name: "control", value: "Start free trial" },
+          { id: "88888888-8888-4888-8888-888888888888", name: "treatment", value: "Try it free" },
+          { id: "99999999-9999-4999-8999-999999999999", name: null, value: "Get started" },
+        ],
+        target: {
+          environmentId: "10000000-0000-0000-0000-000000000000",
+          defaultValue: "Start free trial",
+          defaultValueId: "value-id-control",
+          defaultVariationId: "77777777-7777-4777-8777-777777777777",
+          rules: [
+            {
+              id: "33333333-3333-4333-8333-333333333333",
+              order: 0,
+              type: "conditional",
+              target: "value",
+              value: "Get started",
+              valueId: "value-id-get-started",
+              variationId: "99999999-9999-4999-8999-999999999999",
+              conditions: [
+                {
+                  id: "44444444-4444-4444-8444-444444444444",
+                  kind: "attribute",
+                  attribute: "name",
+                  operator: "equals",
+                  targetType: "text",
+                  targetValues: ["Ada Lovelace"],
+                },
+              ],
+            },
+            {
+              id: "22222222-2222-4222-8222-222222222222",
+              order: 1,
+              type: "percentage",
+              target: "percentage",
+              percentages: [
+                {
+                  id: "66666666-6666-4666-8666-666666666666",
+                  percentage: 100,
+                  value: "Try it free",
+                  valueId: "value-id-treatment",
+                  variationId: "88888888-8888-4888-8888-888888888888",
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      test("resolves a named variation with its name as the variant", async () => {
+        server.use(
+          sseHandler((controller) =>
+            controller.enqueue(message(fullBundle({ "checkout-cta-copy": checkoutCtaCopy }))),
+          ),
+        );
+        await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+        const client = OpenFeature.getClient();
+
+        const details = await client.getStringDetails("checkout-cta-copy", "in-code default", {
+          targetingKey: "user-1",
+        });
+
+        expect(details).toEqual({
+          flagKey: "checkout-cta-copy",
+          flagMetadata: {},
+          value: "Try it free",
+          reason: "TARGETING_MATCH",
+          variant: "treatment",
+        });
+      });
+
+      test("resolves an unnamed variation with its value ID as the variant", async () => {
+        server.use(
+          sseHandler((controller) =>
+            controller.enqueue(message(fullBundle({ "checkout-cta-copy": checkoutCtaCopy }))),
+          ),
+        );
+        await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+        const client = OpenFeature.getClient();
+
+        const details = await client.getStringDetails("checkout-cta-copy", "in-code default", {
+          targetingKey: "user-1",
+          name: "Ada Lovelace",
+        });
+
+        expect(details).toEqual({
+          flagKey: "checkout-cta-copy",
+          flagMetadata: {},
+          value: "Get started",
+          reason: "TARGETING_MATCH",
+          variant: "value-id-get-started",
+        });
+      });
+
+      test("resolves a context with no targeting key or id that reaches a percentage rollout to the default targeting rule value with DEFAULT and its variation's name", async () => {
+        server.use(
+          sseHandler((controller) =>
+            controller.enqueue(message(fullBundle({ "checkout-cta-copy": checkoutCtaCopy }))),
+          ),
+        );
+        await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+        const client = OpenFeature.getClient();
+
+        const details = await client.getStringDetails("checkout-cta-copy", "in-code default", {
+          name: "Grace Hopper",
+        });
+
+        expect(details).toEqual({
+          flagKey: "checkout-cta-copy",
+          flagMetadata: {},
+          value: "Start free trial",
+          reason: "DEFAULT",
+          variant: "control",
+        });
+      });
+    });
+
+    test("resolves a flag in a percentage rollout for a context with no targeting key or id to the default targeting rule value with DEFAULT and its value ID", async () => {
+      server.use(
+        sseHandler((controller) =>
+          controller.enqueue(
+            message(
+              fullBundle({
+                "dark-mode": {
+                  ...configWithValue("dark-mode", "boolean", "false"),
+                  target: {
+                    environmentId: "10000000-0000-0000-0000-000000000000",
+                    defaultValue: "false",
+                    defaultValueId: "value-id-dark-mode-off",
+                    rules: [
+                      {
+                        id: "22222222-2222-4222-8222-222222222222",
+                        order: 0,
+                        type: "percentage",
+                        target: "percentage",
+                        percentages: [
+                          {
+                            id: "66666666-6666-4666-8666-666666666666",
+                            percentage: 100,
+                            value: "true",
+                            valueId: "value-id-dark-mode-on",
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              }),
+            ),
+          ),
+        ),
+      );
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      const details = await OpenFeature.getClient().getBooleanDetails("dark-mode", true);
+
+      expect(details).toEqual({
+        flagKey: "dark-mode",
+        flagMetadata: {},
+        value: false,
+        reason: "DEFAULT",
+        variant: "value-id-dark-mode-off",
+      });
+    });
+
     test("resolves a config without a value to the in-code default value with DEFAULT", async () => {
       server.use(
         sseHandler((controller) =>

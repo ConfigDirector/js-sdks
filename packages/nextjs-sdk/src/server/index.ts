@@ -23,4 +23,5 @@ export type {
   OfflineClientOptions,
   OfflineValue,
   OfflineValues,
+  Variation,
 } from "@js-server-sdk/types";

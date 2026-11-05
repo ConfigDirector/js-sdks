@@ -10,6 +10,7 @@ export type {
   OfflineClientOptions,
   OfflineValue,
   OfflineValues,
+  Variation,
 } from "./types";
 
 export type { ConfigDirectorLoggingLevel, ConfigDirectorLogMessageDecorator } from "@shared/types";

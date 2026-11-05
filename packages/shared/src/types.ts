@@ -48,7 +48,9 @@ export interface ConfigDirectorLogMessageDecorator {
 
 /**
  * Why an evaluation returned the value it did. `found-match` returns a value from ConfigDirector,
- * and `cached` a value kept on the device while a client SDK waits for live values. `value-missing`
+ * and `cached` a value kept on the device while a client SDK waits for live values.
+ * `rollout-skipped-no-identifier` returns the default targeting rule value: a server SDK skipped a
+ * percentage rollout because the context has no `id` to place it in a share. `value-missing`
  * returns the in-code default value because the config has no value. Every other reason returns the
  * in-code default value because of an error: the config does not exist (`config-state-missing`), no
  * values have arrived yet (`client-not-ready`), or the value cannot be read as the type of the in-code
@@ -56,6 +58,7 @@ export interface ConfigDirectorLogMessageDecorator {
  */
 export type EvaluationReason =
   | "found-match"
+  | "rollout-skipped-no-identifier"
   | "config-state-missing"
   | "client-not-ready"
   | "type-mismatch"
@@ -64,6 +67,16 @@ export type EvaluationReason =
   | "invalid-json"
   | "invalid-boolean"
   | "cached";
+
+/**
+ * One of the values a config can serve, such as the control or a treatment of an experiment.
+ */
+export type Variation = {
+  /** The ID ConfigDirector assigned to the variation, which stays the same when it is renamed. */
+  id: string;
+  /** The variation's name, when it has one. */
+  name?: string;
+};
 
 /**
  * One evaluation of a config: the value it returned, why, and the context it was evaluated for.
@@ -75,6 +88,11 @@ export type ConfigEvaluation<T extends ConfigValueType = ConfigValueType> = {
   value: T;
   /** The ID ConfigDirector assigned to the value returned, when ConfigDirector sent one with it. */
   valueId?: string;
+  /**
+   * The variation that was served. It is `undefined` when the config has no variations or the
+   * in-code default value is returned.
+   */
+  variation?: Variation;
   /** Whether the evaluation returned the in-code default value. */
   isDefaultValue: boolean;
   /** Why the evaluation returned this value. */
