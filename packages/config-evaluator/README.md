@@ -14,10 +14,12 @@ contract, which every ConfigDirector implementation is checked against.
 ## Contents
 
 - `ConfigEvaluator`: walks a config's targeting rules for a context and returns the served value
-  and its value ID. `explain` returns them with the trace of how the value was reached: each
-  rule's outcome, each checked condition with what it resolved to, and the rollout share a
-  context landed in. `evaluate` is `explain` with only the value and its value ID kept, so the two
-  cannot disagree.
+  with its value ID, its variation when the value is one, and the rule and share of the percentage
+  rollout that served it. A context without an identifier skips a percentage rollout: the default
+  targeting rule value is served and the rules after the rollout are not tried. `explain` returns
+  the same with the reason and the trace of how the value was reached: each rule's outcome, each
+  checked condition with what it resolved to, and the rollout share a context landed in.
+  `evaluate` is `explain` without the reason and the trace, so the two cannot disagree.
 - `ConditionEvaluator`: decides whether one condition holds for a context; `explain` also says
   what the condition was compared against.
 - `assignPercentage`: the bucketing hash behind percentage rollouts.

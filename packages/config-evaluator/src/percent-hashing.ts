@@ -3,8 +3,6 @@ import { USER_CONTEXT_KIND } from "./context-kind";
 
 const SEED = 0x397832987n;
 
-export const PERCENTAGE_WITHOUT_IDENTIFIER = 0.0;
-
 export const assignPercentage = ({
   configId,
   contextIdentifier,

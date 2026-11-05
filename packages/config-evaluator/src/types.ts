@@ -62,6 +62,7 @@ export type ConditionalRule = {
   target: Target;
   value: string | number | boolean | undefined;
   valueId?: string | undefined;
+  variationId?: string | undefined;
   percentages: Percentage[];
 };
 export type Percentage = {
@@ -69,6 +70,7 @@ export type Percentage = {
   percentage: number;
   value: string | number | boolean | undefined;
   valueId?: string | undefined;
+  variationId?: string | undefined;
 };
 export type PercentageRule = {
   id: string;
@@ -83,10 +85,12 @@ export type Rule = ConditionalRule | PercentageRule;
 export type TargetingRules = {
   defaultValue: string;
   defaultValueId?: string | undefined;
+  defaultVariationId?: string | undefined;
   rules: Rule[];
 };
 
 export type Variation = {
+  id?: string | undefined;
   name: string | null | undefined;
   value: string | number | boolean;
 };
@@ -165,14 +169,18 @@ export type Share = {
 };
 
 export type BucketExplanation = {
-  identifier: string | undefined;
-  defaultedToPredefinedBucket: boolean;
+  identifier: string;
   assignedPercentage: number;
   shares: Share[];
   selectedPercentageId: string | undefined;
 };
 
-export type RuleOutcome = "matched" | "not-matched" | "not-evaluated" | "errored";
+export type RuleOutcome =
+  | "matched"
+  | "not-matched"
+  | "not-evaluated"
+  | "errored"
+  | "rollout-skipped-no-identifier";
 
 export type RuleExplanation = {
   ruleId: string;
@@ -183,9 +191,16 @@ export type RuleExplanation = {
 
 export type ServedBy = { kind: "rule"; ruleId: string } | { kind: "default" };
 
+export type RolloutShare = { ruleId: string; shareId: string };
+
+export type ServingReason = "found-match" | "rollout-skipped-no-identifier";
+
 export type EvaluationExplanation = {
   value: string | undefined;
   valueId: string | undefined;
+  variationId: string | undefined;
+  rolloutShare: RolloutShare | undefined;
+  reason: ServingReason;
   servedBy: ServedBy;
   rules: RuleExplanation[];
 };

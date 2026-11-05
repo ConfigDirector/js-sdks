@@ -20,6 +20,9 @@ export type ConfigState = {
   type: ConfigType;
   value: string | undefined | null;
   valueId?: string | undefined | null;
+  variation?: { id: string; name?: string | undefined | null } | undefined | null;
+  ruleId?: string | undefined | null;
+  shareId?: string | undefined | null;
 };
 
 export type IdentifyingSdkOptions = {

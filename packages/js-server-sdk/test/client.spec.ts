@@ -2893,14 +2893,14 @@ describe("ConfigDirectorClient", () => {
         client.dispose();
       });
 
-      test("assigns a device context without an identifier the first share", async () => {
+      test("serves a device context without an identifier the default targeting rule value instead of a share", async () => {
         streaming({ greeting: greetingInTenEqualShares });
         const client = createClient("sdk-key", { logger });
         await client.initialize();
 
-        const share = client.getValue("greeting", "in-code default", { kind: "device" });
+        const greeting = client.getValue("greeting", "in-code default", { kind: "device" });
 
-        expect(share).toBe("0");
+        expect(greeting).toBe("hello everyone");
         client.dispose();
       });
     });

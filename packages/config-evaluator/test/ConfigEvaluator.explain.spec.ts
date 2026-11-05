@@ -265,14 +265,15 @@ describe("ConfigEvaluator.explain", () => {
     const explanation = evaluator.explain(config, { context: { id: "abc" } });
 
     expect(explanation.value).toEqual("Disabled by rollout");
+    expect(explanation.reason).toEqual("found-match");
     expect(explanation.servedBy).toEqual({ kind: "rule", ruleId: RULE_A });
+    expect(explanation.rolloutShare).toEqual({ ruleId: RULE_A, shareId: SHARE_DISABLED });
     expect(explanation.rules[0]).toEqual({
       ruleId: RULE_A,
       outcome: "matched",
       conditions: [],
       bucket: {
         identifier: "abc",
-        defaultedToPredefinedBucket: false,
         assignedPercentage: 61.8,
         shares: [
           { percentageId: SHARE_ENABLED, from: 0, to: 25, value: "Enabled" },
@@ -296,7 +297,6 @@ describe("ConfigEvaluator.explain", () => {
     expect(explanation.value).toEqual("Disabled by rollout");
     expect(explanation.rules[0]?.bucket).toEqual({
       identifier: "abc",
-      defaultedToPredefinedBucket: false,
       assignedPercentage: 47.0,
       shares: [
         { percentageId: SHARE_ENABLED, from: 0, to: 25, value: "Enabled" },
@@ -318,7 +318,6 @@ describe("ConfigEvaluator.explain", () => {
     expect(explanation.rules[0]?.outcome).toEqual("not-matched");
     expect(explanation.rules[0]?.bucket).toEqual({
       identifier: "abc",
-      defaultedToPredefinedBucket: false,
       assignedPercentage: 61.8,
       shares: [{ percentageId: SHARE_ENABLED, from: 0, to: 25, value: "Enabled" }],
       selectedPercentageId: undefined,
@@ -343,28 +342,100 @@ describe("ConfigEvaluator.explain", () => {
     expect(explanation.rules[0]?.outcome).toEqual("matched");
     expect(explanation.rules[0]?.conditions[0]?.outcome).toEqual("matched");
     expect(explanation.rules[0]?.bucket?.selectedPercentageId).toEqual(SHARE_ENABLED);
+    expect(explanation.rolloutShare).toEqual({ ruleId: RULE_A, shareId: SHARE_ENABLED });
   });
 
-  test("explains a rollout for a context without an id as assigned to 0", () => {
+  test("explains a rollout reached by a context without an id as skipped, with the rules after it not tried", () => {
     const config = configWith(
-      rolloutRule(RULE_A, 0, [
-        { id: SHARE_DISABLED, percentage: 0, value: "Disabled by rollout" },
-        { id: SHARE_ENABLED, percentage: 100, value: "Enabled" },
-      ]),
+      rolloutRule(RULE_A, 0, [{ id: SHARE_ENABLED, percentage: 100, value: "Enabled" }]),
+      conditionalRule(RULE_B, 1, [], "Enabled for everyone"),
     );
 
     const explanation = evaluator.explain(config, { context: {} });
 
-    expect(explanation.value).toEqual("Enabled");
-    expect(explanation.rules[0]?.bucket).toEqual({
-      identifier: undefined,
-      defaultedToPredefinedBucket: true,
-      assignedPercentage: 0,
-      shares: [
-        { percentageId: SHARE_DISABLED, from: 0, to: 0, value: "Disabled by rollout" },
-        { percentageId: SHARE_ENABLED, from: 0, to: 100, value: "Enabled" },
+    expect(explanation).toEqual({
+      value: "Disabled",
+      reason: "rollout-skipped-no-identifier",
+      servedBy: { kind: "default" },
+      rules: [
+        { ruleId: RULE_A, outcome: "rollout-skipped-no-identifier", conditions: [], bucket: undefined },
+        { ruleId: RULE_B, outcome: "not-evaluated", conditions: [], bucket: undefined },
       ],
-      selectedPercentageId: SHARE_ENABLED,
+    });
+  });
+
+  test("explains the rollout of a matched conditional rule as skipped for a context without an id", () => {
+    const rule: Rule = {
+      id: RULE_A,
+      order: 0,
+      type: "conditional",
+      target: "percentage",
+      value: undefined,
+      conditions: [planIsOneOf("pro")],
+      percentages: [{ id: SHARE_ENABLED, percentage: 100, value: "Enabled" }],
+    };
+    const config = configWith(rule, conditionalRule(RULE_B, 1, [], "Enabled for everyone"));
+
+    const explanation = evaluator.explain(config, { context: { traits: { plan: "pro" } } });
+
+    expect(explanation.value).toEqual("Disabled");
+    expect(explanation.reason).toEqual("rollout-skipped-no-identifier");
+    expect(explanation.servedBy).toEqual({ kind: "default" });
+    expect(explanation.rules).toEqual([
+      {
+        ruleId: RULE_A,
+        outcome: "rollout-skipped-no-identifier",
+        conditions: [
+          {
+            conditionId: CONDITION_PLAN,
+            kind: "attribute",
+            outcome: "matched",
+            resolvedValue: "pro",
+            resolvedType: "scalar",
+          },
+        ],
+        bucket: undefined,
+      },
+      { ruleId: RULE_B, outcome: "not-evaluated", conditions: [], bucket: undefined },
+    ]);
+  });
+
+  test("moves past a conditional rule's rollout when a context without an id does not match its conditions", () => {
+    const rule: Rule = {
+      id: RULE_A,
+      order: 0,
+      type: "conditional",
+      target: "percentage",
+      value: undefined,
+      conditions: [planIsOneOf("pro")],
+      percentages: [{ id: SHARE_ENABLED, percentage: 100, value: "Enabled" }],
+    };
+    const config = configWith(rule, conditionalRule(RULE_B, 1, [], "Enabled for everyone"));
+
+    const explanation = evaluator.explain(config, { context: { traits: { plan: "free" } } });
+
+    expect(explanation.value).toEqual("Enabled for everyone");
+    expect(explanation.reason).toEqual("found-match");
+    expect(explanation.servedBy).toEqual({ kind: "rule", ruleId: RULE_B });
+  });
+
+  test("moves past a rollout that carries no percentages for a context without an id", () => {
+    const rolloutWithoutPercentages = {
+      ...rolloutRule(RULE_A, 0, []),
+      percentages: undefined,
+    } as unknown as Rule;
+    const config = configWith(rolloutWithoutPercentages, conditionalRule(RULE_B, 1, [], "Enabled for everyone"));
+
+    const explanation = evaluator.explain(config, { context: {} });
+
+    expect(explanation.value).toEqual("Enabled for everyone");
+    expect(explanation.reason).toEqual("found-match");
+    expect(explanation.servedBy).toEqual({ kind: "rule", ruleId: RULE_B });
+    expect(explanation.rules[0]).toEqual({
+      ruleId: RULE_A,
+      outcome: "not-matched",
+      conditions: [],
+      bucket: undefined,
     });
   });
 
@@ -402,6 +473,7 @@ describe("ConfigEvaluator.explain", () => {
 
     expect(explanation).toEqual({
       value: "Disabled",
+      reason: "found-match",
       servedBy: { kind: "default" },
       rules: [
         {
@@ -437,7 +509,12 @@ describe("ConfigEvaluator.explain", () => {
   test("explains a config with no rules as served by the default", () => {
     const explanation = evaluator.explain(configWith(), { context: { id: "abc" } });
 
-    expect(explanation).toEqual({ value: "Disabled", servedBy: { kind: "default" }, rules: [] });
+    expect(explanation).toEqual({
+      value: "Disabled",
+      reason: "found-match",
+      servedBy: { kind: "default" },
+      rules: [],
+    });
   });
 
   test("reports the value ID of the value it serves", () => {

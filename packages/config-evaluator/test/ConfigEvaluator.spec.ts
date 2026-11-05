@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import type { ConditionalRule, Config } from "../src/types";
+import type { ConditionalRule, Config, Rule } from "../src/types";
 import { ConfigEvaluator } from "../src/ConfigEvaluator";
 import { createStubbedLogger } from "./helpers";
 
@@ -542,7 +542,7 @@ describe("ConfigEvaluator", () => {
   });
 
   describe("no context", () => {
-    test("returns a value for a percentage rule when no context is provided", () => {
+    test("serves the default targeting rule value for a percentage rule when no context is provided", () => {
       const config: Config = {
         id: CONFIG_ID,
         key: "config-without-rules",
@@ -562,10 +562,10 @@ describe("ConfigEvaluator", () => {
         },
       };
 
-      expect(evaluator.evaluate(config).value).toEqual("Only Group");
+      expect(evaluator.evaluate(config).value).toEqual("this-is-the-default");
     });
 
-    test("always assigns the first non-empty bucket without an identifier", () => {
+    test("serves the default targeting rule value for a percentage rule to a context without an identifier", () => {
       const config: Config = {
         id: CONFIG_ID,
         key: "config-without-rules",
@@ -589,10 +589,7 @@ describe("ConfigEvaluator", () => {
         },
       };
 
-      for (let evaluation = 0; evaluation < 50; evaluation++) {
-        expect(evaluator.evaluate(config).value).toEqual("first");
-        expect(evaluator.evaluate(config, { context: {} }).value).toEqual("first");
-      }
+      expect(evaluator.evaluate(config, { context: {} }).value).toEqual("this-is-the-default");
     });
   });
 
@@ -639,8 +636,10 @@ describe("ConfigEvaluator", () => {
       expect(evaluator.evaluate(config, { context: { id: "user-1", kind: "device" } }).value).toEqual("5");
     });
 
-    test("assigns a device context without an identifier the first share", () => {
-      expect(evaluator.evaluate(config, { context: { kind: "device" } }).value).toEqual("0");
+    test("serves a device context without an identifier the default targeting rule value", () => {
+      expect(evaluator.evaluate(config, { context: { kind: "device" } }).value).toEqual(
+        "this-is-the-default",
+      );
     });
   });
 
@@ -1076,12 +1075,17 @@ describe("ConfigEvaluator", () => {
           defaultValueId: "value-id-hello",
           rules: [
             {
-              id: crypto.randomUUID(),
+              id: "22222222-2222-4222-8222-222222222222",
               order: 0,
               type: "percentage",
               target: "percentage",
               percentages: [
-                { id: crypto.randomUUID(), percentage: 100, value: "hola", valueId: "value-id-hola" },
+                {
+                  id: "66666666-6666-4666-8666-666666666666",
+                  percentage: 100,
+                  value: "hola",
+                  valueId: "value-id-hola",
+                },
               ],
             },
           ],
@@ -1094,6 +1098,8 @@ describe("ConfigEvaluator", () => {
         type: "string",
         value: "hola",
         valueId: "value-id-hola",
+        ruleId: "22222222-2222-4222-8222-222222222222",
+        shareId: "66666666-6666-4666-8666-666666666666",
       });
     });
 
@@ -1126,6 +1132,150 @@ describe("ConfigEvaluator", () => {
         value: "bonjour",
         valueId: undefined,
       });
+    });
+  });
+
+  describe("variations", () => {
+    const ROLLOUT_RULE = "22222222-2222-4222-8222-222222222222";
+    const TREATMENT_SHARE = "66666666-6666-4666-8666-666666666666";
+    const CONTROL = { id: "77777777-7777-4777-8777-777777777777", name: "control", value: "Start free trial" };
+    const TREATMENT = { id: "88888888-8888-4888-8888-888888888888", name: "treatment", value: "Try it free" };
+
+    const experimentWith = (...rules: Rule[]): Config => ({
+      id: CONFIG_ID,
+      key: "checkout-cta-copy",
+      type: "string",
+      variations: [CONTROL, TREATMENT],
+      target: {
+        defaultValue: CONTROL.value,
+        defaultValueId: "value-id-control",
+        defaultVariationId: CONTROL.id,
+        rules,
+      },
+    });
+
+    const treatmentRollout: Rule = {
+      id: ROLLOUT_RULE,
+      order: 0,
+      type: "percentage",
+      target: "percentage",
+      percentages: [
+        {
+          id: TREATMENT_SHARE,
+          percentage: 100,
+          value: TREATMENT.value,
+          valueId: "value-id-treatment",
+          variationId: TREATMENT.id,
+        },
+      ],
+    };
+
+    test("serves a rollout share with its variation and the rule and share that served it", () => {
+      const config = experimentWith(treatmentRollout);
+
+      expect(evaluator.evaluate(config, { context: { id: "10" } })).toEqual({
+        id: CONFIG_ID,
+        key: "checkout-cta-copy",
+        type: "string",
+        value: "Try it free",
+        valueId: "value-id-treatment",
+        variation: { id: TREATMENT.id, name: "treatment" },
+        ruleId: ROLLOUT_RULE,
+        shareId: TREATMENT_SHARE,
+      });
+    });
+
+    test("serves a conditional rule's value with its variation and no rule or share", () => {
+      const config = experimentWith({
+        id: crypto.randomUUID(),
+        order: 0,
+        type: "conditional",
+        target: "value",
+        value: TREATMENT.value,
+        valueId: "value-id-treatment",
+        variationId: TREATMENT.id,
+        percentages: [],
+        conditions: [],
+      });
+
+      const configState = evaluator.evaluate(config, { context: { id: "10" } });
+
+      expect(configState.variation).toEqual({ id: TREATMENT.id, name: "treatment" });
+      expect(configState).not.toHaveProperty("ruleId");
+      expect(configState).not.toHaveProperty("shareId");
+    });
+
+    test("serves the default targeting rule value with its variation and no rule or share", () => {
+      const config = experimentWith();
+
+      const configState = evaluator.evaluate(config, { context: { id: "10" } });
+
+      expect(configState.value).toEqual("Start free trial");
+      expect(configState.variation).toEqual({ id: CONTROL.id, name: "control" });
+      expect(configState).not.toHaveProperty("ruleId");
+      expect(configState).not.toHaveProperty("shareId");
+    });
+
+    test("serves a context without an identifier that reaches a rollout the default targeting rule value's variation and no rule or share", () => {
+      const config = experimentWith(treatmentRollout);
+
+      const configState = evaluator.evaluate(config, { context: { name: "Anonymous visitor" } });
+
+      expect(configState.value).toEqual("Start free trial");
+      expect(configState.valueId).toEqual("value-id-control");
+      expect(configState.variation).toEqual({ id: CONTROL.id, name: "control" });
+      expect(configState).not.toHaveProperty("ruleId");
+      expect(configState).not.toHaveProperty("shareId");
+    });
+
+    test("explains a served variation by its id", () => {
+      const config = experimentWith(treatmentRollout);
+
+      const explanation = evaluator.explain(config, { context: { id: "10" } });
+
+      expect(explanation.variationId).toEqual(TREATMENT.id);
+    });
+
+    test("serves a flag's value with no variation", () => {
+      const config: Config = {
+        id: CONFIG_ID,
+        key: "new-checkout",
+        type: "boolean",
+        variations: [],
+        target: { defaultValue: "true", defaultValueId: "value-id-true", rules: [] },
+      };
+
+      const configState = evaluator.evaluate(config, { context: { id: "10" } });
+
+      expect(configState.value).toEqual("true");
+      expect(configState.variation).toBeUndefined();
+    });
+
+    test("serves a value with no variation when the config's variations do not hold its variation id", () => {
+      const config: Config = { ...experimentWith(), variations: [TREATMENT] };
+
+      const configState = evaluator.evaluate(config, { context: { id: "10" } });
+
+      expect(configState.value).toEqual("Start free trial");
+      expect(configState.variation).toBeUndefined();
+    });
+
+    test("serves an unnamed variation with its id and no name", () => {
+      const unnamed = { id: "99999999-9999-4999-8999-999999999999", name: null, value: "Get started" };
+      const config: Config = {
+        ...experimentWith(),
+        variations: [CONTROL, unnamed],
+        target: {
+          defaultValue: unnamed.value,
+          defaultValueId: "value-id-get-started",
+          defaultVariationId: unnamed.id,
+          rules: [],
+        },
+      };
+
+      const configState = evaluator.evaluate(config, { context: { id: "10" } });
+
+      expect(configState.variation).toEqual({ id: unnamed.id, name: null });
     });
   });
 
@@ -1190,6 +1340,105 @@ describe("ConfigEvaluator", () => {
       const unmatched = evaluator.explain(config, { context: { id: "10", traits: { plan: "free" } } });
       expect(unmatched.value).toEqual("hello");
       expect(unmatched.servedBy).toEqual({ kind: "default" });
+    });
+  });
+
+  describe("server payload of an experiment", () => {
+    const experiment: Config = JSON.parse(`{
+      "id": "${CONFIG_ID}",
+      "key": "checkout-cta-copy",
+      "type": "string",
+      "variations": [
+        { "id": "77777777-7777-4777-8777-777777777777", "name": "control", "value": "Start free trial" },
+        { "id": "88888888-8888-4888-8888-888888888888", "name": "treatment", "value": "Try it free" },
+        { "id": "99999999-9999-4999-8999-999999999999", "name": null, "value": "Get started" }
+      ],
+      "target": {
+        "environmentId": "10000000-0000-0000-0000-000000000000",
+        "defaultValue": "Start free trial",
+        "defaultValueId": "value-id-control",
+        "defaultVariationId": "77777777-7777-4777-8777-777777777777",
+        "rules": [
+          {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "order": 0,
+            "type": "conditional",
+            "target": "value",
+            "value": "Get started",
+            "valueId": "value-id-get-started",
+            "variationId": "99999999-9999-4999-8999-999999999999",
+            "conditions": [
+              {
+                "id": "44444444-4444-4444-8444-444444444444",
+                "kind": "attribute",
+                "attribute": "traits",
+                "trait": "/plan",
+                "operator": "is one of",
+                "targetType": "text",
+                "targetValues": ["enterprise"]
+              }
+            ]
+          },
+          {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "order": 1,
+            "type": "percentage",
+            "target": "percentage",
+            "percentages": [
+              {
+                "id": "66666666-6666-4666-8666-666666666666",
+                "percentage": 100,
+                "value": "Try it free",
+                "valueId": "value-id-treatment",
+                "variationId": "88888888-8888-4888-8888-888888888888"
+              }
+            ]
+          }
+        ]
+      }
+    }`);
+
+    test("serves a rollout share as the entry the SDK server sends client SDKs", () => {
+      const configState = evaluator.evaluate(experiment, { context: { id: "10", traits: { plan: "pro" } } });
+
+      expect(JSON.parse(JSON.stringify(configState))).toEqual({
+        id: CONFIG_ID,
+        key: "checkout-cta-copy",
+        type: "string",
+        value: "Try it free",
+        valueId: "value-id-treatment",
+        variation: { id: "88888888-8888-4888-8888-888888888888", name: "treatment" },
+        ruleId: "22222222-2222-4222-8222-222222222222",
+        shareId: "66666666-6666-4666-8666-666666666666",
+      });
+    });
+
+    test("serves a conditional rule's unnamed variation with a null name and no rule or share", () => {
+      const configState = evaluator.evaluate(experiment, {
+        context: { id: "10", traits: { plan: "enterprise" } },
+      });
+
+      expect(JSON.parse(JSON.stringify(configState))).toEqual({
+        id: CONFIG_ID,
+        key: "checkout-cta-copy",
+        type: "string",
+        value: "Get started",
+        valueId: "value-id-get-started",
+        variation: { id: "99999999-9999-4999-8999-999999999999", name: null },
+      });
+    });
+
+    test("serves a context without an identifier the default targeting rule value's variation", () => {
+      const configState = evaluator.evaluate(experiment, { context: { traits: { plan: "pro" } } });
+
+      expect(JSON.parse(JSON.stringify(configState))).toEqual({
+        id: CONFIG_ID,
+        key: "checkout-cta-copy",
+        type: "string",
+        value: "Start free trial",
+        valueId: "value-id-control",
+        variation: { id: "77777777-7777-4777-8777-777777777777", name: "control" },
+      });
     });
   });
 });

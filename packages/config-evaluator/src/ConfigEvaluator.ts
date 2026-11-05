@@ -1,6 +1,6 @@
 import { ConditionEvaluator } from "./ConditionEvaluator";
 import { SegmentEvaluator } from "./SegmentEvaluator";
-import { assignPercentage, PERCENTAGE_WITHOUT_IDENTIFIER } from "./percent-hashing";
+import { assignPercentage } from "./percent-hashing";
 import { effectiveContextKind } from "./context-kind";
 import type {
   Condition,
@@ -13,20 +13,56 @@ import type {
   Rule,
   ConfigDirectorLogger,
   EvaluationExplanation,
+  RolloutShare,
   RuleExplanation,
+  RuleOutcome,
   Segments,
+  ServingReason,
   Share,
 } from "./types";
 
 type ServedValue = {
   value: string;
   valueId: string | undefined;
+  variationId: string | undefined;
+  rolloutShare: RolloutShare | undefined;
 };
 
-type RuleResult = {
-  explanation: RuleExplanation;
-  served: ServedValue | undefined;
+type RuleServing =
+  | { kind: "served"; ruleId: string; servedValue: ServedValue }
+  | { kind: "not-matched" }
+  | { kind: "rollout-skipped-no-identifier" };
+
+const NOT_MATCHED: RuleServing = { kind: "not-matched" };
+
+const outcomeByServingKind: { [K in RuleServing["kind"]]: RuleOutcome } = {
+  served: "matched",
+  "not-matched": "not-matched",
+  "rollout-skipped-no-identifier": "rollout-skipped-no-identifier",
 };
+
+type WalkedRule = {
+  explanation: RuleExplanation;
+  serving: RuleServing;
+};
+
+const servedVariation = (config: Config, variationId: string | undefined): ConfigState["variation"] => {
+  if (variationId === undefined) {
+    return undefined;
+  }
+  const variation = (config.variations ?? []).find((candidate) => candidate.id === variationId);
+  return variation ? { id: variationId, name: variation.name } : undefined;
+};
+
+const servedConfigState = (config: Config, explanation: EvaluationExplanation): ConfigState => ({
+  id: config.id,
+  key: config.key,
+  type: config.type,
+  value: explanation.value,
+  valueId: explanation.valueId,
+  variation: servedVariation(config, explanation.variationId),
+  ...explanation.rolloutShare,
+});
 
 export class ConfigEvaluator {
   private readonly conditionEvaluator = new ConditionEvaluator();
@@ -41,55 +77,67 @@ export class ConfigEvaluator {
   }
 
   public evaluate(config: Config, context?: EvaluationContext, segments?: Segments): ConfigState {
-    const explanation = this.explain(config, context, segments);
-    return {
-      id: config.id,
-      key: config.key,
-      type: config.type,
-      value: explanation.value,
-      valueId: explanation.valueId,
-    };
+    return servedConfigState(config, this.explain(config, context, segments));
   }
 
   /**
    * Evaluate a config for a context and record how the value was reached: every rule in the
    * order it was walked with its outcome, the conditions that were checked with what they
-   * resolved to, and the share a rollout assigned the context to. `evaluate` is this walk with
-   * only the value and its value ID kept, so the two cannot disagree. `segments` is the payload's
-   * segments map, which a segment condition looks its segment up in; a segment it does not hold
-   * never matches.
+   * resolved to, and the share a rollout assigned the context to. A rollout reached by a context
+   * without an identifier is skipped: the walk ends there and the default targeting rule value
+   * is served with the reason `rollout-skipped-no-identifier`. `evaluate` is this walk with only
+   * the value, its value ID, its variation and the rollout share that served it kept, so the two
+   * cannot disagree. `segments` is the payload's segments map, which a segment condition looks
+   * its segment up in; a segment it does not hold never matches.
    */
   public explain(config: Config, context?: EvaluationContext, segments?: Segments): EvaluationExplanation {
     const rules = [...(config.target?.rules ?? [])].sort(
-      (a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER),
+      (rule, otherRule) =>
+        (rule.order ?? Number.MAX_SAFE_INTEGER) - (otherRule.order ?? Number.MAX_SAFE_INTEGER),
     );
-    const explanations: RuleExplanation[] = [];
-    let served: (ServedValue & { ruleId: string }) | undefined;
+    const walkedRules: WalkedRule[] = [];
     for (const rule of rules) {
-      if (served) {
-        explanations.push({ ruleId: rule.id, outcome: "not-evaluated", conditions: [], bucket: undefined });
-        continue;
-      }
-      const result = this.explainRule(rule, config, context, segments);
-      explanations.push(result.explanation);
-      if (result.served !== undefined) {
-        served = { ruleId: rule.id, ...result.served };
+      const walkedRule = this.explainRule(rule, config, context, segments);
+      walkedRules.push(walkedRule);
+      if (walkedRule.serving.kind !== "not-matched") {
+        break;
       }
     }
-    if (served) {
-      return {
-        value: served.value,
-        valueId: served.valueId,
-        servedBy: { kind: "rule", ruleId: served.ruleId },
-        rules: explanations,
-      };
-    }
-    return {
+    const ruleExplanations: RuleExplanation[] = [
+      ...walkedRules.map((walkedRule) => walkedRule.explanation),
+      ...rules.slice(walkedRules.length).map(
+        (rule): RuleExplanation => ({
+          ruleId: rule.id,
+          outcome: "not-evaluated",
+          conditions: [],
+          bucket: undefined,
+        }),
+      ),
+    ];
+    const defaultTargetingRuleValue = (reason: ServingReason): EvaluationExplanation => ({
       value: config.target?.defaultValue,
       valueId: config.target?.defaultValueId,
+      variationId: config.target?.defaultVariationId,
+      rolloutShare: undefined,
+      reason,
       servedBy: { kind: "default" },
-      rules: explanations,
-    };
+      rules: ruleExplanations,
+    });
+
+    const lastServing = walkedRules[walkedRules.length - 1]?.serving ?? NOT_MATCHED;
+    switch (lastServing.kind) {
+      case "served":
+        return {
+          ...lastServing.servedValue,
+          reason: "found-match",
+          servedBy: { kind: "rule", ruleId: lastServing.ruleId },
+          rules: ruleExplanations,
+        };
+      case "rollout-skipped-no-identifier":
+        return defaultTargetingRuleValue("rollout-skipped-no-identifier");
+      case "not-matched":
+        return defaultTargetingRuleValue("found-match");
+    }
   }
 
   private explainRule(
@@ -97,7 +145,7 @@ export class ConfigEvaluator {
     config: Config,
     context: EvaluationContext | undefined,
     segments: Segments | undefined,
-  ): RuleResult {
+  ): WalkedRule {
     const explanation: RuleExplanation = {
       ruleId: rule.id,
       outcome: "not-matched",
@@ -105,16 +153,14 @@ export class ConfigEvaluator {
       bucket: undefined,
     };
     try {
-      let served: ServedValue | undefined;
+      let serving = NOT_MATCHED;
       if (rule.type == "percentage") {
-        served = this.explainPercentage(rule.percentages ?? [], config, context, explanation);
+        serving = this.explainRollout(rule, config, context, explanation);
       } else if (rule.type == "conditional") {
-        served = this.explainConditionalRule(rule, config, context, segments, explanation);
+        serving = this.explainConditionalRule(rule, config, context, segments, explanation);
       }
-      if (served !== undefined) {
-        explanation.outcome = "matched";
-      }
-      return { explanation, served };
+      explanation.outcome = outcomeByServingKind[serving.kind];
+      return { explanation, serving };
     } catch (error) {
       this.logger.warn(
         `There was an error while evaluating a targeting rule '${rule?.id}' for '${config?.key}'. The rule will be disregarded.`,
@@ -126,51 +172,68 @@ export class ConfigEvaluator {
       );
       return {
         explanation: { ruleId: rule.id, outcome: "errored", conditions: [], bucket: undefined },
-        served: undefined,
+        serving: NOT_MATCHED,
       };
     }
   }
 
-  private explainPercentage(
-    percentages: Percentage[],
+  private explainRollout(
+    rule: Rule,
     config: Config,
     context: EvaluationContext | undefined,
     explanation: RuleExplanation,
-  ): ServedValue | undefined {
+  ): RuleServing {
+    if (rule.percentages == null) {
+      return NOT_MATCHED;
+    }
     const identifier = context?.context?.id ?? undefined;
-    const assignedPercentage =
-      identifier === undefined
-        ? PERCENTAGE_WITHOUT_IDENTIFIER
-        : assignPercentage({
-            configId: config.id,
-            contextIdentifier: identifier,
-            contextKind: effectiveContextKind(context),
-          });
+    if (identifier === undefined) {
+      return { kind: "rollout-skipped-no-identifier" };
+    }
+    const assignedPercentage = assignPercentage({
+      configId: config.id,
+      contextIdentifier: identifier,
+      contextKind: effectiveContextKind(context),
+    });
     const shares: Share[] = [];
-    let sum = 0.0;
-    let selected: Percentage | undefined = undefined;
-    // A bucket spans [sum, sum + percentage). Strict, so a context landing exactly on a boundary
+    let shareStart = 0.0;
+    let selectedPercentage: Percentage | undefined = undefined;
+    // A bucket spans [shareStart, shareEnd). Strict, so a context landing exactly on a boundary
     // belongs to the bucket that starts there -- which is what keeps a 0% bucket unreachable and
     // each bucket's share exact. See SEMANTICS.md §7.1 in targeting-rules-contract.
-    for (const percentage of percentages) {
-      const to = sum + percentage.percentage;
-      shares.push({ percentageId: percentage.id, from: sum, to, value: percentage.value?.toString() });
-      if (selected === undefined && assignedPercentage < to) {
-        selected = percentage;
+    for (const percentage of rule.percentages) {
+      const shareEnd = shareStart + percentage.percentage;
+      shares.push({
+        percentageId: percentage.id,
+        from: shareStart,
+        to: shareEnd,
+        value: percentage.value?.toString(),
+      });
+      if (selectedPercentage === undefined && assignedPercentage < shareEnd) {
+        selectedPercentage = percentage;
       }
-      sum = to;
+      shareStart = shareEnd;
     }
 
     explanation.bucket = {
       identifier,
-      defaultedToPredefinedBucket: identifier === undefined,
       assignedPercentage,
       shares,
-      selectedPercentageId: selected?.id,
+      selectedPercentageId: selectedPercentage?.id,
     };
-    return selected?.value != null
-      ? { value: selected.value.toString(), valueId: selected.valueId }
-      : undefined;
+    if (selectedPercentage?.value == null) {
+      return NOT_MATCHED;
+    }
+    return {
+      kind: "served",
+      ruleId: rule.id,
+      servedValue: {
+        value: selectedPercentage.value.toString(),
+        valueId: selectedPercentage.valueId,
+        variationId: selectedPercentage.variationId,
+        rolloutShare: { ruleId: rule.id, shareId: selectedPercentage.id },
+      },
+    };
   }
 
   private explainConditionalRule(
@@ -179,28 +242,40 @@ export class ConfigEvaluator {
     context: EvaluationContext | undefined,
     segments: Segments | undefined,
     explanation: RuleExplanation,
-  ): ServedValue | undefined {
-    let failed = false;
+  ): RuleServing {
+    let aConditionDidNotMatch = false;
     for (const condition of rule.conditions ?? []) {
-      if (failed) {
+      if (aConditionDidNotMatch) {
         explanation.conditions.push({ conditionId: condition.id, outcome: "not-evaluated" });
         continue;
       }
       const checked = this.explainCondition(condition, context, segments);
       explanation.conditions.push(checked);
-      failed = checked.outcome !== "matched";
+      aConditionDidNotMatch = checked.outcome !== "matched";
     }
 
-    if (failed) {
-      return undefined;
+    if (aConditionDidNotMatch) {
+      return NOT_MATCHED;
     }
     if (rule.target == "value") {
-      return rule.value != null ? { value: rule.value.toString(), valueId: rule.valueId } : undefined;
+      if (rule.value == null) {
+        return NOT_MATCHED;
+      }
+      return {
+        kind: "served",
+        ruleId: rule.id,
+        servedValue: {
+          value: rule.value.toString(),
+          valueId: rule.valueId,
+          variationId: rule.variationId,
+          rolloutShare: undefined,
+        },
+      };
     }
     if (rule.target == "percentage") {
-      return this.explainPercentage(rule.percentages ?? [], config, context, explanation);
+      return this.explainRollout(rule, config, context, explanation);
     }
-    return undefined;
+    return NOT_MATCHED;
   }
 
   private explainCondition(
