@@ -1,5 +1,31 @@
 # @configdirector/nextjs-sdk
 
+## 1.14.0
+
+### Minor Changes
+
+- 237c380: On the server, a context without an `id` now skips percentage rollouts. The server SDK client, `generateSsrConfigSet` and the server `ConfigDirectorProvider` serve it the default targeting rule value, and the targeting rules after the rollout are not tried. The server client's `evaluate` and `configEvaluated` event report it with the new reason `rollout-skipped-no-identifier` and `isDefaultValue: false`. Before, every context without an `id` was served the rollout's first share. Give an anonymous context a stable `id`, such as a session ID, to keep it in a rollout. In the browser this stays as it was: a context without an `id` keeps its place in a rollout.
+
+  The server client's `evaluate` and `configEvaluated` event now carry `variation`: the `id` and `name` of the variation that was served. It is `undefined` when the config has no variations or the in-code default value is returned, and an unnamed variation has no `name`. The new `Variation` type is exported from `@configdirector/nextjs-sdk/server`.
+
+  Each `generateSsrConfigSet` entry now carries the `variation` (`id` and `name`, with `name: null` for an unnamed variation) of the value served when the config has variations, and the `ruleId` and `shareId` of the percentage rollout that served it.
+
+  The evaluation counts the server client sends to ConfigDirector now say which variation was served, and which percentage rollout and share served it, so ConfigDirector can count the contexts each variation of an experiment reached.
+
+  In the browser, the client's `evaluate` and `configEvaluated` event carry `variation` too, and the `Variation` type is exported from `@configdirector/nextjs-sdk/client`. The evaluation counts the browser sends to ConfigDirector say which variation was served, and which percentage rollout and share served it, for values kept on the device as well. The browser's `EvaluationReason` type gains `rollout-skipped-no-identifier`: the browser never reports it, but code that handles every reason exhaustively needs a case for it.
+
+- a49fc51: On the server, the client from `getConfigClient()` has a new `track(eventName, context?, options?)` method that reports to ConfigDirector that something happened, such as a completed checkout, so ConfigDirector can show it on the live feed and count it for each variation of a running experiment. `options` takes a `value`, a number of any kind such as an amount of money, a count or a duration, and `details`, an object whose values are strings, numbers, booleans, or nested objects and arrays. The new `TrackOptions`, `TrackedEventDetails` and `TrackedEventDetailValue` types are exported from `@configdirector/nextjs-sdk/server`.
+
+  An event counts for an experiment only when it is tracked for a context with an `id`, the one the experiment's config was evaluated for. Without a context, or for a context without an `id`, the event is still reported. The `id` of a context marked `anonymous` is not sent.
+
+  Tracked events are sent with the next telemetry batch, at most 1,000 per batch; events beyond that are not reported. An event whose name does not have 1 to 150 characters is not reported. Details with more than 20 top-level keys or larger than 1 KB as JSON, and a `value` that is not a finite number, are left out and the event is still reported. Each of these logs one warning per telemetry batch. `track` never throws, and does nothing in `offline` mode.
+
+  The server test client from `@configdirector/nextjs-sdk/server/testing` records the events the code under test tracked in `testClient.trackedEvents`, in call order, as `{ name, context?, value?, details? }`. An event whose name the SDK would not report is not recorded, and a value or details the SDK would leave out are missing from the record. The limit of 1,000 events per telemetry batch does not apply to the record. The new `TrackedEvent` type is exported from the testing entry point.
+
+  In the browser, the client from `useClient()` has a new `track(eventName, options?)` method that reports the event for the client's current context, with the same `options`, limits and warnings. An event counts for an experiment only when that context has an `id`; before the client has a context, or for a context without an `id`, the event is still reported. The `TrackOptions`, `TrackedEventDetails` and `TrackedEventDetailValue` types are exported from `@configdirector/nextjs-sdk/client`, and the client test client from `@configdirector/nextjs-sdk/client/testing` records tracked events in `testClient.trackedEvents` as the server one does.
+
+  In the browser, a telemetry report larger than 32 KB is now sent as an ordinary request instead of a `keepalive` one. Browsers refuse `keepalive` requests beyond 64 KB, and a refused report used to stop the SDK's reporting for the rest of the page's life. A report that large may not complete if the page closes while it is being sent.
+
 ## 1.13.1
 
 ### Patch Changes
