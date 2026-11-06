@@ -4,7 +4,7 @@ import { commands } from "vitest/browser";
 import { ClientTelemetryEventCollector } from "../../src/telemetry/ClientTelemetryEventCollector";
 import type { EventReport } from "../../src/telemetry/types";
 import type { ClientSession } from "../../src/types";
-import { BASE_URL, TELEMETRY_URL, createStubbedLogger, deferred } from "../helpers";
+import { BASE_URL, TELEMETRY_URL, createCapturingLogger, createStubbedLogger, deferred } from "../helpers";
 import { defaultUrlFactory } from "@shared/url";
 import type { EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
 import type { TelemetryValue } from "@shared/telemetry/utils";
@@ -560,24 +560,70 @@ describe("ClientTelemetryEventCollector", () => {
   describe("fatal error handling", () => {
     test("stops collecting events after a fatal 4xx response", async () => {
       await commands.mswUseHandlers({ url: TELEMETRY_URL, status: 400 });
+      const capturingLogger = createCapturingLogger();
 
-      collector = createCollector();
+      collector = createCollector({ logger: capturingLogger });
       collector.evaluatedConfig(baseEvent);
 
       await vi.advanceTimersByTimeAsync(5_000);
       await vi.waitFor(
-        async () => {
-          if (!(await commands.mswWasRequestReceived())) throw new Error("Request not yet received");
-        },
+        () => expect(capturingLogger.warn).toHaveBeenCalledWith(expect.stringContaining("400")),
         { timeout: 2_000 },
       );
-      expect(await commands.mswGetPayloads()).toHaveLength(0);
 
       // Further events should be silently dropped
+      await commands.mswUseHandlers({ url: TELEMETRY_URL });
       collector.evaluatedConfig({ ...baseEvent, key: "config-after-fatal" });
       await vi.advanceTimersByTimeAsync(35_000);
       await drainNetwork();
       expect(await commands.mswGetPayloads()).toHaveLength(0);
+    });
+
+    test("stops collecting events after a 401 response", async () => {
+      await commands.mswUseHandlers({ url: TELEMETRY_URL, status: 401 });
+      const capturingLogger = createCapturingLogger();
+
+      collector = createCollector({ logger: capturingLogger });
+      collector.evaluatedConfig(baseEvent);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await vi.waitFor(
+        () => expect(capturingLogger.warn).toHaveBeenCalledWith(expect.stringContaining("401")),
+        { timeout: 2_000 },
+      );
+
+      await commands.mswUseHandlers({ url: TELEMETRY_URL });
+      collector.evaluatedConfig({ ...baseEvent, key: "config-after-unauthorized" });
+      await vi.advanceTimersByTimeAsync(35_000);
+      await drainNetwork();
+
+      expect(await commands.mswGetPayloads()).toHaveLength(0);
+    });
+  });
+
+  describe("report too large", () => {
+    test("logs a warning and sends the next report after a 413 response", async () => {
+      await commands.mswUseHandlers({ url: TELEMETRY_URL, status: 413 });
+      const capturingLogger = createCapturingLogger();
+
+      collector = createCollector({ logger: capturingLogger });
+      collector.evaluatedConfig(baseEvent);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await vi.waitFor(
+        () => expect(capturingLogger.warn).toHaveBeenCalledWith(expect.stringContaining("413")),
+        { timeout: 2_000 },
+      );
+      expect(capturingLogger.warn).toHaveBeenCalledTimes(1);
+
+      await commands.mswUseHandlers({ url: TELEMETRY_URL });
+      collector.evaluatedConfig({ ...baseEvent, key: "config-after-too-large" });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await waitForPayloadCount(1);
+
+      const payloads = (await commands.mswGetPayloads()) as EventReport[];
+      expect(payloads[0].aggregatedEvents["evaluatedConfig"]).toHaveLength(1);
+      expect(payloads[0].aggregatedEvents["evaluatedConfig"][0].event["key"]).toBe("config-after-too-large");
     });
   });
 

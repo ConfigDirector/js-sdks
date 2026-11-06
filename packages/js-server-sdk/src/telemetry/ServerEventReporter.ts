@@ -4,6 +4,8 @@ import type { EventReport, EventReporter, EventReporterPayload, ReporterResponse
 import { fetchWithTimeout } from "@shared/fetchWithTimeout";
 import { type UrlLike } from "@shared/url";
 
+const REPORT_TOO_LARGE_STATUS = 413;
+
 export type EventReporterOptions = {
   sdkKey: string;
   sdkIdentity: IdentifyingSdkOptions;
@@ -85,6 +87,10 @@ export class ServerEventReporter implements EventReporter {
         this.logger.warn(
           `[EventReporter] Received a fatal status response (${response.status}) from the telemetry endpoint. No more telemetry data will be sent.`,
         );
+      } else if (response.status === REPORT_TOO_LARGE_STATUS) {
+        this.logger.warn(
+          `[EventReporter] The telemetry endpoint responded with status ${response.status}. The events in this report were discarded.`,
+        );
       }
       return { success: response.ok, fatalError: isFatalError };
     } catch (error) {
@@ -94,6 +100,6 @@ export class ServerEventReporter implements EventReporter {
   }
 
   private isStatusFatal(status: number | undefined): boolean {
-    return !!status && status >= 400 && status < 500 && status != 429;
+    return !!status && status >= 400 && status < 500 && status != 429 && status != REPORT_TOO_LARGE_STATUS;
   }
 }

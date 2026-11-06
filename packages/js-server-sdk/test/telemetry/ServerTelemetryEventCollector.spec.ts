@@ -471,18 +471,71 @@ describe("ServerTelemetryEventCollector", () => {
 
   describe("fatal error handling", () => {
     test("stops collecting events after a fatal HTTP response", async () => {
-      server.use(http.post(TELEMETRY_URL, () => HttpResponse.json({}, { status: 401 })));
+      server.use(
+        http.post(TELEMETRY_URL, async ({ request }) => {
+          capturedPayloads.push(await request.json());
+          return HttpResponse.json({}, { status: 401 });
+        }),
+      );
 
       const collector = createCollector();
       collector.evaluatedConfig(basePayload);
 
       await vi.advanceTimersByTimeAsync(5_000);
-      expect(capturedPayloads).toHaveLength(0);
+      expect(capturedPayloads).toHaveLength(1);
 
       // Further events should be silently dropped
       collector.evaluatedConfig({ evaluation: { ...baseEvaluation, key: "config-after-fatal" } });
       await vi.advanceTimersByTimeAsync(35_000);
-      expect(capturedPayloads).toHaveLength(0);
+      expect(capturedPayloads).toHaveLength(1);
+    });
+
+    test("stops collecting events after a 400 response", async () => {
+      server.use(
+        http.post(TELEMETRY_URL, async ({ request }) => {
+          capturedPayloads.push(await request.json());
+          return HttpResponse.json({}, { status: 400 });
+        }),
+      );
+
+      const collector = createCollector();
+      collector.evaluatedConfig(basePayload);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(capturedPayloads).toHaveLength(1);
+
+      collector.evaluatedConfig({ evaluation: { ...baseEvaluation, key: "config-after-bad-request" } });
+      await vi.advanceTimersByTimeAsync(35_000);
+      expect(capturedPayloads).toHaveLength(1);
+    });
+  });
+
+  describe("report too large", () => {
+    test("logs a warning and sends the next report after a 413 response", async () => {
+      server.use(
+        http.post(TELEMETRY_URL, async ({ request }) => {
+          capturedPayloads.push(await request.json());
+          return HttpResponse.json({}, { status: capturedPayloads.length === 1 ? 413 : 200 });
+        }),
+      );
+      const warningLogger = { ...createStubbedLogger(), warn: vi.fn() };
+
+      const collector = createCollector({ logger: warningLogger });
+      collector.evaluatedConfig(basePayload);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(capturedPayloads).toHaveLength(1);
+      expect(warningLogger.warn).toHaveBeenCalledTimes(1);
+      expect(warningLogger.warn).toHaveBeenCalledWith(expect.stringContaining("413"));
+
+      collector.evaluatedConfig({ evaluation: { ...baseEvaluation, key: "config-after-too-large" } });
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(capturedPayloads).toHaveLength(2);
+      expect(capturedPayloads[1].aggregatedEvents.evaluatedConfig).toHaveLength(1);
+      expect(capturedPayloads[1].aggregatedEvents.evaluatedConfig[0]).toMatchObject({
+        event: { key: "config-after-too-large" },
+      });
     });
   });
 

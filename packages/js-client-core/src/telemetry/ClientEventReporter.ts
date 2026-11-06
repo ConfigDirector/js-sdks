@@ -21,6 +21,7 @@ import { utf8ByteLength } from "@shared/utf8-byte-length";
 
 const KEEPALIVE_QUOTA_BYTES = 64 * 1_024;
 const LARGEST_BODY_SENT_WITH_KEEPALIVE_BYTES = KEEPALIVE_QUOTA_BYTES / 2;
+const REPORT_TOO_LARGE_STATUS = 413;
 
 export type EventReporterOptions = {
   sdkKey: string;
@@ -118,6 +119,10 @@ export class ClientEventReporter implements EventReporter {
         this.logger.warn(
           `[EventReporter] Received a fatal status response (${response.status}) from the telemetry endpoint. No more telemetry data will be sent.`,
         );
+      } else if (response.status === REPORT_TOO_LARGE_STATUS) {
+        this.logger.warn(
+          `[EventReporter] The telemetry endpoint responded with status ${response.status}. The events in this report were discarded.`,
+        );
       }
       return { success: response.ok, fatalError: isFatalError };
     } catch (error) {
@@ -128,6 +133,6 @@ export class ClientEventReporter implements EventReporter {
   }
 
   private isStatusFatal(status: number | undefined): boolean {
-    return !!status && status >= 400 && status < 500 && status != 429;
+    return !!status && status >= 400 && status < 500 && status != 429 && status != REPORT_TOO_LARGE_STATUS;
   }
 }
