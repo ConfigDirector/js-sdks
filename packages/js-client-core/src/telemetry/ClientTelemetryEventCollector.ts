@@ -10,6 +10,7 @@ import {
 } from "@shared/telemetry/TelemetryEventCollector";
 import { EvaluatedConfigEventPreprocessor } from "@shared/telemetry/EvaluatedConfigEventPreprocessor";
 import { InvalidContextSubmissions } from "@shared/telemetry/InvalidContextSubmissions";
+import type { TrackedEventEntry } from "@shared/telemetry/tracked-events";
 
 export type ClientTelemetryEventCollectorOptions = TelemetryEventCollectorOptions & {
   clientSession: Promise<ClientSession>;
@@ -54,6 +55,10 @@ export class ClientTelemetryEventCollector extends TelemetryEventCollector<
     this.invalidContextSubmissions.absorb(entries);
   }
 
+  public absorbTrackedEventEntries(entries: TrackedEventEntry[]): void {
+    this.trackedEventQueue.absorb(entries);
+  }
+
   public async forceFlush() {
     this.cancelScheduledFlush();
     await this.flushAndScheduleNext();
@@ -68,7 +73,9 @@ export class ClientTelemetryEventCollector extends TelemetryEventCollector<
     );
     const response = await this.reporter?.report({
       context: this._context,
-      discreteEvents: {},
+      discreteEvents: {
+        trackedEvents: this.trackedEventQueue.takeBatch(),
+      },
       aggregatedEvents: {
         evaluatedConfig: this.aggregator.aggregate(evaluationSnapshot),
         invalidContext: this.invalidContextSubmissions.takeSnapshot(),

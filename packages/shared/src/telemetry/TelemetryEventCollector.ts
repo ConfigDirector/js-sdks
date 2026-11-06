@@ -1,6 +1,9 @@
 import type { ConfigDirectorContext, ConfigDirectorLogger, ConfigDirectorMetaContext, IdentifyingSdkOptions } from "../types";
 import { EventAggregator } from "./EventAggregator";
 import { EventQueue } from "./EventQueue";
+import { TrackedEventQueue } from "./TrackedEventQueue";
+import { logBatchWarnings } from "./tracked-events";
+import type { TrackedEventAdmission } from "./tracked-events";
 import type { EventReporter, EventSnapshotPreprocessor, ReportableEvent, ReporterResponse, ValueIdGenerator } from "./types";
 import type { UrlFactory, UrlLike } from "../url";
 
@@ -22,6 +25,7 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
   protected abstract readonly reporter: EventReporter | undefined;
   protected readonly evaluationEventQueue: EventQueue<T>;
   protected readonly aggregator: EventAggregator = new EventAggregator();
+  protected readonly trackedEventQueue = new TrackedEventQueue();
   protected flushIntervalDelay: number;
   protected flushTimeout: ReturnType<typeof setTimeout> | undefined;
   protected collectEvents = true;
@@ -43,6 +47,13 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
     }
     this.started = true;
     this.flushTimeout = setTimeout(() => this.flushAndScheduleNext(), this.initialFlushIntervalDelay);
+  }
+
+  public trackedEvent(admission: TrackedEventAdmission): void {
+    if (!this.collectEvents) {
+      return;
+    }
+    logBatchWarnings(this.logger, this.trackedEventQueue.add(admission));
   }
 
   protected abstract flush(): Promise<ReporterResponse>;
@@ -83,6 +94,7 @@ export abstract class TelemetryEventCollector<T extends ReportableEvent> {
       this.logger.warn("[TelemetryEventCollector] Error flushing telemetry events during close: ", error);
     }
     this.evaluationEventQueue.clear();
+    this.trackedEventQueue.clear();
   }
 
   public dispose() {

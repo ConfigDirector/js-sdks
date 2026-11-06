@@ -1,6 +1,13 @@
 import { DefaultConfigDirectorClient } from "../DefaultConfigDirectorClient";
 import { createDefaultLogger } from "../logger";
-import type { ConfigDirectorClient, ConfigDirectorContext, ConfigDirectorLogger, IdentifyingSdkOptions } from "../types";
+import type {
+  ConfigDirectorClient,
+  ConfigDirectorContext,
+  ConfigDirectorLogger,
+  IdentifyingSdkOptions,
+  TrackedEvent,
+} from "../types";
+import { RecordedTrackedEvents } from "@shared/telemetry/RecordedTrackedEvents";
 import { discardingTelemetryClient } from "../telemetry/discarding";
 import { InMemoryConnection } from "./InMemoryConnection";
 import type { TestValue, TestValues } from "./values";
@@ -23,7 +30,9 @@ export type TestClientOptions = {
    */
   timeout?: number;
   /**
-   * The logger the SDK client uses. Defaults to the SDK's console logger at `warn` level.
+   * The logger the SDK client uses. Defaults to the SDK's console logger at `warn` level. Since the
+   * test client sends no telemetry, every tracked event that is not recorded as it was tracked logs
+   * a warning, rather than each cause once per telemetry batch.
    */
   logger?: ConfigDirectorLogger;
 };
@@ -103,12 +112,21 @@ export interface TestClient {
    * the client connects without it. Resumes are not recorded.
    */
   readonly contextUpdates: ConfigDirectorContext[];
+
+  /**
+   * Every event the code under test tracked through the client, in call order, with the context
+   * the client had at that moment, as the SDK would report it: an event whose name does not have
+   * 1 to 150 characters is not recorded, and a value or details the SDK would leave out are missing
+   * from the record. The limit of 1,000 events per telemetry batch does not apply.
+   */
+  readonly trackedEvents: TrackedEvent[];
 }
 
 class InMemoryTestClient implements TestClient {
   constructor(
     public readonly client: ConfigDirectorClient,
     private readonly connection: InMemoryConnection,
+    public readonly trackedEvents: TrackedEvent[],
   ) {}
 
   public setValue(key: string, value: TestValue) {
@@ -155,12 +173,16 @@ class InMemoryTestClient implements TestClient {
 export const createTestClient = (sdkOptions: IdentifyingSdkOptions, options?: TestClientOptions): TestClient => {
   const logger = options?.logger ?? createDefaultLogger();
   const connection = new InMemoryConnection(logger, options?.values ?? {});
+  const recordedTrackedEvents = new RecordedTrackedEvents(logger);
   const client = new DefaultConfigDirectorClient(
-    () => discardingTelemetryClient,
+    () => ({
+      ...discardingTelemetryClient,
+      trackedEvent: (admission, context) => recordedTrackedEvents.record(admission, context),
+    }),
     TEST_CLIENT_SDK_KEY,
     sdkOptions,
     { logger, connection: { timeout: options?.timeout } },
     { transport: connection },
   );
-  return new InMemoryTestClient(client, connection);
+  return new InMemoryTestClient(client, connection, recordedTrackedEvents.events);
 };

@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import type { MockInstance } from "vitest";
 import { commands } from "vitest/browser";
 import { ClientTelemetryEventCollector } from "../../src/telemetry/ClientTelemetryEventCollector";
 import type { EventReport } from "../../src/telemetry/types";
@@ -222,6 +223,51 @@ describe("ClientTelemetryEventCollector", () => {
 
       const payloads = await commands.mswGetPayloads();
       expect((payloads[0] as EventReport).aggregatedEvents["evaluatedConfig"]).toHaveLength(2);
+    });
+  });
+
+  describe("keepalive", () => {
+    let fetchSpy: MockInstance<typeof fetch>;
+
+    beforeEach(() => {
+      fetchSpy = vi.spyOn(globalThis, "fetch");
+    });
+
+    afterEach(() => {
+      fetchSpy.mockRestore();
+    });
+
+    const admittedEventWithANoteOf = (characters: number) => ({
+      outcome: "admitted" as const,
+      entry: {
+        name: "checkout-completed",
+        details: { note: "a".repeat(characters) },
+        happenedAt: "2026-11-05T10:00:05.000Z",
+      },
+      warnings: [],
+    });
+
+    const keepaliveOfTheReportsSent = () =>
+      fetchSpy.mock.calls.map(([, init]) => (init as RequestInit).keepalive);
+
+    test("sends a report just under 32 KiB with keepalive, so it survives the page closing", async () => {
+      collector = createCollector();
+      collector.trackedEvent(admittedEventWithANoteOf(31_000));
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+
+      expect(keepaliveOfTheReportsSent()).toEqual([true]);
+    });
+
+    test("sends a report just over 32 KiB without keepalive, which browsers refuse beyond 64 KiB in flight", async () => {
+      collector = createCollector();
+      collector.trackedEvent(admittedEventWithANoteOf(33_000));
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+
+      expect(keepaliveOfTheReportsSent()).toEqual([false]);
     });
   });
 

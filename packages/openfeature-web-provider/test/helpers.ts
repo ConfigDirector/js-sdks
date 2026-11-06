@@ -4,6 +4,7 @@ import { CACHED_VALUES_STORAGE_KEY_PREFIX } from "@js-client-core/cached-values"
 
 export const SSE_URL = "https://client-sdk-api.configdirector.com/client/sse/v1" as const;
 export const POLL_URL = "https://client-sdk-api.configdirector.com/client/polling/v1" as const;
+export const TELEMETRY_URL = "https://client-sdk-api.configdirector.com/client/telemetry/v1" as const;
 
 export const createStubbedLogger = (): ConfigDirectorLogger => {
   return {

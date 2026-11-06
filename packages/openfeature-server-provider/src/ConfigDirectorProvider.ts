@@ -5,9 +5,10 @@ import type {
   Provider,
   ProviderMetadata,
   ResolutionDetails,
+  TrackingEventDetails,
 } from "@openfeature/server-sdk";
 import { OpenFeatureEventEmitter, ProviderEvents, ProviderNotReadyError } from "@openfeature/server-sdk";
-import type { ConfigDirectorContext, ConfigValueType } from "@shared/types";
+import type { ConfigDirectorContext, ConfigValueType, TrackedEventDetails } from "@shared/types";
 import type { ConfigDirectorClient, ConfigDirectorClientOptions, OfflineClientOptions } from "@js-server-sdk/index";
 import { DefaultConfigDirectorClient } from "@js-server-sdk/DefaultConfigDirectorClient";
 import { resolutionOf } from "./resolution";
@@ -94,6 +95,15 @@ export class ConfigDirectorProvider implements Provider {
         this.client.evaluate(flagKey, defaultValue as ConfigValueType, this.mapContext(context)),
       ) as ResolutionDetails<T>,
     );
+  }
+
+  track(trackingEventName: string, context: EvaluationContext, trackingEventDetails: TrackingEventDetails): void {
+    const { value, ...otherDetails } = trackingEventDetails ?? {};
+    const hasOtherDetails = Object.keys(otherDetails).length > 0;
+    this.client.track(trackingEventName, this.mapContext(context), {
+      value,
+      details: hasOtherDetails ? (otherDetails as TrackedEventDetails) : undefined,
+    });
   }
 
   onClose?(): Promise<void> {

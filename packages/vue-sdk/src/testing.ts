@@ -2,6 +2,7 @@ import { createTestClient as createCoreTestClient } from "@js-client-core/testin
 import type { TestClient, TestClientOptions } from "@js-client-core/testing/index";
 
 export type { TestClient, TestClientOptions, TestValue, TestValues, TestJsonValue } from "@js-client-core/testing/index";
+export type { TrackedEvent, TrackedEventDetails, TrackedEventDetailValue } from "@shared/types";
 export { ConfigDirectorConnectionError, ConfigDirectorValidationError } from "@shared/errors";
 
 /**

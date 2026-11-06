@@ -13,6 +13,9 @@ export type {
   OfflineClientOptions,
   OfflineValue,
   OfflineValues,
+  TrackOptions,
+  TrackedEventDetails,
+  TrackedEventDetailValue,
   Variation,
 } from "@js-client-core/index";
 

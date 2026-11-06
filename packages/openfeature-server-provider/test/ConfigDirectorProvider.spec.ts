@@ -3,7 +3,7 @@ import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { OpenFeature, ProviderEvents, ProviderNotReadyError, ProviderStatus } from "@openfeature/server-sdk";
 import { ConfigDirectorProvider } from "../src";
-import { SSE_URL, POLLING_URL, createStubbedLogger } from "./helpers";
+import { SSE_URL, POLLING_URL, TELEMETRY_URL, createStubbedLogger } from "./helpers";
 
 const buildResponse = (stream: ReadableStream) => {
   return new Response(stream, {
@@ -844,6 +844,111 @@ describe("ConfigDirectorProvider (via @openfeature/server-sdk)", () => {
       ).rejects.toThrow(ProviderNotReadyError);
 
       expect(OpenFeature.getClient().providerStatus).toBe(ProviderStatus.ERROR);
+    });
+  });
+
+  describe("track", () => {
+    type TrackedEventEntry = {
+      name: string;
+      contextKind?: string;
+      contextIdentifier?: string;
+      value?: number;
+      details?: Record<string, unknown>;
+      happenedAt: string;
+    };
+    type TelemetryReport = { discreteEvents: { trackedEvents: TrackedEventEntry[] } };
+
+    let reports: TelemetryReport[];
+
+    beforeEach(() => {
+      reports = [];
+      server.use(
+        sseHandler((controller) => controller.enqueue(message(fullBundle()))),
+        http.post(TELEMETRY_URL, async ({ request }) => {
+          reports.push((await request.json()) as TelemetryReport);
+          return new Response(null, { status: 204 });
+        }),
+      );
+    });
+
+    afterEach(() => vi.useRealTimers());
+
+    const trackedEventsSentOnClose = async (): Promise<TrackedEventEntry[]> => {
+      await OpenFeature.close();
+      return vi.waitFor(() => {
+        const [report] = reports;
+        if (!report) {
+          throw new Error("No telemetry report was sent yet");
+        }
+        return report.discreteEvents.trackedEvents;
+      });
+    };
+
+    test("reports a tracked event to ConfigDirector with its value, its other details and the evaluation context", async () => {
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      vi.setSystemTime(new Date("2026-11-05T10:00:05.000Z"));
+
+      OpenFeature.getClient().track(
+        "checkout-completed",
+        { targetingKey: "acme", kind: "organization" },
+        { value: 49.9, plan: "pro", seats: 3 },
+      );
+
+      expect(await trackedEventsSentOnClose()).toEqual([
+        {
+          name: "checkout-completed",
+          contextKind: "organization",
+          contextIdentifier: "acme",
+          value: 49.9,
+          details: { plan: "pro", seats: 3 },
+          happenedAt: "2026-11-05T10:00:05.000Z",
+        },
+      ]);
+    });
+
+    test("reports an event tracked without details or an evaluation context with its name alone", async () => {
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      vi.setSystemTime(new Date("2026-11-05T10:00:05.000Z"));
+
+      OpenFeature.getClient().track("nightly-import-finished");
+
+      expect(await trackedEventsSentOnClose()).toEqual([
+        { name: "nightly-import-finished", happenedAt: "2026-11-05T10:00:05.000Z" },
+      ]);
+    });
+
+    test("reports an event tracked with a value alone without details", async () => {
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      OpenFeature.getClient().track("checkout-completed", { targetingKey: "user-1" }, { value: 49.9 });
+
+      const [entry] = await trackedEventsSentOnClose();
+      expect(entry?.value).toBe(49.9);
+      expect(entry).not.toHaveProperty("details");
+    });
+
+    test("reports a date in the details as an ISO 8601 string", async () => {
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+
+      OpenFeature.getClient().track(
+        "trial-started",
+        { targetingKey: "user-1" },
+        { endsOn: new Date("2026-12-01T00:00:00.000Z") },
+      );
+
+      const [entry] = await trackedEventsSentOnClose();
+      expect(entry?.details).toEqual({ endsOn: "2026-12-01T00:00:00.000Z" });
+    });
+
+    test("reports an event for the context set on the OpenFeature client", async () => {
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger }));
+      const client = OpenFeature.getClient();
+      client.setContext({ targetingKey: "user-7" });
+
+      client.track("checkout-completed");
+
+      const [entry] = await trackedEventsSentOnClose();
+      expect(entry?.contextIdentifier).toBe("user-7");
     });
   });
 });

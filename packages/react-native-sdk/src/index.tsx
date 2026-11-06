@@ -23,5 +23,8 @@ export {
   type ConfigEvaluation,
   type ConnectionMode,
   type EvaluationReason,
+  type TrackOptions,
+  type TrackedEventDetails,
+  type TrackedEventDetailValue,
   type Variation,
 } from "@js-client-core/index";

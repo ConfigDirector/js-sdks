@@ -25,6 +25,7 @@ const telemetryClient: TelemetryClient = {
   updateContext: vi.fn(async () => {}),
   evaluatedConfig: vi.fn(),
   recordInvalidContext: vi.fn(),
+  trackedEvent: vi.fn(),
   close: vi.fn(async () => {}),
 };
 

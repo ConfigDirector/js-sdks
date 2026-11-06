@@ -136,6 +136,41 @@ describe("createClient", () => {
     expect(telemetryRequest?.body).not.toHaveProperty("ephemeral");
   });
 
+  test("sends an event tracked for the client's context on the next telemetry batch with its value and details", async () => {
+    const client = createClient("sdk-key", { logger });
+    await client.initialize({ id: "user-1" });
+
+    client.track("checkout-completed", { value: 49.9, details: { plan: "pro" } });
+    client.dispose();
+
+    await waitForTelemetryReport();
+    const telemetryRequest = requests.find((request) => request.url.includes("telemetry"));
+    expect(telemetryRequest?.body?.discreteEvents.trackedEvents).toEqual([
+      {
+        name: "checkout-completed",
+        contextKind: "user",
+        contextIdentifier: "user-1",
+        value: 49.9,
+        details: { plan: "pro" },
+        happenedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
+      },
+    ]);
+  });
+
+  test("sends an event tracked before the client connected, without a context", async () => {
+    const client = createClient("sdk-key", { logger });
+
+    client.track("app-opened");
+    await client.initialize({ id: "user-1" });
+    client.dispose();
+
+    await waitForTelemetryReport();
+    const telemetryRequest = requests.find((request) => request.url.includes("telemetry"));
+    const [entry] = telemetryRequest?.body?.discreteEvents.trackedEvents ?? [];
+    expect(entry?.name).toBe("app-opened");
+    expect(entry).not.toHaveProperty("contextIdentifier");
+  });
+
   test("reports the rule, share and variation a payload entry carries in telemetry", async () => {
     payloadConfigs = {
       "checkout-cta-copy": {

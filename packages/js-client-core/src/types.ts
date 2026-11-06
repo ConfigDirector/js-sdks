@@ -9,6 +9,7 @@ import type {
   ConfigState,
   ConnectionMode,
   ConfigEvaluation,
+  TrackOptions,
 } from "../../shared/src/types";
 import type { NativeValue, NativeValues } from "@shared/native-values";
 export * from "../../shared/src/types";
@@ -355,6 +356,21 @@ export interface ConfigDirectorClient extends EventProvider<ClientEvents> {
    * Removes all subscribers from all config keys
    */
   unwatchAll(): void;
+
+  /**
+   * Reports to ConfigDirector that something happened for the current context, such as a completed
+   * checkout, so it can be counted. The event is sent with the next telemetry batch. `track` never
+   * throws, and does nothing in `offline` mode.
+   *
+   * An event counts for an experiment only when the current context has an `id`, the one the
+   * experiment's config was evaluated for. Before the client has a context, or for a context
+   * without an `id`, the event is still reported.
+   *
+   * @param eventName The name of the event, 1 to 150 characters. An event with any other name is
+   * not reported and a warning is logged.
+   * @param options The event's {@link TrackOptions.value} and {@link TrackOptions.details} (optional)
+   */
+  track(eventName: string, options?: TrackOptions): void;
 
   /**
    * Pauses the network connection without clearing event handlers, watch handlers, or config

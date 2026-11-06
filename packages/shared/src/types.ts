@@ -100,6 +100,51 @@ export type ConfigEvaluation<T extends ConfigValueType = ConfigValueType> = {
   /** The context the config was evaluated for, if any. */
   context?: ConfigDirectorContext;
 };
+
+/**
+ * A value in the details of a tracked event: a string, a number, a boolean, or an array or object
+ * of such values.
+ */
+export type TrackedEventDetailValue =
+  | string
+  | number
+  | boolean
+  | TrackedEventDetailValue[]
+  | { [key: string]: TrackedEventDetailValue };
+
+/**
+ * Details of a tracked event, such as the plan a customer chose. Details with more than 20
+ * top-level keys, or larger than 1 KB as JSON, are left out and the event is still reported.
+ */
+export type TrackedEventDetails = { [key: string]: TrackedEventDetailValue };
+
+/**
+ * What a tracked event carries besides its name.
+ */
+export type TrackOptions = {
+  /**
+   * A number the event measures, such as an amount of money, a count or a duration. A value that
+   * is not a finite number is left out and the event is still reported.
+   */
+  value?: number;
+  /** Details of the event. */
+  details?: TrackedEventDetails;
+};
+
+/**
+ * An event the code under test tracked, as a test client recorded it.
+ */
+export type TrackedEvent = {
+  /** The name the event was tracked with. */
+  name: string;
+  /** The context the event was tracked for, if any. */
+  context?: ConfigDirectorContext;
+  /** The value the event was tracked with, when it is a finite number. */
+  value?: number;
+  /** The details the event was tracked with, when they are within the limits. */
+  details?: TrackedEventDetails;
+};
+
 /**
  * The context to be sent to ConfigDirector: the user or other entity, such as a device or an
  * organization, that configs are evaluated for. This context will be used for targeting rules

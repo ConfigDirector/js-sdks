@@ -13,11 +13,11 @@ import { TelemetryEventCollector } from "@shared/telemetry/TelemetryEventCollect
 import { LimitedMap } from "@shared/LimitedMap";
 import { mapToTelemetryValue, type TelemetryValue } from "@shared/telemetry/utils";
 import { EvaluatedConfigEventPreprocessor } from "@shared/telemetry/EvaluatedConfigEventPreprocessor";
-import { effectiveContextKind } from "@config-evaluator/context-kind";
 import {
   InvalidContextSubmissions,
   type InvalidContextRecording,
 } from "@shared/telemetry/InvalidContextSubmissions";
+import { reportedContextOf } from "@shared/telemetry/reported-context";
 
 const DEFAULT_CONTEXTS_LIMIT = 1_000;
 
@@ -45,15 +45,14 @@ export class ServerTelemetryEventCollector
       return;
     }
     const context = payload.context ?? undefined;
-    const contextKind = effectiveContextKind({ context });
-    const contextId = context?.anonymous ? undefined : context?.id;
+    const { contextKind, contextIdentifier: contextId } = reportedContextOf(context);
     if (contextId) {
       this.contexts.set(`${contextKind}:${contextId}`, { ...context, kind: contextKind });
     }
     const event = {
       ...payload.evaluation,
       contextId,
-      contextKind: contextId === undefined ? undefined : contextKind,
+      contextKind,
     };
 
     this.evaluationEventQueue.push(this.sanitizeEvaluatedConfigEvent(event));
@@ -96,6 +95,7 @@ export class ServerTelemetryEventCollector
       context: this._context,
       discreteEvents: {
         capturedContexts: contextsSnapshot.contexts,
+        trackedEvents: this.trackedEventQueue.takeBatch(),
       },
       aggregatedEvents: {
         evaluatedConfig: this.aggregator.aggregate(evaluationSnapshot),

@@ -4,5 +4,6 @@ export const discardingTelemetryClient: ServerTelemetryClient = {
   start: () => {},
   evaluatedConfig: () => {},
   recordInvalidContext: () => "new-kind-sample",
+  trackedEvent: () => {},
   close: async () => {},
 };

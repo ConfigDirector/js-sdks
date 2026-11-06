@@ -22,6 +22,7 @@ import type {
   ClientSession,
   OfflineClientOptions,
   EvaluationReason,
+  TrackOptions,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorInitializationError, ConfigDirectorValidationError } from "./errors";
@@ -35,6 +36,7 @@ import { resolveClientSession } from "./client-session";
 import { PollingTransport } from "./PollingTransport";
 import { readHost, readUserAgent } from "./browser-globals";
 import { admitContext } from "@shared/context-kind";
+import { admitTrackedEvent } from "@shared/telemetry/tracked-events";
 import {
   CachedValuesStore,
   contextTagFor,
@@ -619,6 +621,18 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
 
   public unwatchAll() {
     this.handlersMap.clear();
+  }
+
+  public track(eventName: string, options?: TrackOptions): void {
+    try {
+      const context = this.currentContext;
+      this.telemetryClient.trackedEvent(
+        admitTrackedEvent({ name: eventName, context, options, happenedAt: new Date() }),
+        context,
+      );
+    } catch (error) {
+      this.logger.warn("[ConfigDirectorClient] A tracked event was not reported because it could not be read: ", error);
+    }
   }
 
   public pauseNetwork(): void {

@@ -9,6 +9,7 @@ import type { EvaluatedConfigEvent } from "@js-client-core/telemetry";
 import type { InvalidContextEvent } from "@shared/telemetry/telemetry-events";
 import type { AggregatedEvent } from "@shared/telemetry/types";
 import type { TelemetryValue } from "@shared/telemetry/utils";
+import type { TrackedEventAdmission, TrackedEventEntry } from "@shared/telemetry/tracked-events";
 export * from "@shared/telemetry/types";
 
 export type TelemetryFlushEvent = {
@@ -56,6 +57,18 @@ export type TelemetryInvalidContextSubmissionsEvent = {
   };
 };
 
+export type TelemetryTrackedEventEvent = {
+  type: "TrackedEvent";
+  payload: TrackedEventAdmission;
+};
+
+export type TelemetryTrackedEventEntriesEvent = {
+  type: "TrackedEventEntries";
+  payload: {
+    entries: TrackedEventEntry[];
+  };
+};
+
 export type TelemetryWorkerEvent =
   | TelemetryFlushEvent
   | TelemetryCloseEvent
@@ -63,6 +76,8 @@ export type TelemetryWorkerEvent =
   | TelemetryClientSessionEvent
   | TelemetryEvaluatedConfigEvent
   | TelemetryInvalidContextSubmissionsEvent
+  | TelemetryTrackedEventEvent
+  | TelemetryTrackedEventEntriesEvent
   | TelemetryUpdateContextEvent;
 
 export type TelemetryWorkerLoggingEvent = {

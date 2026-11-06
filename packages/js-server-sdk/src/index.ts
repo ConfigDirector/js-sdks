@@ -10,6 +10,9 @@ export type {
   OfflineClientOptions,
   OfflineValue,
   OfflineValues,
+  TrackOptions,
+  TrackedEventDetails,
+  TrackedEventDetailValue,
   Variation,
 } from "./types";
 

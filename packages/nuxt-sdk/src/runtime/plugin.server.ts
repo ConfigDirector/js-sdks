@@ -3,6 +3,7 @@ import type {
   ConfigDirectorContext,
   ConfigEvaluation,
   ConfigValueType,
+  TrackOptions,
 } from "@js-client-core/index";
 import { createDefaultLogger } from "./logger";
 import type { ConfigDirectorClient as ServerConfigDirectorClient } from "@configdirector/server-sdk";
@@ -77,6 +78,10 @@ class SsrClient implements ConfigDirectorClient {
 
   evaluate<T extends ConfigValueType>(configKey: string, defaultValue: T): ConfigEvaluation<T> {
     return this.serverClient.evaluate(configKey, defaultValue, this.suppliedContext);
+  }
+
+  track(eventName: string, options?: TrackOptions): void {
+    this.serverClient.track(eventName, this.suppliedContext, options);
   }
 
   watch(): () => void {

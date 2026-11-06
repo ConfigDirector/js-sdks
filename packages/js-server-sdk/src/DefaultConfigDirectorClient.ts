@@ -21,6 +21,7 @@ import type {
   HookHandler,
   InternalClientOptions,
   OfflineClientOptions,
+  TrackOptions,
 } from "./types";
 import { createDefaultLogger } from "./logger";
 import { ConfigDirectorInitializationError, ConfigDirectorValidationError } from "@shared/errors";
@@ -40,6 +41,7 @@ import {
 import { ServerTelemetryEventCollector, type ServerTelemetryClient } from "./telemetry";
 import { discardingTelemetryClient } from "./telemetry/discarding";
 import { generateValueId } from "./telemetry/value-id-generator";
+import { admitTrackedEvent } from "@shared/telemetry/tracked-events";
 
 const DEFAULT_FLUSH_INTERVAL = 30_000;
 const DEFAULT_EVENT_QUEUE_LIMIT = 5_000;
@@ -461,6 +463,27 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       };
       this.dispatchEvaluationEvent(evaluation);
       return evaluation;
+    }
+  }
+
+  public track(eventName: string, context?: ConfigDirectorContext, options?: TrackOptions): void {
+    switch (this.connectionPlan.kind) {
+      case "stay-offline":
+        return;
+      case "connect":
+        try {
+          const admittedContext = this.contextToEvaluate(context);
+          this.usageEventCollector.trackedEvent(
+            admitTrackedEvent({ name: eventName, context: admittedContext, options, happenedAt: new Date() }),
+            admittedContext,
+          );
+        } catch (error) {
+          this.logger.warn(
+            "[ConfigDirectorClient] A tracked event was not reported because it could not be read: ",
+            error,
+          );
+        }
+        return;
     }
   }
 

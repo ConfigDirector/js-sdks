@@ -2069,6 +2069,7 @@ describe("ConfigDirectorClient", () => {
       start: vi.fn(),
       evaluatedConfig: vi.fn(),
       recordInvalidContext: vi.fn(() => "new-kind-sample" as const),
+      trackedEvent: vi.fn(),
       close: vi.fn(async () => {}),
     });
 

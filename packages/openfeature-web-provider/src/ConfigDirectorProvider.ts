@@ -13,11 +13,14 @@ import type {
   ConfigDirectorContext,
   ConfigValueType,
   OfflineClientOptions,
+  TrackedEventDetails,
 } from "@js-client-core/index";
 import { createBrowserClient } from "@js-browser-client/index";
 import { resolutionOf } from "./resolution";
 
 const SDK_IDENTITY = { sdkName: "js-openfeature-web-provider", sdkVersion: "__VERSION__" };
+
+type TrackingEventDetails = { value?: number } & Record<string, unknown>;
 
 type StatusReport = "stale" | "as the SDK recorded it";
 
@@ -97,6 +100,15 @@ export class ConfigDirectorProvider implements Provider {
     return resolutionOf(
       this.client.evaluate(flagKey, defaultValue as ConfigValueType),
     ) as ResolutionDetails<T>;
+  }
+
+  track(trackingEventName: string, _context: EvaluationContext, trackingEventDetails: TrackingEventDetails): void {
+    const { value, ...otherDetails } = trackingEventDetails ?? {};
+    const hasOtherDetails = Object.keys(otherDetails).length > 0;
+    this.client.track(trackingEventName, {
+      value,
+      details: hasOtherDetails ? (otherDetails as TrackedEventDetails) : undefined,
+    });
   }
 
   onClose?(): Promise<void> {

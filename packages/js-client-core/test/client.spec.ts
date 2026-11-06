@@ -26,6 +26,7 @@ const telemetryClient: TelemetryClient = {
   updateContext: vi.fn(async () => {}),
   evaluatedConfig: vi.fn(),
   recordInvalidContext: vi.fn(),
+  trackedEvent: vi.fn(),
   close: vi.fn(async () => {}),
 };
 
@@ -719,6 +720,7 @@ describe("ConfigDirectorClient", () => {
         updateContext: () => Promise.reject(new Error("telemetry is unavailable")),
         evaluatedConfig: () => {},
         recordInvalidContext: () => {},
+        trackedEvent: () => {},
         close: () => Promise.reject(new Error("telemetry is unavailable")),
       };
 

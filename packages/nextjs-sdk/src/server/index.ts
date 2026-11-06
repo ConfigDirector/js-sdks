@@ -23,5 +23,8 @@ export type {
   OfflineClientOptions,
   OfflineValue,
   OfflineValues,
+  TrackOptions,
+  TrackedEventDetails,
+  TrackedEventDetailValue,
   Variation,
 } from "@js-server-sdk/types";

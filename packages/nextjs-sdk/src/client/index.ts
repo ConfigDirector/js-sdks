@@ -20,5 +20,8 @@ export type {
   ConfigValueType,
   ConnectionMode,
   EvaluationReason,
+  TrackOptions,
+  TrackedEventDetails,
+  TrackedEventDetailValue,
   Variation,
 } from "@js-browser-client/index";

@@ -3,6 +3,7 @@ import type { TestClient, TestClientOptions } from "./testing/TestClient";
 
 export type { TestClient, TestClientOptions } from "./testing/TestClient";
 export type { TestValue, TestValues, TestJsonValue } from "./testing/values";
+export type { TrackedEvent, TrackedEventDetails, TrackedEventDetailValue } from "@shared/types";
 export { ConfigDirectorConnectionError, ConfigDirectorValidationError } from "@shared/errors";
 
 /**

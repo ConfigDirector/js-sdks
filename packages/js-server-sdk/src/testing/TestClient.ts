@@ -1,6 +1,8 @@
 import { DefaultConfigDirectorClient } from "../DefaultConfigDirectorClient";
 import { createDefaultLogger } from "../logger";
 import type { ConfigDirectorClient, ConfigDirectorLogger, IdentifyingSdkOptions } from "../types";
+import type { TrackedEvent } from "@shared/types";
+import { RecordedTrackedEvents } from "@shared/telemetry/RecordedTrackedEvents";
 import { discardingTelemetryClient } from "../telemetry/discarding";
 import { InMemoryConnection } from "./InMemoryConnection";
 import type { TestValue, TestValues } from "./values";
@@ -26,7 +28,8 @@ export type TestClientOptions = {
   /**
    * The logger the SDK client uses. Defaults to the SDK's console logger at `warn` level. Since
    * the test client sends no telemetry, every read that supplies a context with an invalid kind
-   * logs an error, rather than each invalid kind once per telemetry interval.
+   * logs an error, rather than each invalid kind once per telemetry interval. For the same reason,
+   * every tracked event that is not recorded as it was tracked logs a warning.
    */
   logger?: ConfigDirectorLogger;
 };
@@ -81,12 +84,22 @@ export interface TestClient {
    * to fail. `initialize` completes promptly with the client not ready and `connectionError` fires.
    */
   failInitialization(): void;
+
+  /**
+   * Every event the code under test tracked through the client, in call order, as the SDK would
+   * report it: an event whose name does not have 1 to 150 characters is not recorded, and a value
+   * or details the SDK would leave out are missing from the record. A context whose kind is
+   * invalid is not recorded with its event. The limit of 1,000 events per telemetry batch does not
+   * apply.
+   */
+  readonly trackedEvents: TrackedEvent[];
 }
 
 class InMemoryTestClient implements TestClient {
   constructor(
     public readonly client: ConfigDirectorClient,
     private readonly connection: InMemoryConnection,
+    public readonly trackedEvents: TrackedEvent[],
   ) {}
 
   public setValue(key: string, value: TestValue) {
@@ -117,11 +130,18 @@ class InMemoryTestClient implements TestClient {
 export const createTestClient = (sdkOptions: IdentifyingSdkOptions, options?: TestClientOptions): TestClient => {
   const logger = options?.logger ?? createDefaultLogger();
   const connection = new InMemoryConnection(logger, options?.values ?? {});
+  const recordedTrackedEvents = new RecordedTrackedEvents(logger);
   const client = new DefaultConfigDirectorClient(
     TEST_CLIENT_SDK_KEY,
     sdkOptions,
     { logger, connection: { timeout: options?.timeout } },
-    { transport: connection, telemetry: discardingTelemetryClient },
+    {
+      transport: connection,
+      telemetry: {
+        ...discardingTelemetryClient,
+        trackedEvent: (admission, context) => recordedTrackedEvents.record(admission, context),
+      },
+    },
   );
-  return new InMemoryTestClient(client, connection);
+  return new InMemoryTestClient(client, connection, recordedTrackedEvents.events);
 };

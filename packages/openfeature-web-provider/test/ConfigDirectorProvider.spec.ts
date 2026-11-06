@@ -2,7 +2,15 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 import { commands } from "vitest/browser";
 import { OpenFeature, ProviderEvents, ProviderNotReadyError, ProviderStatus } from "@openfeature/web-sdk";
 import { ConfigDirectorProvider } from "../src";
-import { SSE_URL, POLL_URL, createCapturingLogger, createStubbedLogger, deferred, forgetCachedValues } from "./helpers";
+import {
+  SSE_URL,
+  POLL_URL,
+  TELEMETRY_URL,
+  createCapturingLogger,
+  createStubbedLogger,
+  deferred,
+  forgetCachedValues,
+} from "./helpers";
 
 const full = (configs: object = {}) => ({
   environmentId: "10000000-0000-0000-0000-000000000000",
@@ -828,6 +836,94 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
       expect(client.providerStatus).toBe(ProviderStatus.ERROR);
       await vi.waitFor(() => expect(client.providerStatus).toBe(ProviderStatus.STALE));
       expect(client.getBooleanValue("dark-mode", false)).toBe(true);
+    });
+  });
+
+  describe("track", () => {
+    type TrackedEventEntry = {
+      name: string;
+      contextKind?: string;
+      contextIdentifier?: string;
+      value?: number;
+      details?: Record<string, unknown>;
+      happenedAt: string;
+    };
+    type TelemetryReport = { discreteEvents?: { trackedEvents?: TrackedEventEntry[] } };
+
+    beforeEach(async () => {
+      await commands.mswUseHandlers({ url: POLL_URL, responseBody: full() }, { url: TELEMETRY_URL, status: 202 });
+    });
+
+    afterEach(() => vi.useRealTimers());
+
+    const pollingProvider = () => new ConfigDirectorProvider("sdk-key", { logger, connection: { mode: "polling" } });
+
+    const trackedEventsSentOnClose = async (): Promise<TrackedEventEntry[]> => {
+      await OpenFeature.close();
+      return vi.waitFor(
+        async () => {
+          const payloads = (await commands.mswGetPayloads()) as TelemetryReport[];
+          const entries = payloads.flatMap((payload) => payload.discreteEvents?.trackedEvents ?? []);
+          if (entries.length === 0) {
+            throw new Error("No tracked event was sent yet");
+          }
+          return entries;
+        },
+        { timeout: 8_000, interval: 50 },
+      );
+    };
+
+    test("reports a tracked event to ConfigDirector with its value, its other details and the context OpenFeature holds", async () => {
+      await OpenFeature.setContext({ targetingKey: "acme", kind: "organization" });
+      await OpenFeature.setProviderAndWait(pollingProvider());
+      vi.setSystemTime(new Date("2026-11-05T10:00:05.000Z"));
+
+      OpenFeature.getClient().track("checkout-completed", { value: 49.9, plan: "pro", seats: 3 });
+
+      expect(await trackedEventsSentOnClose()).toEqual([
+        {
+          name: "checkout-completed",
+          contextKind: "organization",
+          contextIdentifier: "acme",
+          value: 49.9,
+          details: { plan: "pro", seats: 3 },
+          happenedAt: "2026-11-05T10:00:05.000Z",
+        },
+      ]);
+    });
+
+    test("reports an event tracked without details with no value or details", async () => {
+      await OpenFeature.setContext({ targetingKey: "user-1" });
+      await OpenFeature.setProviderAndWait(pollingProvider());
+
+      OpenFeature.getClient().track("newsletter-signup-opened");
+
+      const [entry] = await trackedEventsSentOnClose();
+      expect(entry).toMatchObject({ name: "newsletter-signup-opened", contextIdentifier: "user-1" });
+      expect(entry).not.toHaveProperty("value");
+      expect(entry).not.toHaveProperty("details");
+    });
+
+    test("reports an event tracked with a value alone without details", async () => {
+      await OpenFeature.setContext({ targetingKey: "user-1" });
+      await OpenFeature.setProviderAndWait(pollingProvider());
+
+      OpenFeature.getClient().track("checkout-completed", { value: 49.9 });
+
+      const [entry] = await trackedEventsSentOnClose();
+      expect(entry?.value).toBe(49.9);
+      expect(entry).not.toHaveProperty("details");
+    });
+
+    test("reports an event for the context OpenFeature held when it was tracked", async () => {
+      await OpenFeature.setContext({ targetingKey: "user-1" });
+      await OpenFeature.setProviderAndWait(pollingProvider());
+      await OpenFeature.setContext({ targetingKey: "user-2" });
+
+      OpenFeature.getClient().track("signed-in");
+
+      const entries = await trackedEventsSentOnClose();
+      expect(entries.map((entry) => [entry.name, entry.contextIdentifier])).toEqual([["signed-in", "user-2"]]);
     });
   });
 });

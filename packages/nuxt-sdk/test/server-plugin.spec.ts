@@ -102,4 +102,20 @@ describe("ConfigDirector SSR plugin", () => {
       context: { id: "42", kind: "device" },
     });
   });
+
+  test("reports an event tracked during server rendering through the server client, for the app context", async () => {
+    appContext.value = { id: "42", kind: "device" };
+    const client = await runPluginThroughAppCreated();
+
+    client.track("page-rendered", { value: 12.5, details: { route: "/pricing" } });
+
+    expect(serverTestClient.trackedEvents).toEqual([
+      {
+        name: "page-rendered",
+        context: { id: "42", kind: "device" },
+        value: 12.5,
+        details: { route: "/pricing" },
+      },
+    ]);
+  });
 });

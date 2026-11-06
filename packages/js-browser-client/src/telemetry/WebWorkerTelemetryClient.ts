@@ -16,12 +16,17 @@ import type {
   TelemetryFlushEvent,
   TelemetryInitializeEvent,
   TelemetryInvalidContextSubmissionsEvent,
+  TelemetryTrackedEventEntriesEvent,
+  TelemetryTrackedEventEvent,
   TelemetryUpdateContextEvent,
   TelemetryWorkerResponseEvent,
 } from "./types";
 import type { TelemetryValue } from "@shared/telemetry/utils";
 import { mapToTelemetryValue } from "@shared/telemetry/utils";
 import { InvalidContextSubmissions } from "@shared/telemetry/InvalidContextSubmissions";
+import { TrackedEventQueue } from "@shared/telemetry/TrackedEventQueue";
+import { logBatchWarnings } from "@shared/telemetry/tracked-events";
+import type { TrackedEventAdmission } from "@shared/telemetry/tracked-events";
 
 const DEFAULT_WORKER_CLOSE_TIMEOUT = 6_000;
 
@@ -38,6 +43,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
   private readonly pendingEvaluations: TelemetryEvaluatedConfigEvent[] = [];
   private readonly pendingEvaluationLimit: number;
   private readonly pendingInvalidContextSubmissions = new InvalidContextSubmissions();
+  private readonly pendingTrackedEvents = new TrackedEventQueue();
   private closePromise: Promise<void> | undefined;
   private closeResolve: (() => void) | undefined;
   private closeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -91,6 +97,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
   private turnOff(warning: string, ...details: unknown[]) {
     this.turnedOff = true;
     this.pendingEvaluations.length = 0;
+    this.pendingTrackedEvents.clear();
     this.logger.warn(warning, ...details);
   }
 
@@ -120,7 +127,20 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
     }
     this.pendingEvaluations.length = 0;
     this.forwardInvalidContextSubmissions(worker);
+    this.forwardPendingTrackedEvents(worker);
     return worker;
+  }
+
+  private forwardPendingTrackedEvents(worker: Worker) {
+    const entries = this.pendingTrackedEvents.takeBatch();
+    if (entries.length === 0) {
+      return;
+    }
+    const entriesMessage: TelemetryTrackedEventEntriesEvent = {
+      type: "TrackedEventEntries",
+      payload: { entries },
+    };
+    worker.postMessage(entriesMessage);
   }
 
   private forwardClientSession(worker: Worker) {
@@ -184,6 +204,18 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
     this.forwardInvalidContextSubmissions(this.worker);
   }
 
+  public trackedEvent(admission: TrackedEventAdmission): void {
+    if (this.turnedOff || this.closePromise) {
+      return;
+    }
+    if (this.worker) {
+      const trackedEventMessage: TelemetryTrackedEventEvent = { type: "TrackedEvent", payload: admission };
+      this.worker.postMessage(trackedEventMessage);
+      return;
+    }
+    logBatchWarnings(this.logger, this.pendingTrackedEvents.add(admission));
+  }
+
   private sanitizeEvaluatedConfigEvent<T extends ConfigValueType>(
     event: EvaluatedConfigEvent<T>,
   ): EvaluatedConfigEvent<TelemetryValue> {
@@ -243,6 +275,7 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
     const worker = this.worker;
     if (!worker) {
       this.pendingEvaluations.length = 0;
+      this.pendingTrackedEvents.clear();
       this.closePromise = Promise.resolve();
       return this.closePromise;
     }

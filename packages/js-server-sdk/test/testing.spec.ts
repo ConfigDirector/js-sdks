@@ -472,4 +472,84 @@ describe("@configdirector/server-sdk/testing", () => {
     await sleep(0);
     expect(last(evaluations)).toMatchObject({ reason: "value-missing" });
   });
+
+  describe("trackedEvents", () => {
+    const warningRecordingLogger = (loggedWarnings: unknown[][]): ConfigDirectorLogger => ({
+      ...createStubbedLogger(),
+      warn: (...args: unknown[]) => loggedWarnings.push(args),
+    });
+
+    test("records tracked events in call order with their context, value and details", () => {
+      const testClient = create();
+
+      testClient.client.track("checkout-started", { id: "user-1", kind: "user" });
+      testClient.client.track("checkout-completed", { id: "user-1" }, { value: 49.9, details: { plan: "pro" } });
+
+      expect(testClient.trackedEvents).toEqual([
+        { name: "checkout-started", context: { id: "user-1", kind: "user" } },
+        { name: "checkout-completed", context: { id: "user-1" }, value: 49.9, details: { plan: "pro" } },
+      ]);
+    });
+
+    test("records an event tracked without a context", () => {
+      const testClient = create();
+
+      testClient.client.track("nightly-import-finished");
+
+      expect(testClient.trackedEvents).toEqual([{ name: "nightly-import-finished" }]);
+      expect(testClient.trackedEvents[0]).not.toHaveProperty("context");
+    });
+
+    test("does not record an event whose name has 151 characters and logs a warning", () => {
+      const loggedWarnings: unknown[][] = [];
+      const testClient = create({ logger: warningRecordingLogger(loggedWarnings) });
+
+      testClient.client.track("n".repeat(151));
+
+      expect(testClient.trackedEvents).toEqual([]);
+      expect(loggedWarnings).toHaveLength(1);
+    });
+
+    test("records an event without details of more than 20 top-level keys and logs a warning", () => {
+      const loggedWarnings: unknown[][] = [];
+      const testClient = create({ logger: warningRecordingLogger(loggedWarnings) });
+      const details = Object.fromEntries(Array.from({ length: 21 }, (_, index) => [`key-${index + 1}`, index + 1]));
+
+      testClient.client.track("checkout-completed", { id: "user-1" }, { value: 49.9, details });
+
+      expect(testClient.trackedEvents).toEqual([
+        { name: "checkout-completed", context: { id: "user-1" }, value: 49.9 },
+      ]);
+      expect(testClient.trackedEvents[0]).not.toHaveProperty("details");
+      expect(loggedWarnings).toHaveLength(1);
+    });
+
+    test("logs a warning for every event with the same cause", () => {
+      const loggedWarnings: unknown[][] = [];
+      const testClient = create({ logger: warningRecordingLogger(loggedWarnings) });
+
+      testClient.client.track("");
+      testClient.client.track("");
+
+      expect(loggedWarnings).toHaveLength(2);
+    });
+
+    test("records more than 1,000 events", () => {
+      const testClient = create();
+
+      for (let number = 1; number <= 1_001; number++) {
+        testClient.client.track(`event-${number}`);
+      }
+
+      expect(testClient.trackedEvents).toHaveLength(1_001);
+    });
+
+    test("records an event without the context whose kind is invalid", () => {
+      const testClient = create();
+
+      testClient.client.track("checkout-completed", { id: "acme", kind: "Tenant" });
+
+      expect(testClient.trackedEvents).toEqual([{ name: "checkout-completed" }]);
+    });
+  });
 });

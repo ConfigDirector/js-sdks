@@ -7,6 +7,7 @@ import type {
   IdentifyingSdkOptions,
   ConnectionMode,
   ConfigEvaluation,
+  TrackOptions,
 } from "@shared/types";
 import type { Config, Segments } from "@config-evaluator/types";
 import type { NativeValue, NativeValues } from "@shared/native-values";
@@ -22,6 +23,9 @@ export type {
   EvaluationReason,
   ConfigEvaluation,
   IdentifyingSdkOptions,
+  TrackOptions,
+  TrackedEventDetails,
+  TrackedEventDetailValue,
   Variation,
 } from "@shared/types";
 
@@ -301,6 +305,22 @@ export interface ConfigDirectorClient {
     context?: ConfigDirectorContext;
     configKeys?: string[];
   }): Record<string, ConfigState>;
+
+  /**
+   * Reports to ConfigDirector that something happened, such as a completed checkout, so it can be
+   * counted. The event is sent with the next telemetry batch. `track` never throws, and does nothing
+   * in `offline` mode.
+   *
+   * An event counts for an experiment only when it is tracked for a context with an `id`, the one
+   * the experiment's config was evaluated for. Without a context, or for a context without an
+   * `id`, the event is still reported.
+   *
+   * @param eventName The name of the event, 1 to 150 characters. An event with any other name is
+   * not reported and a warning is logged.
+   * @param context The context the event happened for (optional)
+   * @param options The event's {@link TrackOptions.value} and {@link TrackOptions.details} (optional)
+   */
+  track(eventName: string, context?: ConfigDirectorContext, options?: TrackOptions): void;
 
   on<T extends keyof ClientEvents>(eventName: T, handler: (args: ClientEvents[T]) => void): void;
 

@@ -17,6 +17,10 @@ import type {
 import { fetchWithTimeout } from "@shared/fetchWithTimeout";
 import { isFetchErrorFatal } from "../errors";
 import type { UrlFactory, UrlLike } from "@shared/url";
+import { utf8ByteLength } from "@shared/utf8-byte-length";
+
+const KEEPALIVE_QUOTA_BYTES = 64 * 1_024;
+const LARGEST_BODY_SENT_WITH_KEEPALIVE_BYTES = KEEPALIVE_QUOTA_BYTES / 2;
 
 export type EventReporterOptions = {
   sdkKey: string;
@@ -97,13 +101,14 @@ export class ClientEventReporter implements EventReporter {
 
   private async sendReport(eventReport: EventReport): Promise<ReporterResponse> {
     try {
+      const body = JSON.stringify(eventReport);
       const response = await fetchWithTimeout(
         5_000,
         this.url,
         {
           method: "POST",
-          body: JSON.stringify(eventReport),
-          keepalive: true,
+          body,
+          keepalive: utf8ByteLength(body) <= LARGEST_BODY_SENT_WITH_KEEPALIVE_BYTES,
         },
         this.logger,
       );

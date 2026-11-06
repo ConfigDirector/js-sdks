@@ -15,7 +15,14 @@ import type { OfflineValues } from "@js-server-sdk/types";
 import { OFFLINE_VALUES_ROUTE } from "./runtime/offline-values-route";
 
 export type { OfflineValue, OfflineValues } from "@js-server-sdk/types";
-export type { ConfigEvaluation, EvaluationReason, Variation } from "@shared/types";
+export type {
+  ConfigEvaluation,
+  EvaluationReason,
+  TrackOptions,
+  TrackedEventDetails,
+  TrackedEventDetailValue,
+  Variation,
+} from "@shared/types";
 
 interface ConfigDirectorRuntimeConfig {
   /**

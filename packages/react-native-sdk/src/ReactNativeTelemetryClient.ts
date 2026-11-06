@@ -14,6 +14,7 @@ import type {
 import type { ClientSession } from "@js-client-core/types";
 import type { UrlFactory, UrlLike } from "@shared/url";
 import { generateValueId } from "./value-id-generator";
+import type { TrackedEventAdmission } from "@shared/telemetry/tracked-events";
 
 type ReactNativeTelemetryClientOptions = {
   sdkKey: string;
@@ -46,6 +47,10 @@ export class ReactNativeTelemetryClient implements TelemetryClient {
 
   public recordInvalidContext(kindSample: string): void {
     this.collector.recordInvalidContext(kindSample);
+  }
+
+  public trackedEvent(admission: TrackedEventAdmission): void {
+    this.collector.trackedEvent(admission);
   }
 
   public async close(): Promise<void> {

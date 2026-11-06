@@ -75,6 +75,12 @@ addEventListener("message", (message: MessageEvent<TelemetryWorkerEvent>) => {
     case "InvalidContextSubmissions":
       collector?.absorbInvalidContextSubmissions(event.payload.entries);
       break;
+    case "TrackedEvent":
+      collector?.trackedEvent(event.payload);
+      break;
+    case "TrackedEventEntries":
+      collector?.absorbTrackedEventEntries(event.payload.entries);
+      break;
     case "UpdateContext":
       collector?.updateContext(event.payload.context);
       break;
