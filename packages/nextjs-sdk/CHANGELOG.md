@@ -1,5 +1,11 @@
 # @configdirector/nextjs-sdk
 
+## 1.14.1
+
+### Patch Changes
+
+- cc89cc4: The SDK now keeps reporting telemetry after ConfigDirector refuses a report as too large. That report is discarded with a warning and the next one is still sent. Before, the refusal stopped telemetry until the server process restarted or, in the browser, until the page reloaded.
+
 ## 1.14.0
 
 ### Minor Changes

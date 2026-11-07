@@ -1,5 +1,11 @@
 # @configdirector/react-native-sdk
 
+## 1.11.1
+
+### Patch Changes
+
+- cc89cc4: The SDK now keeps reporting telemetry after ConfigDirector refuses a report as too large. That report is discarded with a warning and the next one is still sent. Before, the refusal stopped telemetry until the app restarted.
+
 ## 1.11.0
 
 ### Minor Changes
