@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import type { ConditionalRule, Config, Rule } from "../src/types";
+import type { Condition, ConditionalRule, Config, Rule } from "../src/types";
 import { ConfigEvaluator } from "../src/ConfigEvaluator";
 import { createStubbedLogger } from "./helpers";
 
@@ -590,6 +590,106 @@ describe("ConfigEvaluator", () => {
       };
 
       expect(evaluator.evaluate(config, { context: {} }).value).toEqual("this-is-the-default");
+    });
+  });
+
+  describe("rules after a rollout skipped for a context without an identifier", () => {
+    const planIsPro: Condition = {
+      id: crypto.randomUUID(),
+      attribute: "traits",
+      trait: "/plan",
+      operator: "equals",
+      targetType: "text",
+      targetValues: ["pro"],
+    };
+    const appVersionAtLeast2: Condition = {
+      id: crypto.randomUUID(),
+      attribute: "appVersion",
+      trait: undefined,
+      operator: ">=",
+      targetType: "semver",
+      targetValues: ["2.0.0"],
+    };
+    const configWithRules = (...rules: Rule[]): Config => ({
+      id: CONFIG_ID,
+      key: "checkout-cta-copy",
+      type: "string",
+      variations: [],
+      target: { defaultValue: "this-is-the-default", rules },
+    });
+    const everyoneGetsTreatment: Rule = {
+      id: crypto.randomUUID(),
+      order: 0,
+      type: "percentage",
+      target: "percentage",
+      percentages: [{ value: "Treatment", percentage: 100, id: crypto.randomUUID() }],
+    };
+    const proPlansGetTreatment: Rule = {
+      id: crypto.randomUUID(),
+      order: 0,
+      type: "conditional",
+      target: "percentage",
+      value: undefined,
+      conditions: [planIsPro],
+      percentages: [{ value: "Treatment", percentage: 100, id: crypto.randomUUID() }],
+    };
+    const version2GetsNewCopy: Rule = {
+      id: crypto.randomUUID(),
+      order: 1,
+      type: "conditional",
+      target: "value",
+      value: "New copy for 2.x",
+      percentages: [],
+      conditions: [appVersionAtLeast2],
+    };
+
+    test("serves the rule after a percentage rule to a context without an identifier", () => {
+      const config = configWithRules(everyoneGetsTreatment, version2GetsNewCopy);
+
+      const state = evaluator.evaluate(config, { context: {}, metadata: { appVersion: "2.1.0" } });
+
+      expect(state.value).toEqual("New copy for 2.x");
+    });
+
+    test("serves the later rule on the app version to a context without an identifier that matches an earlier conditional rule's rollout", () => {
+      const config = configWithRules(proPlansGetTreatment, version2GetsNewCopy);
+
+      const state = evaluator.evaluate(config, {
+        context: { traits: { plan: "pro" } },
+        metadata: { appVersion: "2.1.0" },
+      });
+
+      expect(state.value).toEqual("New copy for 2.x");
+    });
+
+    test("serves the default targeting rule value when no rule after the skipped rollout matches", () => {
+      const config = configWithRules(everyoneGetsTreatment, version2GetsNewCopy);
+
+      const state = evaluator.evaluate(config, { context: {}, metadata: { appVersion: "1.9.0" } });
+
+      expect(state.value).toEqual("this-is-the-default");
+    });
+
+    test("serves a context with an identifier the rollout rather than the rule after it", () => {
+      const config = configWithRules(proPlansGetTreatment, version2GetsNewCopy);
+
+      const state = evaluator.evaluate(config, {
+        context: { id: "user-1", traits: { plan: "pro" } },
+        metadata: { appVersion: "2.1.0" },
+      });
+
+      expect(state.value).toEqual("Treatment");
+    });
+
+    test("serves the rule after a conditional rule's rollout to a context without an identifier that does not match its conditions", () => {
+      const config = configWithRules(proPlansGetTreatment, version2GetsNewCopy);
+
+      const state = evaluator.evaluate(config, {
+        context: { traits: { plan: "free" } },
+        metadata: { appVersion: "2.1.0" },
+      });
+
+      expect(state.value).toEqual("New copy for 2.x");
     });
   });
 

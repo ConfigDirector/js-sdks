@@ -50,7 +50,8 @@ export interface ConfigDirectorLogMessageDecorator {
  * Why an evaluation returned the value it did. `found-match` returns a value from ConfigDirector,
  * and `cached` a value kept on the device while a client SDK waits for live values.
  * `rollout-skipped-no-identifier` returns the default targeting rule value: a server SDK skipped a
- * percentage rollout because the context has no `id` to place it in a share. `value-missing`
+ * percentage rollout because the context has no `id` to place it in a share, and no rule after
+ * the rollout applied. `value-missing`
  * returns the in-code default value because the config has no value. Every other reason returns the
  * in-code default value because of an error: the config does not exist (`config-state-missing`), no
  * values have arrived yet (`client-not-ready`), or the value cannot be read as the type of the in-code

@@ -251,6 +251,40 @@ describe("variations", () => {
       client.dispose();
     });
 
+    test("serves a context without an identifier the rule after a skipped rollout with reason 'found-match'", async () => {
+      const proPlansGetBegin = {
+        id: "33333333-3333-4333-8333-333333333335",
+        order: 3,
+        type: "conditional",
+        target: "value",
+        value: "Begin",
+        valueId: "value-id-begin",
+        variationId: EMPTY_NAME_ID,
+        conditions: [planIs("pro")],
+      };
+      streaming({
+        "checkout-cta-copy": {
+          ...experiment,
+          target: { ...experiment.target, rules: [...experiment.target.rules, proPlansGetBegin] },
+        },
+      });
+      const client = createClient("sdk-key", { logger });
+      await client.initialize();
+
+      const evaluation = client.evaluate("checkout-cta-copy", "in-code default", { traits: { plan: "pro" } });
+
+      expect(evaluation).toEqual({
+        key: "checkout-cta-copy",
+        value: "Begin",
+        valueId: "value-id-begin",
+        variation: { id: EMPTY_NAME_ID },
+        isDefaultValue: false,
+        reason: "found-match",
+        context: { traits: { plan: "pro" } },
+      });
+      client.dispose();
+    });
+
     test("returns no variation for a flag, whose config has no variations", async () => {
       streaming({ "new-checkout": flag });
       const client = createClient("sdk-key", { logger });

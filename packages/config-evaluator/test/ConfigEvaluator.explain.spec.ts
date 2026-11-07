@@ -345,7 +345,7 @@ describe("ConfigEvaluator.explain", () => {
     expect(explanation.rolloutShare).toEqual({ ruleId: RULE_A, shareId: SHARE_ENABLED });
   });
 
-  test("explains a rollout reached by a context without an id as skipped, with the rules after it not tried", () => {
+  test("explains a rollout reached by a context without an id as skipped and serves the rule after it", () => {
     const config = configWith(
       rolloutRule(RULE_A, 0, [{ id: SHARE_ENABLED, percentage: 100, value: "Enabled" }]),
       conditionalRule(RULE_B, 1, [], "Enabled for everyone"),
@@ -354,17 +354,34 @@ describe("ConfigEvaluator.explain", () => {
     const explanation = evaluator.explain(config, { context: {} });
 
     expect(explanation).toEqual({
-      value: "Disabled",
-      reason: "rollout-skipped-no-identifier",
-      servedBy: { kind: "default" },
+      value: "Enabled for everyone",
+      valueId: undefined,
+      variationId: undefined,
+      rolloutShare: undefined,
+      reason: "found-match",
+      servedBy: { kind: "rule", ruleId: RULE_B },
       rules: [
         { ruleId: RULE_A, outcome: "rollout-skipped-no-identifier", conditions: [], bucket: undefined },
-        { ruleId: RULE_B, outcome: "not-evaluated", conditions: [], bucket: undefined },
+        { ruleId: RULE_B, outcome: "matched", conditions: [], bucket: undefined },
       ],
     });
   });
 
-  test("explains the rollout of a matched conditional rule as skipped for a context without an id", () => {
+  test("serves the default targeting rule value with the skipped-rollout reason when no rule after the skipped rollout matches", () => {
+    const config = configWith(
+      rolloutRule(RULE_A, 0, [{ id: SHARE_ENABLED, percentage: 100, value: "Enabled" }]),
+      conditionalRule(RULE_B, 1, [planIsOneOf("pro")], "Enabled for pro"),
+    );
+
+    const explanation = evaluator.explain(config, { context: { traits: { plan: "free" } } });
+
+    expect(explanation.value).toEqual("Disabled");
+    expect(explanation.reason).toEqual("rollout-skipped-no-identifier");
+    expect(explanation.servedBy).toEqual({ kind: "default" });
+    expect(explanation.rules.map((rule) => rule.outcome)).toEqual(["rollout-skipped-no-identifier", "not-matched"]);
+  });
+
+  test("explains the rollout of a matched conditional rule as skipped for a context without an id and serves the later rule on the app version", () => {
     const rule: Rule = {
       id: RULE_A,
       order: 0,
@@ -374,13 +391,16 @@ describe("ConfigEvaluator.explain", () => {
       conditions: [planIsOneOf("pro")],
       percentages: [{ id: SHARE_ENABLED, percentage: 100, value: "Enabled" }],
     };
-    const config = configWith(rule, conditionalRule(RULE_B, 1, [], "Enabled for everyone"));
+    const config = configWith(rule, conditionalRule(RULE_B, 1, [versionAtLeast("2.0.0")], "Enabled for 2.x"));
 
-    const explanation = evaluator.explain(config, { context: { traits: { plan: "pro" } } });
+    const explanation = evaluator.explain(config, {
+      context: { traits: { plan: "pro" } },
+      metadata: { appVersion: "2.1.0" },
+    });
 
-    expect(explanation.value).toEqual("Disabled");
-    expect(explanation.reason).toEqual("rollout-skipped-no-identifier");
-    expect(explanation.servedBy).toEqual({ kind: "default" });
+    expect(explanation.value).toEqual("Enabled for 2.x");
+    expect(explanation.reason).toEqual("found-match");
+    expect(explanation.servedBy).toEqual({ kind: "rule", ruleId: RULE_B });
     expect(explanation.rules).toEqual([
       {
         ruleId: RULE_A,
@@ -396,7 +416,20 @@ describe("ConfigEvaluator.explain", () => {
         ],
         bucket: undefined,
       },
-      { ruleId: RULE_B, outcome: "not-evaluated", conditions: [], bucket: undefined },
+      {
+        ruleId: RULE_B,
+        outcome: "matched",
+        conditions: [
+          {
+            conditionId: CONDITION_VERSION,
+            kind: "attribute",
+            outcome: "matched",
+            resolvedValue: "2.1.0",
+            resolvedType: "scalar",
+          },
+        ],
+        bucket: undefined,
+      },
     ]);
   });
 

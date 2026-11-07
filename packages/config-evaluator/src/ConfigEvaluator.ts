@@ -84,8 +84,9 @@ export class ConfigEvaluator {
    * Evaluate a config for a context and record how the value was reached: every rule in the
    * order it was walked with its outcome, the conditions that were checked with what they
    * resolved to, and the share a rollout assigned the context to. A rollout reached by a context
-   * without an identifier is skipped: the walk ends there and the default targeting rule value
-   * is served with the reason `rollout-skipped-no-identifier`. `evaluate` is this walk with only
+   * without an identifier is skipped and the walk goes on to the next rule; when no later rule
+   * applies, the default targeting rule value is served with the reason
+   * `rollout-skipped-no-identifier`. `evaluate` is this walk with only
    * the value, its value ID, its variation and the rollout share that served it kept, so the two
    * cannot disagree. `segments` is the payload's segments map, which a segment condition looks
    * its segment up in; a segment it does not hold never matches.
@@ -99,7 +100,7 @@ export class ConfigEvaluator {
     for (const rule of rules) {
       const walkedRule = this.explainRule(rule, config, context, segments);
       walkedRules.push(walkedRule);
-      if (walkedRule.serving.kind !== "not-matched") {
+      if (walkedRule.serving.kind === "served") {
         break;
       }
     }
@@ -125,19 +126,18 @@ export class ConfigEvaluator {
     });
 
     const lastServing = walkedRules[walkedRules.length - 1]?.serving ?? NOT_MATCHED;
-    switch (lastServing.kind) {
-      case "served":
-        return {
-          ...lastServing.servedValue,
-          reason: "found-match",
-          servedBy: { kind: "rule", ruleId: lastServing.ruleId },
-          rules: ruleExplanations,
-        };
-      case "rollout-skipped-no-identifier":
-        return defaultTargetingRuleValue("rollout-skipped-no-identifier");
-      case "not-matched":
-        return defaultTargetingRuleValue("found-match");
+    if (lastServing.kind === "served") {
+      return {
+        ...lastServing.servedValue,
+        reason: "found-match",
+        servedBy: { kind: "rule", ruleId: lastServing.ruleId },
+        rules: ruleExplanations,
+      };
     }
+    const aRolloutWasSkipped = walkedRules.some(
+      (walkedRule) => walkedRule.serving.kind === "rollout-skipped-no-identifier",
+    );
+    return defaultTargetingRuleValue(aRolloutWasSkipped ? "rollout-skipped-no-identifier" : "found-match");
   }
 
   private explainRule(

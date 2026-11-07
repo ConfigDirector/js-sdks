@@ -15,8 +15,8 @@ contract, which every ConfigDirector implementation is checked against.
 
 - `ConfigEvaluator`: walks a config's targeting rules for a context and returns the served value
   with its value ID, its variation when the value is one, and the rule and share of the percentage
-  rollout that served it. A context without an identifier skips a percentage rollout: the default
-  targeting rule value is served and the rules after the rollout are not tried. `explain` returns
+  rollout that served it. A context without an identifier skips a percentage rollout and the rules
+  after it are tried; the default targeting rule value is served when none applies. `explain` returns
   the same with the reason and the trace of how the value was reached: each rule's outcome, each
   checked condition with what it resolved to, and the rollout share a context landed in.
   `evaluate` is `explain` without the reason and the trace, so the two cannot disagree.
