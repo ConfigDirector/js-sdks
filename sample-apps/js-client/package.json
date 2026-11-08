@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "local": "vite --mode localhost",
+    "live": "vite --mode live",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -12,7 +13,9 @@
     "sdk:npm": "node ../scripts/use-sdks.mjs npm"
   },
   "dependencies": {
-    "@configdirector/client-sdk": "^1.11.1"
+    "@amplitude/analytics-browser": "^2.49.2",
+    "@configdirector/client-sdk": "^1.11.1",
+    "mixpanel-browser": "^2.85.0"
   },
   "devDependencies": {
     "@types/jsdom": "^30",

@@ -7,6 +7,7 @@ const CONFIGS: ConfigDef<ConfigValueType>[] = [
   { key: "permanent-kill-switch", label: "permanent-kill-switch", defaultValue: false },
   { key: "integer-config", label: "integer-config", defaultValue: 10 },
   { key: "day-of-the-week-config", label: "day-of-the-week-config", defaultValue: "Friday" },
+  { key: "experiment-test", label: "experiment-test", defaultValue: "C" },
   { key: "json-value-config", label: "json-value-config", defaultValue: {} },
 ];
 
@@ -15,7 +16,8 @@ function isJsonValue(value: ConfigValueType): value is object {
 }
 
 function badgeClass(value: ConfigValueType): string {
-  if (typeof value === "boolean") return value ? "badge badge-on config-value" : "badge badge-off config-value";
+  if (typeof value === "boolean")
+    return value ? "badge badge-on config-value" : "badge badge-off config-value";
   return "badge badge-val config-value";
 }
 
