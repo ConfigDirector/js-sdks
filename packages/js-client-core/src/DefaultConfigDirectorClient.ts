@@ -49,6 +49,26 @@ const MAX_EXPONENTIAL_DELAY = 9; // 2^9 = 512 seconds, to cap it to under 10min
 
 type ContextSubmission = Exclude<ClientConnectAction, "network resume">;
 
+type ReadyOrClosedSignal = { raised: Promise<void>; raise: () => void };
+
+const createReadyOrClosedSignal = (): ReadyOrClosedSignal => {
+  let raise!: () => void;
+  const raised = new Promise<void>((resolve) => {
+    raise = resolve;
+  });
+  return { raised, raise };
+};
+
+const waitAtMost = async (timeout: number, awaited: Promise<void>) => {
+  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    awaited,
+    new Promise<void>((resolve) => {
+      timeoutTimer = setTimeout(() => resolve(), timeout);
+    }),
+  ]).finally(() => clearTimeout(timeoutTimer));
+};
+
 type WatchHandlerWithOptions<T extends ConfigValueType> = {
   handler: WatchHandler<T>;
   defaultValue: T;
@@ -63,14 +83,14 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   private transport: Transport;
   private eventEmitter = new Emitter<ClientEvents>();
   private timeout: number;
-  private timeoutTimer: ReturnType<typeof setTimeout> | undefined;
   private ready = false;
   private initializing = false;
   private hasReceivedConfigSet = false;
-  private readyPromise: Promise<void> | undefined;
   private readyResolve: ((cancelled?: boolean) => void) | undefined;
+  private readyOrClosedSignal = createReadyOrClosedSignal();
   private currentContext?: ConfigDirectorContext;
   private submittedContext?: ConfigDirectorContext;
+  private latestConnectAttempt = 0;
   private readonly connectionPlan: ConnectionPlan;
   private clientSession: Promise<ClientSession>;
   private readonly cachedValuesStore: CachedValuesStore | undefined;
@@ -388,13 +408,15 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
   }
 
   private async connectToTransport(context: ConfigDirectorContext | undefined, caller: ClientConnectAction) {
+    const attempt = ++this.latestConnectAttempt;
+    const readyOrClosed = this.readyOrClosedSignal.raised;
     this.submittedContext = context;
     if (caller === "initialization") {
       this.startCachedValuesAdoption();
     }
     try {
       this.ready = false;
-      this.readyPromise = new Promise<boolean | undefined>((resolve) => {
+      void new Promise<boolean | undefined>((resolve) => {
         this.readyResolve = resolve;
       }).then((cancelled) => {
         if (cancelled) {
@@ -402,30 +424,20 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         }
         this.ready = true;
         this.initializing = false;
+        this.signalReadyOrClosed();
         this.emit("clientReady", { action: caller });
         this.logger.debug("[ConfigDirectorClient] Received initial payload from the server, client is ready");
       });
       const startTime = new Date().getTime();
       await this.transport.connect(context ?? {}, this.timeout, caller);
-      this.currentContext = context;
-      this.telemetryClient
-        .updateContext(context)
-        .catch((error) =>
-          this.logger.warn("[ConfigDirectorClient] Telemetry could not update the context: ", error),
-        );
-      this.emit("contextUpdated", { context });
+      if (attempt === this.latestConnectAttempt) {
+        this.adoptContext(context);
+      }
 
       const elapsedTime = new Date().getTime() - startTime;
       const remainingTimeout = this.timeout - elapsedTime;
-      clearTimeout(this.timeoutTimer);
-      this.timeoutTimer = undefined;
       if (remainingTimeout > 0) {
-        await Promise.race([
-          this.readyPromise,
-          new Promise<void>((resolve) => {
-            this.timeoutTimer = setTimeout(() => resolve(), remainingTimeout);
-          }),
-        ]).finally(() => clearTimeout(this.timeoutTimer));
+        await waitAtMost(remainingTimeout, readyOrClosed);
       }
 
       if (!this.ready) {
@@ -440,6 +452,21 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       }
       this.logger.error(`[ConfigDirectorClient] An error occurred during ${caller}: `, error);
     }
+  }
+
+  private adoptContext(context: ConfigDirectorContext | undefined) {
+    this.currentContext = context;
+    this.telemetryClient
+      .updateContext(context)
+      .catch((error) =>
+        this.logger.warn("[ConfigDirectorClient] Telemetry could not update the context: ", error),
+      );
+    this.emit("contextUpdated", { context });
+  }
+
+  private signalReadyOrClosed() {
+    this.readyOrClosedSignal.raise();
+    this.readyOrClosedSignal = createReadyOrClosedSignal();
   }
 
   private timeoutWarningDetails(): string {
@@ -641,8 +668,6 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
         return;
       case "connect":
         this.logger.debug("[ConfigDirectorClient] pauseNetwork() called, pausing transport connection");
-        clearTimeout(this.timeoutTimer);
-        this.timeoutTimer = undefined;
         this.transport.close();
         this.ready = false;
         return;
@@ -661,7 +686,6 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
 
   public async close() {
     this.logger.debug("[ConfigDirectorClient] close() has been called, closing connection to server");
-    clearTimeout(this.timeoutTimer);
     this.readyResolve?.(true);
     this.telemetryClient
       .close()
@@ -669,6 +693,7 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     this.transport.close();
     this.ready = false;
     this.initializing = false;
+    this.signalReadyOrClosed();
   }
 
   public dispose() {

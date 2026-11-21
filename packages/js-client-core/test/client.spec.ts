@@ -19,6 +19,7 @@ import {
   createCapturingLogger,
   createStubbedLogger,
   deferred,
+  type Deferred,
 } from "./helpers";
 
 const logger = createStubbedLogger();
@@ -1776,6 +1777,20 @@ describe("ConfigDirectorClient", () => {
       expect(readyPayload).toEqual({ action: "initialization" });
     });
 
+    test("emits 'contextUpdated' only for the context update that replaced initialize", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
+      client = createClient("sdk-key", { logger });
+      const contextEvents: unknown[] = [];
+      client.on("contextUpdated", (event) => contextEvents.push(event));
+
+      const initializing = client.initialize({ id: "user-1", name: "Alice", traits: {} });
+      await client.updateContext({ id: "user-2", name: "Bob", traits: {} });
+      await initializing;
+
+      expect(client.context).toEqual({ id: "user-2", name: "Bob", traits: {} });
+      expect(contextEvents).toEqual([{ context: { id: "user-2", name: "Bob", traits: {} } }]);
+    });
+
     test("off removes a specific event handler", async () => {
       let count = 0;
       await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }]]);
@@ -2619,6 +2634,242 @@ describe("ConfigDirectorClient", () => {
         timeout: 1_000,
       });
       expect(client.isReady).toBe(true);
+    });
+
+    describe("a call paused, closed or replaced before its first response", () => {
+      const alice = { id: "user-1", name: "Alice", traits: {} };
+      const bob = { id: "user-2", name: "Bob", traits: {} };
+      const configsByContextId: Record<string, object> = {
+        "user-1": full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "for-alice",
+            },
+          },
+          "2024-01-01T00:00:00.000Z",
+        ),
+        "user-2": full(
+          {
+            "my-config": {
+              id: "00000000-0000-0000-0000-000000000001",
+              key: "my-config",
+              type: "string",
+              value: "for-bob",
+            },
+          },
+          "2024-01-02T00:00:00.000Z",
+        ),
+      };
+
+      type PollingRequest = { contextId: string; lastUpdateTimestamp: string | undefined };
+
+      const rejectsOnAbort = (signal: AbortSignal) =>
+        new Promise<never>((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(signal.reason));
+        });
+
+      const stubPollingServer = () => {
+        const requests: PollingRequest[] = [];
+        const heldResponses = new Map<string, Deferred<undefined>>();
+        vi.stubGlobal("fetch", async (_url: string, init: RequestInit & { signal: AbortSignal }) => {
+          const body = JSON.parse(init.body as string);
+          const contextId: string = body.givenContext.id;
+          requests.push({ contextId, lastUpdateTimestamp: body.lastUpdateTimestamp });
+          const heldResponse = heldResponses.get(contextId);
+          if (heldResponse) {
+            await Promise.race([heldResponse.promise, rejectsOnAbort(init.signal)]);
+          }
+          return Response.json(configsByContextId[contextId]);
+        });
+        const holdResponsesTo = (context: { id: string }) => {
+          const heldResponse = deferred<undefined>();
+          heldResponses.set(context.id, heldResponse);
+          return () => heldResponse.resolve(undefined);
+        };
+        return { requests, holdResponsesTo };
+      };
+
+      beforeEach(() => {
+        vi.mocked(telemetryClient.updateContext).mockClear();
+      });
+
+      afterEach(() => {
+        vi.unstubAllGlobals();
+      });
+
+      test("keeps the updated context and its values when the initialize response lands after the context update's", async () => {
+        const server = stubPollingServer();
+        const releaseAlice = server.holdResponsesTo(alice);
+        const updatedContexts: unknown[] = [];
+        client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
+        client.on("contextUpdated", ({ context }) => updatedContexts.push(context));
+        const initializing = client.initialize(alice);
+        await vi.waitFor(() => expect(server.requests).toHaveLength(1));
+
+        await client.updateContext(bob);
+        releaseAlice();
+        await initializing;
+
+        expect(client.context).toEqual(bob);
+        expect(client.getValue("my-config", "default")).toBe("for-bob");
+        expect(updatedContexts).toEqual([bob]);
+        expect(vi.mocked(telemetryClient.updateContext).mock.calls).toEqual([[bob]]);
+
+        await vi.advanceTimersByTimeAsync(60_000);
+        await vi.waitFor(() => expect(server.requests).toHaveLength(3));
+
+        expect(server.requests[2]).toEqual({ contextId: "user-2", lastUpdateTimestamp: "2024-01-02T00:00:00.000Z" });
+      });
+
+      test("polls with the updated context when the initialize request runs past its timeout after a context update", async () => {
+        const server = stubPollingServer();
+        server.holdResponsesTo(alice);
+        client = createClient("sdk-key", {
+          logger,
+          connection: { mode: "polling", pollingInterval: 60, timeout: 500 },
+        });
+        const initializing = client.initialize(alice);
+        await vi.waitFor(() => expect(server.requests).toHaveLength(1));
+
+        await client.updateContext(bob);
+        await initializing;
+        await vi.advanceTimersByTimeAsync(60_000);
+        await vi.waitFor(() => expect(server.requests).toHaveLength(3));
+
+        expect(server.requests[2]).toEqual({ contextId: "user-2", lastUpdateTimestamp: "2024-01-02T00:00:00.000Z" });
+      });
+
+      test("returns from a replaced initialize once the updated context's values arrive", async () => {
+        const server = stubPollingServer();
+        const releaseAlice = server.holdResponsesTo(alice);
+        const releaseBob = server.holdResponsesTo(bob);
+        let initialized = false;
+        client = createClient("sdk-key", { logger, connection: { mode: "polling" } });
+        const initializing = client.initialize(alice).then(() => {
+          initialized = true;
+        });
+        await vi.waitFor(() => expect(server.requests).toHaveLength(1));
+        const updating = client.updateContext(bob);
+        await vi.waitFor(() => expect(server.requests).toHaveLength(2));
+
+        releaseAlice();
+        await sleep(100);
+
+        expect(initialized).toBe(false);
+
+        releaseBob();
+        await sleep(100);
+
+        expect(initialized).toBe(true);
+        expect(client.isReady).toBe(true);
+        expect(client.getValue("my-config", "default")).toBe("for-bob");
+
+        await initializing;
+        await updating;
+      });
+
+      test("returns from a replaced initialize at its timeout when paused before the context update's response", async () => {
+        const server = stubPollingServer();
+        const releaseAlice = server.holdResponsesTo(alice);
+        server.holdResponsesTo(bob);
+        let initialized = false;
+        client = createClient("sdk-key", { logger, connection: { mode: "polling", timeout: 500 } });
+        const initializing = client.initialize(alice).then(() => {
+          initialized = true;
+        });
+        await vi.waitFor(() => expect(server.requests).toHaveLength(1));
+        const updating = client.updateContext(bob);
+        await vi.waitFor(() => expect(server.requests).toHaveLength(2));
+        releaseAlice();
+        await sleep(50);
+
+        client.pauseNetwork();
+        await sleep(100);
+
+        expect(initialized).toBe(false);
+
+        await sleep(450);
+
+        expect(initialized).toBe(true);
+
+        await initializing;
+        await updating;
+      });
+
+      test("applies no values, stays not ready and does not poll when paused before the first response", async () => {
+        const server = stubPollingServer();
+        const releaseAlice = server.holdResponsesTo(alice);
+        const readyEvents: unknown[] = [];
+        client = createClient("sdk-key", {
+          logger,
+          connection: { mode: "polling", pollingInterval: 60, timeout: 300 },
+        });
+        client.on("clientReady", (event) => readyEvents.push(event));
+        const initializing = client.initialize(alice);
+        await vi.waitFor(() => expect(server.requests).toHaveLength(1));
+
+        client.pauseNetwork();
+        releaseAlice();
+        await initializing;
+        await vi.advanceTimersByTimeAsync(120_000);
+
+        expect(client.getValue("my-config", "default")).toBe("default");
+        expect(client.isReady).toBe(false);
+        expect(readyEvents).toEqual([]);
+        expect(server.requests).toHaveLength(1);
+        expect(client.context).toEqual(alice);
+      });
+
+      test("returns from a paused initialize once the values arrive after the network resumes", async () => {
+        const server = stubPollingServer();
+        const releaseAlice = server.holdResponsesTo(alice);
+        let initialized = false;
+        client = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
+        const initializing = client.initialize(alice).then(() => {
+          initialized = true;
+        });
+        await vi.waitFor(() => expect(server.requests).toHaveLength(1));
+        client.pauseNetwork();
+        releaseAlice();
+        await sleep(50);
+
+        const resuming = client.resumeNetwork();
+        await sleep(100);
+
+        expect(initialized).toBe(true);
+        expect(client.isReady).toBe(true);
+        expect(client.getValue("my-config", "default")).toBe("for-alice");
+
+        await initializing;
+        await resuming;
+      });
+
+      test("returns without applying values and does not poll when closed before the first response", async () => {
+        const server = stubPollingServer();
+        const releaseAlice = server.holdResponsesTo(alice);
+        let initialized = false;
+        const closingClient = createClient("sdk-key", { logger, connection: { mode: "polling", pollingInterval: 60 } });
+        client = closingClient;
+        const initializing = closingClient.initialize(alice).then(() => {
+          initialized = true;
+        });
+        await vi.waitFor(() => expect(server.requests).toHaveLength(1));
+
+        await closingClient.close();
+        releaseAlice();
+        await sleep(50);
+        await vi.advanceTimersByTimeAsync(120_000);
+
+        expect(initialized).toBe(true);
+        expect(closingClient.getValue("my-config", "default")).toBe("default");
+        expect(server.requests).toHaveLength(1);
+        expect(closingClient.context).toEqual(alice);
+
+        await initializing;
+      });
     });
   });
 

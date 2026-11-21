@@ -32,19 +32,16 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     this.endCurrentConnection();
     const generation = this.connectionGeneration;
     const clientSession = await this.options.clientSession;
-    if (generation !== this.connectionGeneration) {
+    if (!this.isCurrentConnection(generation)) {
       return this;
     }
 
     try {
-      await this.fetchConfigs(context, timeout, clientSession);
+      await this.fetchConfigs(context, timeout, clientSession, generation);
     } finally {
-      // A transient failure on the first fetch must not leave the client without a
-      // connection, so polling is scheduled either way. An unrecoverable failure has
-      // already closed the transport and must not be retried.
-      if (!this.fatalError) {
+      if (this.continuesPolling(generation)) {
         this.schedulePollingInterval(() => {
-          void this.fetchConfigs(context, timeout, clientSession).catch((error) => {
+          void this.fetchConfigs(context, timeout, clientSession, generation).catch((error) => {
             this.logger.error("[PollingTransport] Error during polling:", error);
           });
         });
@@ -65,7 +62,20 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
     this.lastUpdateTimestamp = undefined;
   }
 
-  private async fetchConfigs(context: ConfigDirectorContext, timeout: number, clientSession: ClientSession) {
+  private isCurrentConnection(generation: number): boolean {
+    return generation === this.connectionGeneration;
+  }
+
+  private continuesPolling(generation: number): boolean {
+    return !this.fatalError && this.isCurrentConnection(generation);
+  }
+
+  private async fetchConfigs(
+    context: ConfigDirectorContext,
+    timeout: number,
+    clientSession: ClientSession,
+    generation: number,
+  ) {
     if (this.fatalError) {
       this.logger.warn(
         "[PollingTransport] There was a prior unrecoverable error. Ignoring attempt to reconnect.",
@@ -96,6 +106,9 @@ export class PollingTransport extends AbstractPollingTransport implements Transp
 
       if (response.status == 200) {
         const json = JSON.parse(await response.text());
+        if (!this.isCurrentConnection(generation)) {
+          return;
+        }
         this.lastUpdateTimestamp = json.timestamp;
         this.eventEmitter.emit("configSetReceived", json);
       }
