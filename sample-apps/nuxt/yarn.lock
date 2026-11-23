@@ -403,8 +403,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/nuxt-sample-app@workspace:."
   dependencies:
-    "@configdirector/nuxt-sdk": "npm:^1.14.1"
-    "@configdirector/server-sdk": "npm:^1.13.1"
+    "@configdirector/nuxt-sdk": "npm:^1.14.3"
+    "@configdirector/server-sdk": "npm:^1.13.2"
     "@nuxt/test-utils": "npm:^4.3.4"
     "@vue/test-utils": "npm:^2.5.1"
     jsdom: "npm:^30.1.1"
@@ -417,27 +417,27 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@configdirector/nuxt-sdk@npm:^1.14.1":
-  version: 1.14.1
-  resolution: "@configdirector/nuxt-sdk@npm:1.14.1"
+"@configdirector/nuxt-sdk@npm:^1.14.3":
+  version: 1.14.3
+  resolution: "@configdirector/nuxt-sdk@npm:1.14.3"
   dependencies:
     "@nuxt/kit": "npm:^3.7.0 || ^4.0.0"
     consola: "npm:^3.4.2"
     defu: "npm:^6.1.7"
     rapidhash-js: "npm:^3.0.0"
     semver: "npm:^7.7.4"
-  checksum: 10c0/92f4fb546a2d3ee604b938cd5a7fd9d8ee162006dc14f8a9f7982e0cea948d99f8c7f7e303e2dd686369c81240ac0cd89ad46ecc5e9de056e5c24724dbba9971
+  checksum: 10c0/ecdbb965a6c9079450184843e0b542305653defd4fe6752bfefd6d8a173824762c2904e9e3f016acc77a12174fccaa3b17aaf8ce76d68307af2aa0c9de99cae6
   languageName: node
   linkType: hard
 
-"@configdirector/server-sdk@npm:^1.13.1":
-  version: 1.13.1
-  resolution: "@configdirector/server-sdk@npm:1.13.1"
+"@configdirector/server-sdk@npm:^1.13.2":
+  version: 1.13.2
+  resolution: "@configdirector/server-sdk@npm:1.13.2"
   dependencies:
     luxon: "npm:>=1.28.0 <4.0.0"
     rapidhash-js: "npm:^3.0.0"
     semver: "npm:^7.7.4"
-  checksum: 10c0/1a430d9a8ef4a77d77fb8391b428780272ff98267514a192b1ef1080251b0a89d06a39e78e70725f97fa83a53b26fb80baa5b2e718cbf5ae4878b7a264907b0d
+  checksum: 10c0/0d4fbbd2aef78c3a0d803449c2b3db6366edae87e5fd882bd229b05008b020cc397c4e0d09faffb7bdbc8bbbf2f34b144bd6fa2b2be60c0b1fb2880b140aded1
   languageName: node
   linkType: hard
 
