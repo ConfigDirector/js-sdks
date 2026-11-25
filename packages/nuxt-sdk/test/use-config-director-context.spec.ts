@@ -57,6 +57,17 @@ describe("useConfigDirectorContext", () => {
     expect(testClient.contextUpdates).toEqual([{}, { id: "42", kind: "device" }, {}]);
   });
 
+  test("keeps a context with an id over 256 characters as the app context, which the client records as an empty context", async () => {
+    await testClient.client.initialize();
+    const { context, updateContext } = useConfigDirectorContext();
+
+    await updateContext({ id: "i".repeat(257) });
+
+    expect(context.value).toEqual({ id: "i".repeat(257) });
+    expect(testClient.client.context).toBeUndefined();
+    expect(testClient.contextUpdates).toEqual([{}, {}]);
+  });
+
   test("updates the context of a client that does not wait for its first context, even before it started", async () => {
     const { updateContext } = useConfigDirectorContext();
 

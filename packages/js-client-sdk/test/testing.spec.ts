@@ -233,6 +233,25 @@ describe("@configdirector/client-sdk/testing", () => {
     expect(loggedErrors).toEqual([[expect.stringContaining("'Device'")], [expect.stringContaining("'Tenant'")]]);
   });
 
+  test("S13c contextUpdates records an empty context for a context over the size limits, and the error is logged", async () => {
+    const loggedErrors: unknown[][] = [];
+    const testClient = create({
+      values: {},
+      logger: { ...createStubbedLogger(), error: (...args: unknown[]) => loggedErrors.push(args) },
+    });
+
+    await testClient.client.initialize({ id: "i".repeat(257) });
+    await testClient.client.updateContext({ id: "42" });
+    await testClient.client.updateContext({ id: "43", name: "n".repeat(257) });
+
+    expect(testClient.contextUpdates).toEqual([{}, { id: "42" }, {}]);
+    expect(testClient.client.context).toBeUndefined();
+    expect(loggedErrors).toEqual([
+      [expect.stringContaining("its id is longer than 256 characters")],
+      [expect.stringContaining("its name is longer than 256 characters")],
+    ]);
+  });
+
   test("S14 operations after dispose are silent no-ops", async () => {
     const testClient = create({ values: { greeting: "hello" } });
     const watched: string[] = [];

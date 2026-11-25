@@ -7,7 +7,7 @@ import type {
 } from "../types";
 import type { UrlLike } from "@shared/url";
 import type { DiscreteEventList, AggregatedEventList, DroppedEvents } from "@shared/telemetry/types";
-import type { EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
+import type { ContextSizeLimitReason, EvaluatedConfigEvent } from "@shared/telemetry/telemetry-events";
 import type { TrackedEventAdmission } from "@shared/telemetry/tracked-events";
 export * from "@shared/telemetry/types";
 
@@ -48,7 +48,9 @@ export interface TelemetryClient {
 
   evaluatedConfig<T extends ConfigValueType>(event: EvaluatedConfigEvent<T>): void;
 
-  recordInvalidContext(kindSample: string): void;
+  recordInvalidContextKind(kindSample: string): void;
+
+  recordContextOverSizeLimit(reason: ContextSizeLimitReason): void;
 
   trackedEvent(admission: TrackedEventAdmission, context: ConfigDirectorContext | undefined): void;
 

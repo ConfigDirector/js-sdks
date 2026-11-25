@@ -16,7 +16,8 @@ export type EvaluatedConfigEvent<T extends ConfigValueType> = {
   variationId?: string | undefined;
 };
 
-export type InvalidContextEvent = {
-  reason: "invalid-context-kind";
-  kindSample?: string;
-};
+export type ContextSizeLimitReason = "identifier-too-long" | "name-too-long" | "traits-too-large";
+
+export type InvalidContextEvent =
+  | { reason: "invalid-context-kind"; kindSample?: string }
+  | { reason: ContextSizeLimitReason };

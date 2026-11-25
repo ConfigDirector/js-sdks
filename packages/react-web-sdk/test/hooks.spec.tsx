@@ -200,6 +200,67 @@ describe("useConfigValue", () => {
     expect(payloads.map((payload) => payload.givenContext)).toEqual([{ id: "user-1" }, {}]);
   });
 
+  test("connects with no context when the context prop changes to a context whose name is over 256 characters", async () => {
+    await commands.mswUseSseHandler(SSE_URL, [
+      [
+        {
+          data: full({
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "before-context-update",
+            },
+          }),
+        },
+      ],
+      [
+        {
+          data: full({
+            "example-config": {
+              id: "00000000-0000-0000-0000-0000000003e8",
+              key: "example-config",
+              type: "string",
+              value: "after-context-update",
+            },
+          }),
+        },
+      ],
+    ]);
+
+    const TestComponent = () => {
+      const { value } = useConfigValue("example-config", "Default");
+      const { client } = useClient();
+      return (
+        <div>
+          <div data-testid="target">{value}</div>
+          <div data-testid="context-id">{client.context?.id ?? "none"}</div>
+        </div>
+      );
+    };
+
+    const { rerender } = render(
+      <ConfigDirectorProvider sdkKey="dummy-key" context={{ id: "user-1" }} logger={logger}>
+        <TestComponent />
+      </ConfigDirectorProvider>,
+    );
+
+    await screen.findByText("before-context-update", undefined, { timeout: 1_000 });
+    expect(screen.getByTestId("context-id")).toHaveTextContent("user-1");
+
+    rerender(
+      <ConfigDirectorProvider sdkKey="dummy-key" context={{ id: "user-2", name: "n".repeat(257) }} logger={logger}>
+        <TestComponent />
+      </ConfigDirectorProvider>,
+    );
+
+    await screen.findByText("after-context-update", undefined, { timeout: 1_000 });
+    expect(screen.getByTestId("context-id")).toHaveTextContent("none");
+
+    const payloads = (await commands.mswGetPayloads()) as { givenContext?: unknown }[];
+    expect(payloads.map((payload) => payload.givenContext)).toEqual([{ id: "user-1" }, {}]);
+  });
+
   test("returns the parsed object when the server sends a json config and the default is an object", async () => {
     await commands.mswUseSseHandler(SSE_URL, [
       [

@@ -15,7 +15,8 @@ const MockCollector = jest.mocked(ClientTelemetryEventCollector);
 type CollectorMock = {
   start: jest.Mock;
   evaluatedConfig: jest.Mock;
-  recordInvalidContext: jest.Mock;
+  recordInvalidContextKind: jest.Mock;
+  recordContextOverSizeLimit: jest.Mock;
   updateContext: jest.Mock;
   close: jest.Mock;
 };
@@ -30,7 +31,8 @@ beforeEach(() => {
   collectorMock = {
     start: jest.fn(),
     evaluatedConfig: jest.fn(),
-    recordInvalidContext: jest.fn(),
+    recordInvalidContextKind: jest.fn(),
+    recordContextOverSizeLimit: jest.fn(),
     updateContext: jest.fn().mockImplementation(() => Promise.resolve()),
     close: jest.fn().mockImplementation(() => Promise.resolve()),
   };
@@ -186,10 +188,16 @@ describe("ReactNativeTelemetryClient", () => {
     expect(collectorMock.updateContext).toHaveBeenCalledWith(ctx);
   });
 
-  test("delegates recordInvalidContext to the collector", () => {
-    makeClient().recordInvalidContext("Device");
+  test("delegates recordInvalidContextKind to the collector", () => {
+    makeClient().recordInvalidContextKind("Device");
 
-    expect(collectorMock.recordInvalidContext).toHaveBeenCalledWith("Device");
+    expect(collectorMock.recordInvalidContextKind).toHaveBeenCalledWith("Device");
+  });
+
+  test("delegates recordContextOverSizeLimit to the collector", () => {
+    makeClient().recordContextOverSizeLimit("traits-too-large");
+
+    expect(collectorMock.recordContextOverSizeLimit).toHaveBeenCalledWith("traits-too-large");
   });
 
   test("delegates close to the collector", async () => {

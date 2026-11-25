@@ -21,6 +21,7 @@ import type {
   TelemetryUpdateContextEvent,
   TelemetryWorkerResponseEvent,
 } from "./types";
+import type { ContextSizeLimitReason } from "@shared/telemetry/telemetry-events";
 import type { TelemetryValue } from "@shared/telemetry/utils";
 import { mapToTelemetryValue } from "@shared/telemetry/utils";
 import { InvalidContextSubmissions } from "@shared/telemetry/InvalidContextSubmissions";
@@ -199,8 +200,13 @@ export class WebWorkerTelemetryClient implements TelemetryClient {
     this.pendingEvaluations.push(evaluatedConfigMessage);
   }
 
-  public recordInvalidContext(kindSample: string): void {
-    this.pendingInvalidContextSubmissions.record(kindSample);
+  public recordInvalidContextKind(kindSample: string): void {
+    this.pendingInvalidContextSubmissions.recordInvalidKind(kindSample);
+    this.forwardInvalidContextSubmissions(this.worker);
+  }
+
+  public recordContextOverSizeLimit(reason: ContextSizeLimitReason): void {
+    this.pendingInvalidContextSubmissions.recordOverSizeLimit(reason);
     this.forwardInvalidContextSubmissions(this.worker);
   }
 

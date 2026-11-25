@@ -1,7 +1,11 @@
 import { type TelemetryValue } from "@shared/telemetry/utils";
 import { type ClientSession, type ConfigDirectorContext } from "../types";
 import { ClientEventReporter } from "./ClientEventReporter";
-import type { EvaluatedConfigEvent, InvalidContextEvent } from "@shared/telemetry/telemetry-events";
+import type {
+  ContextSizeLimitReason,
+  EvaluatedConfigEvent,
+  InvalidContextEvent,
+} from "@shared/telemetry/telemetry-events";
 import type { AggregatedEvent, EventSnapshotPreprocessor, ReporterResponse } from "./types";
 import { type EventReporter } from "./types";
 import {
@@ -47,8 +51,12 @@ export class ClientTelemetryEventCollector extends TelemetryEventCollector<
     this.evaluationEventQueue.push(event);
   }
 
-  public recordInvalidContext(kindSample: string): void {
-    this.invalidContextSubmissions.record(kindSample);
+  public recordInvalidContextKind(kindSample: string): void {
+    this.invalidContextSubmissions.recordInvalidKind(kindSample);
+  }
+
+  public recordContextOverSizeLimit(reason: ContextSizeLimitReason): void {
+    this.invalidContextSubmissions.recordOverSizeLimit(reason);
   }
 
   public absorbInvalidContextSubmissions(entries: AggregatedEvent<InvalidContextEvent>[]): void {

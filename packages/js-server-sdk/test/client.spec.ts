@@ -2068,7 +2068,7 @@ describe("ConfigDirectorClient", () => {
     const createTelemetryClient = (): ServerTelemetryClient => ({
       start: vi.fn(),
       evaluatedConfig: vi.fn(),
-      recordInvalidContext: vi.fn(() => "new-kind-sample" as const),
+      recordInvalidContextKind: vi.fn(() => "new-kind-sample" as const),
       trackedEvent: vi.fn(),
       close: vi.fn(async () => {}),
     });
@@ -3058,6 +3058,46 @@ describe("ConfigDirectorClient", () => {
         expect(JSON.stringify(report)).not.toContain("context-identifier-42");
         expect(JSON.stringify(report)).not.toContain("Ada Lovelace");
         expect(JSON.stringify(report)).not.toContain("ada@example.com");
+      });
+    });
+
+    describe("context size limits", () => {
+      const greetingForEnterprise = {
+        ...greetingForContext42,
+        target: {
+          ...greetingForContext42.target,
+          rules: [
+            {
+              ...greetingForContext42.target.rules[0],
+              value: "hello enterprise",
+              conditions: [
+                {
+                  id: "44444444-4444-4444-8444-444444444444",
+                  attribute: "traits",
+                  trait: "/plan",
+                  operator: "equals",
+                  targetType: "text",
+                  targetValues: ["enterprise"],
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      test("evaluates a context with traits of 65,537 bytes of JSON with those traits and reports no invalid context submission", async () => {
+        const emptyNoteJsonBytes = JSON.stringify({ plan: "enterprise", note: "" }).length;
+        const traits = { plan: "enterprise", note: "x".repeat(65_537 - emptyNoteJsonBytes) };
+        streaming({ greeting: greetingForEnterprise });
+        const client = createClient("sdk-key", { logger: errorRecordingLogger() });
+        await client.initialize();
+
+        const greeting = client.getValue("greeting", "in-code default", { id: "42", traits });
+
+        expect(greeting).toBe("hello enterprise");
+        const report = await reportSentOnDispose(client);
+        expect(report.aggregatedEvents.invalidContext).toEqual([]);
+        expect(loggedErrors).toEqual([]);
       });
     });
   });

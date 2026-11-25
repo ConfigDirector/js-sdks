@@ -36,7 +36,7 @@ import { resolvePollingInterval } from "@shared/transport/pollingInterval";
 import { admitContext } from "@shared/context-kind";
 import {
   DISTINCT_KIND_SAMPLE_LIMIT,
-  type InvalidContextRecording,
+  type InvalidKindRecording,
 } from "@shared/telemetry/InvalidContextSubmissions";
 import { ServerTelemetryEventCollector, type ServerTelemetryClient } from "./telemetry";
 import { discardingTelemetryClient } from "./telemetry/discarding";
@@ -60,8 +60,8 @@ type WatchHandlerWithOptions<T extends ConfigValueType> = {
   context?: ConfigDirectorContext;
 };
 
-const logInvalidContext: {
-  [R in InvalidContextRecording]: (logger: ConfigDirectorLogger, kindSample: string) => void;
+const logInvalidContextKind: {
+  [R in InvalidKindRecording]: (logger: ConfigDirectorLogger, kindSample: string) => void;
 } = {
   "new-kind-sample": (logger, kindSample) =>
     logger.error(
@@ -495,8 +495,8 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
       case "admitted":
         return admission.context;
       case "ignored": {
-        const recording = this.usageEventCollector.recordInvalidContext(admission.kindSample);
-        logInvalidContext[recording](this.logger, admission.kindSample);
+        const recording = this.usageEventCollector.recordInvalidContextKind(admission.kindSample);
+        logInvalidContextKind[recording](this.logger, admission.kindSample);
         return undefined;
       }
     }

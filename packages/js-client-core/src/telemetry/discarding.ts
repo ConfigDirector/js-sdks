@@ -3,7 +3,8 @@ import type { TelemetryClient } from "./types";
 export const discardingTelemetryClient: TelemetryClient = {
   updateContext: async () => {},
   evaluatedConfig: () => {},
-  recordInvalidContext: () => {},
+  recordInvalidContextKind: () => {},
+  recordContextOverSizeLimit: () => {},
   trackedEvent: () => {},
   close: async () => {},
 };

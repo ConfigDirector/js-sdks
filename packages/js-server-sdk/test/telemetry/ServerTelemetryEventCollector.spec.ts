@@ -357,14 +357,14 @@ describe("ServerTelemetryEventCollector", () => {
     });
   });
 
-  describe("recordInvalidContext", () => {
+  describe("recordInvalidContextKind", () => {
     test("reports invalid context submissions counted by kind sample", async () => {
       vi.setSystemTime(new Date("2026-10-13T10:00:00.000Z"));
       const collector = createCollector();
-      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContextKind("Tenant");
       await vi.advanceTimersByTimeAsync(1_000);
-      collector.recordInvalidContext("Tenant");
-      collector.recordInvalidContext("Device");
+      collector.recordInvalidContextKind("Tenant");
+      collector.recordInvalidContextKind("Device");
 
       await vi.advanceTimersByTimeAsync(4_000);
 
@@ -387,11 +387,11 @@ describe("ServerTelemetryEventCollector", () => {
     test("counts submissions beyond 20 distinct kind samples in one entry without a sample", async () => {
       const collector = createCollector();
       for (let index = 1; index <= 20; index++) {
-        collector.recordInvalidContext(`Kind-${index}`);
+        collector.recordInvalidContextKind(`Kind-${index}`);
       }
-      collector.recordInvalidContext("Kind-21");
-      collector.recordInvalidContext("Kind-22");
-      collector.recordInvalidContext("Kind-21");
+      collector.recordInvalidContextKind("Kind-21");
+      collector.recordInvalidContextKind("Kind-22");
+      collector.recordInvalidContextKind("Kind-21");
 
       await vi.advanceTimersByTimeAsync(5_000);
 
@@ -407,7 +407,7 @@ describe("ServerTelemetryEventCollector", () => {
 
     test("sends a report holding only invalid context submissions", async () => {
       const collector = createCollector();
-      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContextKind("Tenant");
 
       await vi.advanceTimersByTimeAsync(5_000);
 
@@ -427,7 +427,7 @@ describe("ServerTelemetryEventCollector", () => {
 
     test("clears invalid context submissions after flush so they are not resent", async () => {
       const collector = createCollector({ flushIntervalDelay: 10_000, initialFlushIntervalDelay: 5_000 });
-      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContextKind("Tenant");
       await vi.advanceTimersByTimeAsync(5_000);
 
       collector.evaluatedConfig(basePayload);
@@ -439,7 +439,7 @@ describe("ServerTelemetryEventCollector", () => {
     test("stops reporting invalid context submissions after a fatal HTTP response", async () => {
       server.use(http.post(TELEMETRY_URL, () => HttpResponse.json({}, { status: 401 })));
       const collector = createCollector();
-      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContextKind("Tenant");
       await vi.advanceTimersByTimeAsync(5_000);
       server.use(
         http.post(TELEMETRY_URL, async ({ request }) => {
@@ -448,7 +448,7 @@ describe("ServerTelemetryEventCollector", () => {
         }),
       );
 
-      collector.recordInvalidContext("Device");
+      collector.recordInvalidContextKind("Device");
       await vi.advanceTimersByTimeAsync(35_000);
 
       expect(capturedPayloads).toHaveLength(0);

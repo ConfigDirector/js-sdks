@@ -1,7 +1,7 @@
 import type { DiscreteEventList, AggregatedEventList, DroppedEvents } from "@shared/telemetry/types";
 import type { ConfigDirectorContext, ConfigType, ConfigValueType, EvaluationReason } from "../types";
 import type { TelemetryEventCollectorOptions } from "@shared/telemetry/TelemetryEventCollector";
-import type { InvalidContextRecording } from "@shared/telemetry/InvalidContextSubmissions";
+import type { InvalidKindRecording } from "@shared/telemetry/InvalidContextSubmissions";
 import type { TrackedEventAdmission } from "@shared/telemetry/tracked-events";
 export * from "@shared/telemetry/types";
 
@@ -27,7 +27,7 @@ export interface ServerTelemetryClient {
 
   evaluatedConfig<T extends ConfigValueType>(payload: EvaluatedConfig<T>): void;
 
-  recordInvalidContext(kindSample: string): InvalidContextRecording;
+  recordInvalidContextKind(kindSample: string): InvalidKindRecording;
 
   trackedEvent(admission: TrackedEventAdmission, context: ConfigDirectorContext | undefined): void;
 

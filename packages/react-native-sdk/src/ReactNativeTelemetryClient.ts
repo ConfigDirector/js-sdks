@@ -15,6 +15,7 @@ import type { ClientSession } from "@js-client-core/types";
 import type { UrlFactory, UrlLike } from "@shared/url";
 import { generateValueId } from "./value-id-generator";
 import type { TrackedEventAdmission } from "@shared/telemetry/tracked-events";
+import type { ContextSizeLimitReason } from "@shared/telemetry/telemetry-events";
 
 type ReactNativeTelemetryClientOptions = {
   sdkKey: string;
@@ -45,8 +46,12 @@ export class ReactNativeTelemetryClient implements TelemetryClient {
     this.collector.evaluatedConfig(this.sanitizeEvaluatedConfigEvent(event));
   }
 
-  public recordInvalidContext(kindSample: string): void {
-    this.collector.recordInvalidContext(kindSample);
+  public recordInvalidContextKind(kindSample: string): void {
+    this.collector.recordInvalidContextKind(kindSample);
+  }
+
+  public recordContextOverSizeLimit(reason: ContextSizeLimitReason): void {
+    this.collector.recordContextOverSizeLimit(reason);
   }
 
   public trackedEvent(admission: TrackedEventAdmission): void {

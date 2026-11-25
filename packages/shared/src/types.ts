@@ -161,6 +161,10 @@ export type ConfigDirectorContext = {
    * or the site's data is cleared. However, keep in mind that this value is used for segmenting
    * contexts in percentage rollouts, and changes to the {@link id} could result in the context
    * being assigned to a different percentile.
+   *
+   * An identifier has at most 256 characters. A client SDK ignores a context with a longer one as
+   * a whole: it logs an error and evaluates as if no context had been provided. A server SDK still
+   * evaluates such a context, and ConfigDirector does not add it to the environment's contexts.
    */
   id?: string;
 
@@ -180,12 +184,21 @@ export type ConfigDirectorContext = {
   /**
    * The context's display name. This will be shown in the ConfigDirector dashboard and may be
    * used for targeting rules.
+   *
+   * A name has at most 256 characters. A client SDK ignores a context with a longer one as a
+   * whole: it logs an error and evaluates as if no context had been provided. A server SDK still
+   * evaluates such a context, and ConfigDirector does not add it to the environment's contexts.
    */
   name?: string;
 
   /**
    * Any arbitrary traits for the context. They will be shown in the ConfigDirector dashboard
    * and may be used for targeting rules.
+   *
+   * Traits take at most 64 KB once written as JSON. A client SDK ignores a context with larger
+   * traits as a whole: it logs an error and evaluates as if no context had been provided. A server
+   * SDK still evaluates such a context, and ConfigDirector does not add it to the environment's
+   * contexts.
    */
   traits?: { [key: string]: unknown };
 

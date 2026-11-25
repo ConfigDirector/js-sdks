@@ -314,16 +314,16 @@ describe("TelemetryClient", () => {
     });
   });
 
-  describe("recordInvalidContext", () => {
-    const invalidContextEntries = async () => {
-      const payloads = (await commands.mswGetPayloads()) as EventReport[];
-      return payloads[0].aggregatedEvents["invalidContext"];
-    };
+  const invalidContextEntries = async () => {
+    const payloads = (await commands.mswGetPayloads()) as EventReport[];
+    return payloads[0].aggregatedEvents["invalidContext"];
+  };
 
+  describe("recordInvalidContextKind", () => {
     test("reports an invalid context submission recorded after the worker started", async () => {
       client = createClient();
 
-      client.recordInvalidContext("Tenant");
+      client.recordInvalidContextKind("Tenant");
 
       await waitForPayloadCount(1);
       expect(await invalidContextEntries()).toEqual([
@@ -338,9 +338,9 @@ describe("TelemetryClient", () => {
 
     test("sends the submissions recorded before the first context update once the worker starts", async () => {
       client = createIdleClient();
-      client.recordInvalidContext("Tenant");
-      client.recordInvalidContext("Device");
-      client.recordInvalidContext("Tenant");
+      client.recordInvalidContextKind("Tenant");
+      client.recordInvalidContextKind("Device");
+      client.recordInvalidContextKind("Tenant");
       await sleep(INITIAL_FLUSH_DELAY * 2);
       expect(await commands.mswGetPayloads()).toHaveLength(0);
 
@@ -356,11 +356,11 @@ describe("TelemetryClient", () => {
     test("holds at most 20 distinct kind samples before the worker starts and counts the rest without a sample", async () => {
       client = createIdleClient();
       for (let index = 1; index <= 20; index++) {
-        client.recordInvalidContext(`Kind-${index}`);
+        client.recordInvalidContextKind(`Kind-${index}`);
       }
-      client.recordInvalidContext("Kind-21");
-      client.recordInvalidContext("Kind-22");
-      client.recordInvalidContext("Kind-21");
+      client.recordInvalidContextKind("Kind-21");
+      client.recordInvalidContextKind("Kind-22");
+      client.recordInvalidContextKind("Kind-21");
 
       await client.updateContext(undefined);
 
@@ -370,6 +370,41 @@ describe("TelemetryClient", () => {
       expect(entries[19]).toMatchObject({ count: 1, event: { kindSample: "Kind-20" } });
       expect(entries[20]).toMatchObject({ count: 3, event: { reason: "invalid-context-kind" } });
       expect(entries[20].event).not.toHaveProperty("kindSample");
+    });
+  });
+
+  describe("recordContextOverSizeLimit", () => {
+    test("reports a context over a size limit recorded after the worker started, with its reason and no kind sample", async () => {
+      client = createClient();
+
+      client.recordContextOverSizeLimit("traits-too-large");
+
+      await waitForPayloadCount(1);
+      expect(await invalidContextEntries()).toEqual([
+        {
+          startTime: expect.any(String),
+          endTime: expect.any(String),
+          count: 1,
+          event: { reason: "traits-too-large" },
+        },
+      ]);
+    });
+
+    test("sends the contexts over a size limit recorded before the first context update once the worker starts", async () => {
+      client = createIdleClient();
+      client.recordContextOverSizeLimit("identifier-too-long");
+      client.recordContextOverSizeLimit("name-too-long");
+      client.recordContextOverSizeLimit("identifier-too-long");
+      await sleep(INITIAL_FLUSH_DELAY * 2);
+      expect(await commands.mswGetPayloads()).toHaveLength(0);
+
+      await client.updateContext(undefined);
+
+      await waitForPayloadCount(1);
+      expect(await invalidContextEntries()).toEqual([
+        expect.objectContaining({ count: 2, event: { reason: "identifier-too-long" } }),
+        expect.objectContaining({ count: 1, event: { reason: "name-too-long" } }),
+      ]);
     });
   });
 
@@ -557,9 +592,9 @@ describe("TelemetryClient", () => {
     test("never sends invalid context submissions recorded before or after the first context update", async () => {
       client = createIdleClient();
 
-      client.recordInvalidContext("Tenant");
+      client.recordInvalidContextKind("Tenant");
       await client.updateContext(undefined);
-      client.recordInvalidContext("Device");
+      client.recordInvalidContextKind("Device");
       await hidePageFor(INITIAL_FLUSH_DELAY * 2);
 
       expect(await commands.mswWasRequestReceived()).toBe(false);

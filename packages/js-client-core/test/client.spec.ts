@@ -3,6 +3,7 @@ import { commands } from "vitest/browser";
 import type {
   ConfigDirectorClient,
   ConfigDirectorClientOptions,
+  ConfigDirectorContext,
   ConfigSet,
   InstanceIdStorage,
   InternalClientOptions,
@@ -26,7 +27,8 @@ const logger = createStubbedLogger();
 const telemetryClient: TelemetryClient = {
   updateContext: vi.fn(async () => {}),
   evaluatedConfig: vi.fn(),
-  recordInvalidContext: vi.fn(),
+  recordInvalidContextKind: vi.fn(),
+  recordContextOverSizeLimit: vi.fn(),
   trackedEvent: vi.fn(),
   close: vi.fn(async () => {}),
 };
@@ -720,7 +722,8 @@ describe("ConfigDirectorClient", () => {
       const rejectingTelemetryClient: TelemetryClient = {
         updateContext: () => Promise.reject(new Error("telemetry is unavailable")),
         evaluatedConfig: () => {},
-        recordInvalidContext: () => {},
+        recordInvalidContextKind: () => {},
+        recordContextOverSizeLimit: () => {},
         trackedEvent: () => {},
         close: () => Promise.reject(new Error("telemetry is unavailable")),
       };
@@ -2907,7 +2910,7 @@ describe("ConfigDirectorClient", () => {
 
     beforeEach(() => {
       capturingLogger = createCapturingLogger();
-      vi.mocked(telemetryClient.recordInvalidContext).mockClear();
+      vi.mocked(telemetryClient.recordInvalidContextKind).mockClear();
       vi.mocked(telemetryClient.updateContext).mockClear();
     });
 
@@ -2956,7 +2959,7 @@ describe("ConfigDirectorClient", () => {
       await client.resumeNetwork();
       await client.updateContext({ id: "42", kind: " tenant " });
 
-      expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["Device"], [" tenant "]]);
+      expect(vi.mocked(telemetryClient.recordInvalidContextKind).mock.calls).toEqual([["Device"], [" tenant "]]);
       expect(transport.connectCalls.map((call) => call.context)).toEqual([{}, {}, {}]);
       expect(capturingLogger.error).toHaveBeenCalledTimes(2);
     });
@@ -2980,7 +2983,7 @@ describe("ConfigDirectorClient", () => {
 
       const payloads = (await commands.mswGetPayloads()) as { givenContext: unknown }[];
       expect(payloads.slice(0, 3).map((payload) => payload.givenContext)).toEqual([{}, {}, {}]);
-      expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["Device"]]);
+      expect(vi.mocked(telemetryClient.recordInvalidContextKind).mock.calls).toEqual([["Device"]]);
       expect(capturingLogger.error).toHaveBeenCalledTimes(1);
     });
 
@@ -2992,7 +2995,7 @@ describe("ConfigDirectorClient", () => {
       transport.deliver(full() as ConfigSet);
       await initialization;
 
-      expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["D".repeat(128)]]);
+      expect(vi.mocked(telemetryClient.recordInvalidContextKind).mock.calls).toEqual([["D".repeat(128)]]);
     });
 
     test("evaluates with no context after an invalid kind", async () => {
@@ -3029,7 +3032,7 @@ describe("ConfigDirectorClient", () => {
         [{ id: "42", kind: "device" }],
         [undefined],
       ]);
-      expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["Device"], ["Tenant"]]);
+      expect(vi.mocked(telemetryClient.recordInvalidContextKind).mock.calls).toEqual([["Device"], ["Tenant"]]);
     });
 
     test("polling sends a valid kind as givenContext.kind, an empty context for an invalid kind, and counts no poll", async () => {
@@ -3046,12 +3049,199 @@ describe("ConfigDirectorClient", () => {
         const payloads = (await commands.mswGetPayloads()) as { givenContext: unknown }[];
         expect(payloads.map((payload) => payload.givenContext)).toEqual([{ id: "42", kind: "device" }, {}, {}]);
         expect(client.context).toBeUndefined();
-        expect(vi.mocked(telemetryClient.recordInvalidContext).mock.calls).toEqual([["Tenant"]]);
+        expect(vi.mocked(telemetryClient.recordInvalidContextKind).mock.calls).toEqual([["Tenant"]]);
         expect(capturingLogger.error).toHaveBeenCalledTimes(1);
       } finally {
         client.dispose();
         vi.useRealTimers();
       }
+    });
+  });
+
+  describe("context size limits", () => {
+    let capturingLogger: ReturnType<typeof createCapturingLogger>;
+
+    const traitsOfJsonBytes = (jsonBytes: number) => ({
+      note: "x".repeat(jsonBytes - JSON.stringify({ note: "" }).length),
+    });
+
+    const initializeWith = async (context: ConfigDirectorContext): Promise<RecordingTransport> => {
+      const transport = new RecordingTransport();
+      client = createClient("sdk-key", { logger: capturingLogger }, { transport });
+      const initialization = client.initialize(context);
+      transport.deliver(full() as ConfigSet);
+      await initialization;
+      return transport;
+    };
+
+    beforeEach(() => {
+      capturingLogger = createCapturingLogger();
+      vi.mocked(telemetryClient.recordInvalidContextKind).mockClear();
+      vi.mocked(telemetryClient.recordContextOverSizeLimit).mockClear();
+    });
+
+    test("initialize with an id of 257 characters connects with an empty context, logs the id limit and records identifier-too-long", async () => {
+      const transport = await initializeWith({ id: "i".repeat(257) });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{}]);
+      expect(client.context).toBeUndefined();
+      expect(capturingLogger.error.mock.calls).toEqual([
+        [expect.stringContaining("for initialization because its id is longer than 256 characters;")],
+      ]);
+      expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["identifier-too-long"]]);
+      expect(telemetryClient.recordInvalidContextKind).not.toHaveBeenCalled();
+    });
+
+    test("initialize with an id of 256 characters sends it", async () => {
+      const transport = await initializeWith({ id: "i".repeat(256) });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{ id: "i".repeat(256) }]);
+      expect(client.context).toEqual({ id: "i".repeat(256) });
+      expect(capturingLogger.error).not.toHaveBeenCalled();
+      expect(telemetryClient.recordContextOverSizeLimit).not.toHaveBeenCalled();
+    });
+
+    test("initialize with a name of 257 characters connects with an empty context, logs the name limit and records name-too-long", async () => {
+      const transport = await initializeWith({ id: "42", name: "n".repeat(257) });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{}]);
+      expect(client.context).toBeUndefined();
+      expect(capturingLogger.error.mock.calls).toEqual([
+        [expect.stringContaining("for initialization because its name is longer than 256 characters;")],
+      ]);
+      expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["name-too-long"]]);
+      expect(telemetryClient.recordInvalidContextKind).not.toHaveBeenCalled();
+    });
+
+    test("initialize with a name of 256 characters sends it", async () => {
+      const transport = await initializeWith({ id: "42", name: "n".repeat(256) });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{ id: "42", name: "n".repeat(256) }]);
+      expect(client.context).toEqual({ id: "42", name: "n".repeat(256) });
+      expect(capturingLogger.error).not.toHaveBeenCalled();
+      expect(telemetryClient.recordContextOverSizeLimit).not.toHaveBeenCalled();
+    });
+
+    test("initialize with traits of 65,537 bytes of JSON connects with an empty context, logs the traits limit and records traits-too-large", async () => {
+      const transport = await initializeWith({ id: "42", traits: traitsOfJsonBytes(65_537) });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{}]);
+      expect(client.context).toBeUndefined();
+      expect(capturingLogger.error.mock.calls).toEqual([
+        [expect.stringContaining("for initialization because its traits are over 64 KB of JSON;")],
+      ]);
+      expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["traits-too-large"]]);
+      expect(telemetryClient.recordInvalidContextKind).not.toHaveBeenCalled();
+    });
+
+    test("initialize with traits of exactly 65,536 bytes of JSON sends them", async () => {
+      const traits = traitsOfJsonBytes(65_536);
+
+      const transport = await initializeWith({ id: "42", traits });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{ id: "42", traits }]);
+      expect(capturingLogger.error).not.toHaveBeenCalled();
+      expect(telemetryClient.recordContextOverSizeLimit).not.toHaveBeenCalled();
+    });
+
+    test("initialize with traits of fewer than 65,536 characters but more than 65,536 bytes of JSON ignores the context", async () => {
+      const traits = { note: "é".repeat(40_000) };
+
+      const transport = await initializeWith({ id: "42", traits });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{}]);
+      expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["traits-too-large"]]);
+    });
+
+    test("initialize with an id of 200 emoji sends it, since each emoji counts as one character", async () => {
+      const transport = await initializeWith({ id: "😀".repeat(200) });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{ id: "😀".repeat(200) }]);
+      expect(telemetryClient.recordContextOverSizeLimit).not.toHaveBeenCalled();
+    });
+
+    test("initialize with a context over the id and the traits limits records one submission, with identifier-too-long", async () => {
+      await initializeWith({ id: "i".repeat(257), traits: traitsOfJsonBytes(65_537) });
+
+      expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["identifier-too-long"]]);
+      expect(capturingLogger.error).toHaveBeenCalledTimes(1);
+    });
+
+    test("initialize with a context over the id and the name limits records one submission, with identifier-too-long", async () => {
+      await initializeWith({ id: "i".repeat(257), name: "n".repeat(257) });
+
+      expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["identifier-too-long"]]);
+    });
+
+    test("initialize with a context over the name and the traits limits records one submission, with name-too-long", async () => {
+      await initializeWith({ id: "42", name: "n".repeat(257), traits: traitsOfJsonBytes(65_537) });
+
+      expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["name-too-long"]]);
+    });
+
+    test("initialize with an invalid kind and an id over the limit records the invalid kind only", async () => {
+      await initializeWith({ id: "i".repeat(257), kind: "Device" });
+
+      expect(vi.mocked(telemetryClient.recordInvalidContextKind).mock.calls).toEqual([["Device"]]);
+      expect(telemetryClient.recordContextOverSizeLimit).not.toHaveBeenCalled();
+      expect(capturingLogger.error.mock.calls).toEqual([[expect.stringContaining("'Device'")]]);
+    });
+
+    test("updateContext with a name over the limit stops using the previous context and logs that the context update was ignored", async () => {
+      const transport = await initializeWith({ id: "42" });
+      const contextEvents: unknown[] = [];
+      client.on("contextUpdated", (event) => contextEvents.push(event));
+
+      await client.updateContext({ id: "43", name: "n".repeat(257) });
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([{ id: "42" }, {}]);
+      expect(client.context).toBeUndefined();
+      expect(contextEvents).toEqual([{ context: undefined }]);
+      expect(capturingLogger.error.mock.calls).toEqual([
+        [expect.stringContaining("for context update because its name is longer than 256 characters;")],
+      ]);
+      expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["name-too-long"]]);
+    });
+
+    test("streaming sends a context within the limits and an empty context for one over the id limit", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full() }], [{ data: full() }]]);
+      client = createClient("sdk-key", { logger: capturingLogger });
+
+      await client.initialize({ id: "42" });
+      await client.updateContext({ id: "i".repeat(257) });
+
+      const payloads = (await commands.mswGetPayloads()) as { givenContext: unknown }[];
+      expect(payloads.map((payload) => payload.givenContext)).toEqual([{ id: "42" }, {}]);
+      expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["identifier-too-long"]]);
+    });
+
+    test("polling sends an empty context for a context over the traits limit, and counts no poll", async () => {
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      try {
+        await commands.mswUseHandlers({ url: POLL_URL, responseBody: full({}, "2024-01-01T00:00:00.000Z") });
+        client = createClient("sdk-key", { logger: capturingLogger, connection: { mode: "polling", pollingInterval: 60 } });
+
+        await client.initialize({ id: "42" });
+        await client.updateContext({ id: "43", traits: traitsOfJsonBytes(65_537) });
+        await vi.advanceTimersByTimeAsync(60_000);
+        await vi.waitFor(async () => expect(await commands.mswGetPayloads()).toHaveLength(3), { timeout: 1_000 });
+
+        const payloads = (await commands.mswGetPayloads()) as { givenContext: unknown }[];
+        expect(payloads.map((payload) => payload.givenContext)).toEqual([{ id: "42" }, {}, {}]);
+        expect(vi.mocked(telemetryClient.recordContextOverSizeLimit).mock.calls).toEqual([["traits-too-large"]]);
+      } finally {
+        client.dispose();
+        vi.useRealTimers();
+      }
+    });
+
+    test("initialize with traits that cannot be written as JSON hands the context to the connection as before", async () => {
+      const context = { id: "42", traits: { visits: BigInt(3) } };
+
+      const transport = await initializeWith(context);
+
+      expect(transport.connectCalls.map((call) => call.context)).toEqual([context]);
+      expect(telemetryClient.recordContextOverSizeLimit).not.toHaveBeenCalled();
     });
   });
 });

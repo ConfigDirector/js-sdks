@@ -15,7 +15,7 @@ import { mapToTelemetryValue, type TelemetryValue } from "@shared/telemetry/util
 import { EvaluatedConfigEventPreprocessor } from "@shared/telemetry/EvaluatedConfigEventPreprocessor";
 import {
   InvalidContextSubmissions,
-  type InvalidContextRecording,
+  type InvalidKindRecording,
 } from "@shared/telemetry/InvalidContextSubmissions";
 import { reportedContextOf } from "@shared/telemetry/reported-context";
 
@@ -58,8 +58,8 @@ export class ServerTelemetryEventCollector
     this.evaluationEventQueue.push(this.sanitizeEvaluatedConfigEvent(event));
   }
 
-  public recordInvalidContext(kindSample: string): InvalidContextRecording {
-    return this.invalidContextSubmissions.record(kindSample);
+  public recordInvalidContextKind(kindSample: string): InvalidKindRecording {
+    return this.invalidContextSubmissions.recordInvalidKind(kindSample);
   }
 
   private sanitizeEvaluatedConfigEvent<T extends ConfigValueType>(

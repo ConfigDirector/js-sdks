@@ -215,6 +215,23 @@ describe("createClient", () => {
     expect(requests.find((request) => request.url.startsWith(SSE_URL))?.body?.givenContext).toEqual({});
   });
 
+  test("ignores a context with traits of 65,537 bytes of JSON at initialization, connects with no context and reports traits-too-large", async () => {
+    const errors: string[] = [];
+    const client = createClient("sdk-key", { logger: { ...logger, error: (message: string) => errors.push(message) } });
+    const traits = { note: "x".repeat(65_537 - JSON.stringify({ note: "" }).length) };
+
+    await client.initialize({ id: "42", traits });
+    client.dispose();
+
+    await waitForTelemetryReport();
+    const telemetryRequest = requests.find((request) => request.url.includes("telemetry"));
+    expect(telemetryRequest?.body?.aggregatedEvents?.invalidContext).toEqual([
+      expect.objectContaining({ count: 1, event: { reason: "traits-too-large" } }),
+    ]);
+    expect(requests.find((request) => request.url.startsWith(SSE_URL))?.body?.givenContext).toEqual({});
+    expect(errors).toEqual([expect.stringContaining("because its traits are over 64 KB of JSON;")]);
+  });
+
   test("says which of the app name and version it could not find", async () => {
     const infoMessages: string[] = [];
     const recordingLogger = { ...logger, info: (message: string) => infoMessages.push(message) };

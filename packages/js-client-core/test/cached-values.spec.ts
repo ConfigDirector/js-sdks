@@ -24,7 +24,8 @@ const logger = createStubbedLogger();
 const telemetryClient: TelemetryClient = {
   updateContext: vi.fn(async () => {}),
   evaluatedConfig: vi.fn(),
-  recordInvalidContext: vi.fn(),
+  recordInvalidContextKind: vi.fn(),
+  recordContextOverSizeLimit: vi.fn(),
   trackedEvent: vi.fn(),
   close: vi.fn(async () => {}),
 };

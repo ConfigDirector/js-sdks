@@ -245,6 +245,25 @@ describe("ConfigDirectorProvider (via @openfeature/web-sdk)", () => {
       expect(capturingLogger.error).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("'Tenant'"));
     });
 
+    test("initializes successfully with traits over 64 KB of JSON, connecting with no context and logging an error", async () => {
+      await commands.mswUseSseHandler(SSE_URL, [[{ data: full(stringConfig("greeting", "hello everyone")) }]]);
+      const capturingLogger = createCapturingLogger();
+
+      await OpenFeature.setProviderAndWait(new ConfigDirectorProvider("sdk-key", { logger: capturingLogger }), {
+        targetingKey: "42",
+        traits: { note: "x".repeat(65_537) },
+      });
+
+      const client = OpenFeature.getClient();
+      expect(client.providerStatus).toBe(ProviderStatus.READY);
+      expect(client.getStringDetails("greeting", "in-code default")).toMatchObject({ value: "hello everyone" });
+      expect(client.getStringDetails("greeting", "in-code default").errorCode).toBeUndefined();
+      expect(await givenContexts()).toEqual([{}]);
+      expect(capturingLogger.error).toHaveBeenCalledExactlyOnceWith(
+        expect.stringContaining("its traits are over 64 KB of JSON"),
+      );
+    });
+
     test("changes the context successfully with a top-level kind that is not text, connecting with no context", async () => {
       await commands.mswUseSseHandler(SSE_URL, [
         [{ data: full(stringConfig("greeting", "hello 42")) }],

@@ -365,7 +365,7 @@ describe("ClientTelemetryEventCollector", () => {
     });
   });
 
-  describe("recordInvalidContext", () => {
+  describe("recordInvalidContextKind", () => {
     const invalidContextEntries = async (payloadIndex = 0) => {
       const payloads = await commands.mswGetPayloads();
       return (payloads[payloadIndex] as EventReport).aggregatedEvents["invalidContext"];
@@ -374,10 +374,10 @@ describe("ClientTelemetryEventCollector", () => {
     test("reports invalid context submissions counted by kind sample", async () => {
       vi.setSystemTime(new Date("2026-10-14T10:00:00.000Z"));
       collector = createCollector();
-      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContextKind("Tenant");
       await vi.advanceTimersByTimeAsync(1_000);
-      collector.recordInvalidContext("Tenant");
-      collector.recordInvalidContext("Device");
+      collector.recordInvalidContextKind("Tenant");
+      collector.recordInvalidContextKind("Device");
 
       await vi.advanceTimersByTimeAsync(4_000);
       await waitForPayloadCount(1);
@@ -401,11 +401,11 @@ describe("ClientTelemetryEventCollector", () => {
     test("counts submissions beyond 20 distinct kind samples in one entry without a sample", async () => {
       collector = createCollector();
       for (let index = 1; index <= 20; index++) {
-        collector.recordInvalidContext(`Kind-${index}`);
+        collector.recordInvalidContextKind(`Kind-${index}`);
       }
-      collector.recordInvalidContext("Kind-21");
-      collector.recordInvalidContext("Kind-22");
-      collector.recordInvalidContext("Kind-21");
+      collector.recordInvalidContextKind("Kind-21");
+      collector.recordInvalidContextKind("Kind-22");
+      collector.recordInvalidContextKind("Kind-21");
 
       await vi.advanceTimersByTimeAsync(5_000);
       await waitForPayloadCount(1);
@@ -419,7 +419,7 @@ describe("ClientTelemetryEventCollector", () => {
 
     test("sends a report holding only invalid context submissions", async () => {
       collector = createCollector();
-      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContextKind("Tenant");
 
       await vi.advanceTimersByTimeAsync(5_000);
       await waitForPayloadCount(1);
@@ -441,7 +441,7 @@ describe("ClientTelemetryEventCollector", () => {
 
     test("clears invalid context submissions after a flush so they are not resent", async () => {
       collector = createCollector({ flushIntervalDelay: 10_000, initialFlushIntervalDelay: 5_000 });
-      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContextKind("Tenant");
       await vi.advanceTimersByTimeAsync(5_000);
       await waitForPayloadCount(1);
 
@@ -455,7 +455,7 @@ describe("ClientTelemetryEventCollector", () => {
     test("stops reporting invalid context submissions after a fatal response", async () => {
       await commands.mswUseHandlers({ url: TELEMETRY_URL, status: 401 });
       collector = createCollector();
-      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContextKind("Tenant");
       await vi.advanceTimersByTimeAsync(5_000);
       await vi.waitFor(
         async () => {
@@ -465,11 +465,55 @@ describe("ClientTelemetryEventCollector", () => {
       );
       await commands.mswUseHandlers({ url: TELEMETRY_URL });
 
-      collector.recordInvalidContext("Device");
+      collector.recordInvalidContextKind("Device");
       await vi.advanceTimersByTimeAsync(35_000);
       await drainNetwork();
 
       expect(await commands.mswGetPayloads()).toHaveLength(0);
+    });
+  });
+
+  describe("recordContextOverSizeLimit", () => {
+    test("reports contexts over a size limit counted by reason, without a kind sample", async () => {
+      vi.setSystemTime(new Date("2026-11-25T10:00:00.000Z"));
+      collector = createCollector();
+      collector.recordContextOverSizeLimit("identifier-too-long");
+      await vi.advanceTimersByTimeAsync(1_000);
+      collector.recordContextOverSizeLimit("traits-too-large");
+      collector.recordContextOverSizeLimit("identifier-too-long");
+
+      await vi.advanceTimersByTimeAsync(4_000);
+      await waitForPayloadCount(1);
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as EventReport).aggregatedEvents["invalidContext"]).toEqual([
+        {
+          startTime: "2026-11-25T10:00:00.000Z",
+          endTime: "2026-11-25T10:00:05.000Z",
+          count: 2,
+          event: { reason: "identifier-too-long" },
+        },
+        {
+          startTime: "2026-11-25T10:00:00.000Z",
+          endTime: "2026-11-25T10:00:05.000Z",
+          count: 1,
+          event: { reason: "traits-too-large" },
+        },
+      ]);
+    });
+
+    test("clears contexts over a size limit after a flush so they are not resent", async () => {
+      collector = createCollector({ flushIntervalDelay: 10_000, initialFlushIntervalDelay: 5_000 });
+      collector.recordContextOverSizeLimit("identifier-too-long");
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+
+      collector.evaluatedConfig(baseEvent);
+      await vi.advanceTimersByTimeAsync(10_000);
+      await waitForPayloadCount(2);
+
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[1] as EventReport).aggregatedEvents["invalidContext"]).toEqual([]);
     });
   });
 
@@ -484,7 +528,7 @@ describe("ClientTelemetryEventCollector", () => {
     test("adds held submissions to the recorded ones and keeps the earliest start time", async () => {
       vi.setSystemTime(new Date("2026-10-14T10:00:00.000Z"));
       collector = createCollector();
-      collector.recordInvalidContext("Tenant");
+      collector.recordInvalidContextKind("Tenant");
 
       collector.absorbInvalidContextSubmissions([
         heldEntry("Tenant", 2, "2026-10-14T09:59:00.000Z"),
@@ -513,7 +557,7 @@ describe("ClientTelemetryEventCollector", () => {
     test("counts a held entry without a sample, and held samples beyond the limit, in the entry without a sample", async () => {
       collector = createCollector();
       for (let index = 1; index <= 20; index++) {
-        collector.recordInvalidContext(`Kind-${index}`);
+        collector.recordInvalidContextKind(`Kind-${index}`);
       }
 
       collector.absorbInvalidContextSubmissions([
@@ -528,6 +572,45 @@ describe("ClientTelemetryEventCollector", () => {
       expect(entries).toHaveLength(21);
       expect(entries[20]).toMatchObject({ count: 7, event: { reason: "invalid-context-kind" } });
       expect(entries[20].event).not.toHaveProperty("kindSample");
+    });
+
+    test("adds held submissions over a size limit to the recorded ones by reason", async () => {
+      vi.setSystemTime(new Date("2026-11-25T10:00:00.000Z"));
+      collector = createCollector();
+      collector.recordContextOverSizeLimit("name-too-long");
+
+      collector.absorbInvalidContextSubmissions([
+        {
+          startTime: new Date("2026-11-25T09:59:00.000Z"),
+          endTime: new Date("2026-11-25T09:59:00.000Z"),
+          count: 2,
+          event: { reason: "name-too-long" },
+        },
+        {
+          startTime: new Date("2026-11-25T09:59:30.000Z"),
+          endTime: new Date("2026-11-25T09:59:30.000Z"),
+          count: 1,
+          event: { reason: "traits-too-large" },
+        },
+      ]);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitForPayloadCount(1);
+      const payloads = await commands.mswGetPayloads();
+      expect((payloads[0] as EventReport).aggregatedEvents["invalidContext"]).toEqual([
+        {
+          startTime: "2026-11-25T09:59:00.000Z",
+          endTime: "2026-11-25T10:00:05.000Z",
+          count: 3,
+          event: { reason: "name-too-long" },
+        },
+        {
+          startTime: "2026-11-25T09:59:00.000Z",
+          endTime: "2026-11-25T10:00:05.000Z",
+          count: 1,
+          event: { reason: "traits-too-large" },
+        },
+      ]);
     });
   });
 

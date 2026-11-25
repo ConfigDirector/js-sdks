@@ -35,7 +35,8 @@ import { resolvePollingInterval } from "@shared/transport/pollingInterval";
 import { resolveClientSession } from "./client-session";
 import { PollingTransport } from "./PollingTransport";
 import { readHost, readUserAgent } from "./browser-globals";
-import { admitContext } from "@shared/context-kind";
+import { admitClientContext } from "./context-admission";
+import type { ContextSizeLimitReason } from "@shared/telemetry/telemetry-events";
 import { admitTrackedEvent } from "@shared/telemetry/tracked-events";
 import {
   CachedValuesStore,
@@ -48,6 +49,12 @@ import {
 const MAX_EXPONENTIAL_DELAY = 9; // 2^9 = 512 seconds, to cap it to under 10min
 
 type ContextSubmission = Exclude<ClientConnectAction, "network resume">;
+
+const CONTEXT_SIZE_LIMIT_EXPLANATIONS: { [R in ContextSizeLimitReason]: string } = {
+  "identifier-too-long": "its id is longer than 256 characters",
+  "name-too-long": "its name is longer than 256 characters",
+  "traits-too-large": "its traits are over 64 KB of JSON",
+};
 
 type ReadyOrClosedSignal = { raised: Promise<void>; raise: () => void };
 
@@ -390,15 +397,21 @@ export class DefaultConfigDirectorClient implements ConfigDirectorClient {
     suppliedContext: ConfigDirectorContext | undefined,
     submission: ContextSubmission,
   ): ConfigDirectorContext | undefined {
-    const admission = admitContext(suppliedContext);
+    const admission = admitClientContext(suppliedContext);
     switch (admission.outcome) {
       case "admitted":
         return admission.context;
-      case "ignored":
+      case "invalid kind":
         this.logger.error(
           `[ConfigDirectorClient] Ignored the context supplied for ${submission} because its kind '${admission.kindSample}' is invalid; continuing as if no context was supplied. A context kind has 1 to 64 characters, using only lowercase letters, digits, '-' and '_'.`,
         );
-        this.telemetryClient.recordInvalidContext(admission.kindSample);
+        this.telemetryClient.recordInvalidContextKind(admission.kindSample);
+        return undefined;
+      case "over a size limit":
+        this.logger.error(
+          `[ConfigDirectorClient] Ignored the context supplied for ${submission} because ${CONTEXT_SIZE_LIMIT_EXPLANATIONS[admission.reason]}; continuing as if no context was supplied.`,
+        );
+        this.telemetryClient.recordContextOverSizeLimit(admission.reason);
         return undefined;
     }
   }
