@@ -39,3 +39,5 @@ export interface ClientStartup {
   waitsForFirstContext: boolean;
   start(context: ConfigDirectorContext): Promise<void>;
 }
+
+export type ClientContextUpdate = (context: ConfigDirectorContext) => Promise<void>;

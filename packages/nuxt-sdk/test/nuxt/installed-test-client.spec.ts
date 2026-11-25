@@ -71,5 +71,28 @@ describe.skipIf(appCreatedBeforeThisFile)(
       expect(testClient.client.context).toBeUndefined();
       expect(testClient.contextUpdates).toEqual([{}, { id: "user-1" }, {}]);
     });
+
+    test("reports the default status after a context update the server refused", async () => {
+      const { updateContext } = useConfigDirectorContext();
+      const { readyStatus } = useConfigDirectorStatus();
+      expect(readyStatus.value).toBe("ready");
+      testClient.failContextUpdate();
+
+      await updateContext({ id: "user-2" });
+
+      expect(readyStatus.value).toBe("default");
+      expect(testClient.contextUpdates).toEqual([{}, { id: "user-1" }, {}, { id: "user-2" }]);
+    });
+
+    test("reports the ready status again after the refused context is submitted again and accepted", async () => {
+      const { context, updateContext } = useConfigDirectorContext();
+      const { readyStatus } = useConfigDirectorStatus();
+
+      await updateContext({ id: "user-2" });
+
+      expect(testClient.contextUpdates).toEqual([{}, { id: "user-1" }, {}, { id: "user-2" }, { id: "user-2" }]);
+      expect(context.value).toEqual({ id: "user-2" });
+      expect(readyStatus.value).toBe("ready");
+    });
   },
 );

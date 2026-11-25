@@ -1,23 +1,31 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
-import type { ConfigDirectorContext } from "@js-client-core/types";
+import type { ConfigDirectorClient, ConfigDirectorContext } from "@js-client-core/types";
+import { ConfigDirectorInitializationError } from "@shared/errors";
 import { useConfigDirectorContext } from "../src/runtime/app/composables/useConfigDirectorContext";
 import { createTestClient } from "../src/testing";
 import type { TestClient } from "../src/testing";
 
-const { appContext, installedClient, startup } = vi.hoisted(() => ({
+const { appContext, installedClient, startup, updateClientContext } = vi.hoisted(() => ({
   appContext: { value: undefined as ConfigDirectorContext | undefined },
   installedClient: { value: undefined as unknown },
   startup: { waitsForFirstContext: false, start: vi.fn() },
+  updateClientContext: vi.fn(),
 }));
 
 vi.mock("#app", () => ({
   useState: () => appContext,
-  useNuxtApp: () => ({ $configDirectorClientStartup: startup }),
+  useNuxtApp: () => ({
+    $configDirectorClientStartup: startup,
+    $configDirectorClientContextUpdate: updateClientContext,
+  }),
 }));
 
 vi.mock("../src/runtime/app/composables/useConfigDirectorClient", () => ({
   useConfigDirectorClient: () => ({ client: installedClient.value }),
 }));
+
+const handlerCount = (client: ConfigDirectorClient, event: string) =>
+  ((client as any).eventEmitter.handlerMap.get(event) ?? []).length;
 
 describe("useConfigDirectorContext", () => {
   let testClient: TestClient;
@@ -29,6 +37,8 @@ describe("useConfigDirectorContext", () => {
     startup.waitsForFirstContext = false;
     startup.start.mockReset();
     startup.start.mockImplementation((context: ConfigDirectorContext) => testClient.client.initialize(context));
+    updateClientContext.mockReset();
+    updateClientContext.mockImplementation((context: ConfigDirectorContext) => testClient.client.updateContext(context));
   });
 
   afterEach(() => {
@@ -66,6 +76,63 @@ describe("useConfigDirectorContext", () => {
     expect(context.value).toEqual({ id: "i".repeat(257) });
     expect(testClient.client.context).toBeUndefined();
     expect(testClient.contextUpdates).toEqual([{}, {}]);
+  });
+
+  test("shows the previous context after a context update the server refused", async () => {
+    await testClient.client.initialize();
+    const { context, updateContext } = useConfigDirectorContext();
+    await updateContext({ id: "42" });
+    testClient.failContextUpdate();
+
+    await updateContext({ id: "43" });
+
+    expect(context.value).toEqual({ id: "42" });
+    expect(testClient.client.context).toEqual({ id: "42" });
+    expect(testClient.contextUpdates).toEqual([{}, { id: "42" }, { id: "43" }]);
+  });
+
+  test("sends a refused context again when it is submitted again", async () => {
+    await testClient.client.initialize();
+    const { context, updateContext } = useConfigDirectorContext();
+    testClient.failContextUpdate();
+    await updateContext({ id: "43" });
+
+    await updateContext({ id: "43" });
+
+    expect(testClient.contextUpdates).toEqual([{}, { id: "43" }, { id: "43" }]);
+    expect(context.value).toEqual({ id: "43" });
+  });
+
+  test("updates the context of a started client through the plugin's context update", async () => {
+    await testClient.client.initialize();
+    const { updateContext } = useConfigDirectorContext();
+
+    await updateContext({ id: "42" });
+
+    expect(updateClientContext).toHaveBeenCalledWith({ id: "42" });
+    expect(testClient.contextUpdates).toEqual([{}, { id: "42" }]);
+  });
+
+  test("stops listening for a refusal when its timeout ends a context update the client never completes", async () => {
+    await testClient.client.initialize();
+    const { updateContext } = useConfigDirectorContext();
+    updateClientContext.mockReturnValueOnce(new Promise<void>(() => {}));
+
+    await updateContext({ id: "42" }, { timeoutMilliseconds: 20 });
+
+    expect(handlerCount(testClient.client, "connectionError")).toBe(0);
+  });
+
+  test("stops listening for a refusal when handing the context to the client fails", async () => {
+    await testClient.client.initialize();
+    const { updateContext } = useConfigDirectorContext();
+    updateClientContext.mockRejectedValueOnce(
+      new ConfigDirectorInitializationError("The offline values could not be loaded."),
+    );
+
+    await expect(updateContext({ id: "42" })).rejects.toThrow(ConfigDirectorInitializationError);
+
+    expect(handlerCount(testClient.client, "connectionError")).toBe(0);
   });
 
   test("updates the context of a client that does not wait for its first context, even before it started", async () => {

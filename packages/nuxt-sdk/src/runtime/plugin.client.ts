@@ -12,7 +12,7 @@ import type {
 import { decideBrowserHalfSource } from "@shared/browser-half";
 import { useConfigDirectorContext } from "./app/composables/useConfigDirectorContext";
 import { decideStartupAction } from "./client-startup";
-import type { ClientStartup } from "./client-startup";
+import type { ClientContextUpdate, ClientStartup } from "./client-startup";
 import { createDefaultLogger } from "./logger";
 import { OFFLINE_VALUES_ROUTE } from "./offline-values-route";
 import { ConfigDirectorInitializationError } from "@shared/errors";
@@ -47,6 +47,10 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       settleReadyStatus();
     },
   };
+  const updateContext: ClientContextUpdate = async (context) => {
+    await client.updateContext(context);
+    settleReadyStatus();
+  };
 
   nuxtApp.hooks.hook("app:created", async () => {
     const { context } = useConfigDirectorContext();
@@ -76,6 +80,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       configDirectorClient: client,
       configDirectorClientReadyStatus: readonly(readyStatus),
       configDirectorClientStartup: startup,
+      configDirectorClientContextUpdate: updateContext,
     },
   };
 });

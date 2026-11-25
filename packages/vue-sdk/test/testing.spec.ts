@@ -22,6 +22,21 @@ const Greeting = defineComponent({
   template: '<div><span data-testid="value">{{ value }}</span><span data-testid="status">{{ readyStatus }}</span></div>',
 });
 
+const ContextSwitcher = defineComponent({
+  setup() {
+    const { updateContext } = useContext();
+    const { readyStatus } = useClientStatus();
+    return { updateContext, readyStatus };
+  },
+  template: `
+    <div>
+      <span data-testid="status">{{ readyStatus }}</span>
+      <button data-testid="update-to-user-b" @click="updateContext({ id: 'user-b' })">User B</button>
+      <button data-testid="update-to-user-c" @click="updateContext({ id: 'user-c' })">User C</button>
+    </div>
+  `,
+});
+
 const renderWith = (client: ConfigDirectorClient) =>
   render(Greeting, { global: { plugins: [[ConfigDirectorPlugin, client]] } });
 
@@ -118,6 +133,32 @@ describe("@configdirector/vue-sdk/testing", () => {
     await vi.waitFor(() => expect(screen.getByTestId("update")).toHaveTextContent("user-b"));
 
     expect(testClient.contextUpdates).toEqual([{}, { id: "user-b" }]);
+  });
+
+  test("a refused context update shows the default status", async () => {
+    const testClient = create({ values: { greeting: "hello" } });
+    render(ContextSwitcher, { global: { plugins: [[ConfigDirectorPlugin, testClient.client]] } });
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+    testClient.failContextUpdate();
+
+    screen.getByTestId("update-to-user-b").click();
+
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("default"));
+    expect(testClient.contextUpdates).toEqual([{}, { id: "user-b" }]);
+  });
+
+  test("an accepted context update after a refused one shows the ready status", async () => {
+    const testClient = create({ values: { greeting: "hello" } });
+    render(ContextSwitcher, { global: { plugins: [[ConfigDirectorPlugin, testClient.client]] } });
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+    testClient.failContextUpdate();
+    screen.getByTestId("update-to-user-b").click();
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("default"));
+
+    screen.getByTestId("update-to-user-c").click();
+
+    await vi.waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+    expect(testClient.contextUpdates).toEqual([{}, { id: "user-b" }, { id: "user-c" }]);
   });
 
   test("createTestClient rejects a null value", () => {

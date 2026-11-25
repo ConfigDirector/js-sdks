@@ -36,6 +36,7 @@ type ProvidedByPlugin = {
     configDirectorClient: unknown;
     configDirectorClientReadyStatus: { value: string };
     configDirectorClientStartup: { waitsForFirstContext: boolean; start: (context: ConfigDirectorContext) => Promise<void> };
+    configDirectorClientContextUpdate: (context: ConfigDirectorContext) => Promise<void>;
   };
 };
 
@@ -304,6 +305,33 @@ describe("ConfigDirector client plugin", () => {
 
       expect(testClient.client.isReady).toBe(false);
       expect(provided.provide.configDirectorClientReadyStatus.value).toBe("default");
+    });
+
+    test("reports the default status after a context update the server refused", async () => {
+      const nuxtApp = createNuxtApp();
+      const provided = await runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
+      await runAppCreatedHook(nuxtApp);
+      expect(provided.provide.configDirectorClientReadyStatus.value).toBe("ready");
+      testClient.failContextUpdate();
+
+      await provided.provide.configDirectorClientContextUpdate({ id: "user-2" });
+
+      expect(testClient.client.isReady).toBe(false);
+      expect(provided.provide.configDirectorClientReadyStatus.value).toBe("default");
+    });
+
+    test("reports the ready status after an accepted context update that follows a refused one", async () => {
+      const nuxtApp = createNuxtApp();
+      const provided = await runPlugin({ clientSdkKey: "", baseUrl: "" }, nuxtApp) as ProvidedByPlugin;
+      await runAppCreatedHook(nuxtApp);
+      testClient.failContextUpdate();
+      await provided.provide.configDirectorClientContextUpdate({ id: "user-2" });
+      expect(provided.provide.configDirectorClientReadyStatus.value).toBe("default");
+
+      await provided.provide.configDirectorClientContextUpdate({ id: "user-3" });
+
+      expect(testClient.contextUpdates).toEqual([{}, { id: "user-2" }, { id: "user-3" }]);
+      expect(provided.provide.configDirectorClientReadyStatus.value).toBe("ready");
     });
 
     describe("with deferInitialization on", () => {

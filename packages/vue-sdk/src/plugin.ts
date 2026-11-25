@@ -9,6 +9,8 @@ export const ConfigDirectorStatusKey: InjectionKey<Readonly<Ref<ClientStatus>>> 
 );
 export const ConfigDirectorContextKey: InjectionKey<Readonly<Ref<ConfigDirectorContext | undefined>>> =
   Symbol("ConfigDirector.Context");
+export const ConfigDirectorContextUpdateKey: InjectionKey<(context: ConfigDirectorContext) => Promise<void>> =
+  Symbol("ConfigDirector.ContextUpdate");
 
 export const ConfigDirectorPlugin = {
   install: (app: App, optionsOrClient: ConfigDirectorPluginOptions | ConfigDirectorClient) => {
@@ -20,22 +22,29 @@ export const ConfigDirectorPlugin = {
     const readonlyStatus = readonly(status);
     client.on("clientReady", () => (status.value = "ready"));
 
+    const settleStatus = () => {
+      if (!client.isReady) {
+        status.value = "default";
+      }
+    };
+
     const context = ref<ConfigDirectorContext | undefined>(optionsOrClient.context);
     const readonlyContext = readonly(context);
     client.on("contextUpdated", ({ context: newContext }) => (context.value = newContext));
 
     if (!client.isReady && !client.isInitializing) {
-      client.initialize(optionsOrClient.context).then(() => {
-        if (!client.isReady) {
-          // The client timed-out initialization and it is serving default values
-          status.value = "default";
-        }
-      });
+      client.initialize(optionsOrClient.context).then(settleStatus);
     }
+
+    const updateContext = async (newContext: ConfigDirectorContext) => {
+      await client.updateContext(newContext);
+      settleStatus();
+    };
 
     app.provide(ConfigDirectorClientKey, client);
     app.provide(ConfigDirectorStatusKey, readonlyStatus);
     app.provide(ConfigDirectorContextKey, readonlyContext);
+    app.provide(ConfigDirectorContextUpdateKey, updateContext);
   },
 };
 
