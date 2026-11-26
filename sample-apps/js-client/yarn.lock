@@ -160,10 +160,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@configdirector/client-sdk@npm:^1.11.2":
-  version: 1.11.2
-  resolution: "@configdirector/client-sdk@npm:1.11.2"
-  checksum: 10c0/90c35934b0a36f6639026c8111381bbe1c89f200136519939ed6bbe01e05283030e9bbff57f60c8713ee2607b738156ba94a2bc99bbd9bbb04aa13497f59e218
+"@configdirector/client-sdk@npm:^1.12.0":
+  version: 1.12.0
+  resolution: "@configdirector/client-sdk@npm:1.12.0"
+  checksum: 10c0/81307fd0537ba5ecb71e7f175b8048f9125b5b46d25eebfba966cda2e8e438337c2ed84b10c894535f0904a65fcc169f623f2d264e58af9ba34fef8756f498ee
   languageName: node
   linkType: hard
 
@@ -172,7 +172,7 @@ __metadata:
   resolution: "@configdirector/js-client-sample-app@workspace:."
   dependencies:
     "@amplitude/analytics-browser": "npm:^2.49.2"
-    "@configdirector/client-sdk": "npm:^1.11.2"
+    "@configdirector/client-sdk": "npm:^1.12.0"
     "@types/jsdom": "npm:^30"
     jsdom: "npm:^30.1.1"
     mixpanel-browser: "npm:^2.85.0"

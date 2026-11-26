@@ -41,12 +41,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@configdirector/openfeature-web-provider@npm:^1.11.2":
-  version: 1.11.2
-  resolution: "@configdirector/openfeature-web-provider@npm:1.11.2"
+"@configdirector/openfeature-web-provider@npm:^1.12.0":
+  version: 1.12.0
+  resolution: "@configdirector/openfeature-web-provider@npm:1.12.0"
   peerDependencies:
     "@openfeature/web-sdk": ^1.0.0
-  checksum: 10c0/bae013385c6e9d55331ccbffb184652754c1f8c7e8edf66163f1f2e4bb58e4722bae80fe3edb7058b4b2dd74b36aa96a017bb11c72dee2bb036dcedbce0fd6e5
+  checksum: 10c0/0e300ef74ba9eca915a78a582ad32a7f04a4c87fe5a4a998d691a79af6356380f666ede262922f554e4b776c24a78964789f1ef28a243e58f8cd758c7055955d
   languageName: node
   linkType: hard
 
@@ -54,7 +54,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@configdirector/openfeature-web-sample-app@workspace:."
   dependencies:
-    "@configdirector/openfeature-web-provider": "npm:^1.11.2"
+    "@configdirector/openfeature-web-provider": "npm:^1.12.0"
     "@openfeature/core": "npm:^1.11.0"
     "@openfeature/web-sdk": "npm:^1.9.0"
     "@types/jsdom": "npm:^30"

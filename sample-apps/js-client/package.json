@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@amplitude/analytics-browser": "^2.49.2",
-    "@configdirector/client-sdk": "^1.11.2",
+    "@configdirector/client-sdk": "^1.12.0",
     "mixpanel-browser": "^2.85.0"
   },
   "devDependencies": {
@@ -27,7 +27,7 @@
   "packageManager": "yarn@4.13.0",
   "configdirector": {
     "npmDependencies": {
-      "@configdirector/client-sdk": "^1.11.2"
+      "@configdirector/client-sdk": "^1.12.0"
     }
   }
 }
